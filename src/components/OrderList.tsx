@@ -1,0 +1,747 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  Search, 
+  Filter, 
+  Plus, 
+  Ship, 
+  DollarSign,
+  ChevronRight,
+  Clock,
+  Package,
+  RefreshCw,
+  Save,
+  X,
+  Download,
+  Trash2,
+  Edit2,
+  CheckSquare,
+  Square,
+  MoreVertical,
+  ChevronDown,
+  Sparkles,
+  Zap,
+  AlertTriangle
+} from 'lucide-react';
+import { ExportOrder, OrderStage } from '../lib/types.ts';
+import OrderDetails from './OrderDetails.tsx';
+import Modal from './Modal.tsx';
+import { subscribeToCollection, createDocument, updateDocument, deleteDocument } from '../services/db';
+import { getStatusColor, formatDate, formatCurrency } from '../lib/utils';
+import { useAuth } from './Auth.tsx';
+import { Timestamp } from 'firebase/firestore';
+import { motion, AnimatePresence } from 'motion/react';
+import { format } from 'date-fns';
+import { GoogleGenAI } from '@google/genai';
+
+import { WhatsAppService } from '../services/whatsapp';
+
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+
+export default function OrderList() {
+  const { profile } = useAuth();
+  const [orders, setOrders] = useState<ExportOrder[]>([]);
+  const [selectedOrder, setSelectedOrder] = useState<ExportOrder | null>(null);
+  const selectedOrderRef = React.useRef<ExportOrder | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStage, setFilterStage] = useState<string>('all');
+  const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingOrder, setEditingOrder] = useState<ExportOrder | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
+  const [checkingCompliance, setCheckingCompliance] = useState<string | null>(null);
+
+  useEffect(() => {
+    selectedOrderRef.current = selectedOrder;
+  }, [selectedOrder]);
+
+  const [newOrder, setNewOrder] = useState<Partial<ExportOrder>>({
+    orderNumber: `EXP-${Date.now().toString().slice(-6)}`,
+    customerName: '',
+    customerPhone: '',
+    commodity: '',
+    quantity: 0,
+    unit: 'MT',
+    title: '',
+    destinationCountry: '',
+    totalAmount: 0,
+    totalValue: 0,
+    currency: 'USD',
+    incoterms: 'FOB',
+    stage: 'leadReceived',
+    status: 'draft',
+    items: [],
+    documents: [],
+    organization: profile?.organization || ''
+  });
+
+  useEffect(() => {
+    if (!profile?.organization) return;
+
+    const unsubscribe = subscribeToCollection<ExportOrder>(
+      'orders', 
+      (data) => {
+        setOrders(data);
+        setLoading(false);
+        if (selectedOrderRef.current) {
+          const updated = data.find(o => o.id === selectedOrderRef.current?.id);
+          if (updated && JSON.stringify(updated) !== JSON.stringify(selectedOrderRef.current)) {
+            setSelectedOrder(updated);
+          }
+        }
+      }, 
+      [{ field: 'organization', operator: '==', value: profile.organization }]
+    );
+
+    return () => unsubscribe();
+  }, [profile]);
+
+  const handleCreateOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newOrder.customerName || !newOrder.totalAmount || !newOrder.commodity || !newOrder.quantity || !newOrder.unit) return;
+
+    setIsSubmitting(true);
+    try {
+      const orderData = {
+        ...newOrder,
+        title: `${newOrder.orderNumber} - ${newOrder.customerName}`,
+        totalValue: newOrder.totalAmount,
+        assignedUserId: profile?.uid || '',
+        organization: profile?.organization || ''
+      };
+      const orderId = await createDocument('orders', orderData as ExportOrder);
+      
+      if (orderId) {
+        const createdOrder: ExportOrder = { id: orderId, ...orderData } as ExportOrder;
+        await WhatsAppService.sendOrderConfirmation(createdOrder);
+      }
+
+      setIsModalOpen(false);
+      resetNewOrder();
+    } catch (error) {
+      console.error('Error creating order:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleUpdateOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingOrder) return;
+
+    setIsSubmitting(true);
+    try {
+      const { id, ...data } = editingOrder;
+      await updateDocument('orders', id, data);
+      setEditingOrder(null);
+    } catch (error) {
+      console.error('Error updating order:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteOrder = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this order?')) return;
+    try {
+      await deleteDocument('orders', id);
+    } catch (error) {
+      console.error('Error deleting order:', error);
+    }
+  };
+
+  const resetNewOrder = () => {
+    setNewOrder({
+      orderNumber: `EXP-${Date.now().toString().slice(-6)}`,
+      customerName: '',
+      customerPhone: '',
+      commodity: '',
+      quantity: 0,
+      unit: 'MT',
+      title: '',
+      destinationCountry: '',
+      totalAmount: 0,
+      totalValue: 0,
+      currency: 'USD',
+      incoterms: 'FOB',
+      stage: 'leadReceived',
+      status: 'draft',
+      items: [],
+      documents: [],
+      organization: profile?.organization || ''
+    });
+  };
+
+  const filteredOrders = orders.filter(order => {
+    const matchesSearch = 
+      (order.orderNumber?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (order.customerName?.toLowerCase() || '').includes(searchTerm.toLowerCase());
+    
+    const matchesFilter = filterStage === 'all' || order.stage === filterStage;
+    
+    return matchesSearch && matchesFilter;
+  });
+
+  const toggleSelectAll = () => {
+    if (selectedOrderIds.length === filteredOrders.length) {
+      setSelectedOrderIds([]);
+    } else {
+      setSelectedOrderIds(filteredOrders.map(o => o.id));
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedOrderIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkDelete = async () => {
+    if (!confirm(`Are you sure you want to delete ${selectedOrderIds.length} orders?`)) return;
+    try {
+      await Promise.all(selectedOrderIds.map(id => deleteDocument('orders', id)));
+      setSelectedOrderIds([]);
+    } catch (error) {
+      console.error("Error in bulk delete:", error);
+    }
+  };
+
+  const handleBulkStageUpdate = async (stage: OrderStage) => {
+    try {
+      await Promise.all(selectedOrderIds.map(id => updateDocument('orders', id, { stage })));
+      setSelectedOrderIds([]);
+    } catch (error) {
+      console.error("Error in bulk stage update:", error);
+    }
+  };
+
+  const checkCompliance = async (order: ExportOrder) => {
+    setCheckingCompliance(order.id);
+    try {
+      const model = 'gemini-3-flash-preview';
+      const prompt = `Check export compliance for this order:
+      Order: ${order.orderNumber}
+      Commodity: ${order.commodity}
+      Destination: ${order.destinationCountry}
+      Quantity: ${order.quantity} ${order.unit}
+      
+      Consider typical export regulations for spices from India to ${order.destinationCountry}.
+      Return a JSON object with: status ('compliant', 'warning', 'critical'), score (0-100), and missingDocs (array of strings), and recommendation (max 50 words).`;
+
+      const response = await ai.models.generateContent({
+        model,
+        contents: [{ parts: [{ text: prompt }] }],
+        config: { responseMimeType: 'application/json' }
+      });
+
+      const compliance = JSON.parse(response.text || '{}');
+      await updateDocument('orders', order.id, { complianceAI: compliance });
+    } catch (error) {
+      console.error('Compliance check error:', error);
+    } finally {
+      setCheckingCompliance(null);
+    }
+  };
+
+  const exportToCSV = () => {
+    const headers = ['Order Number', 'Customer', 'Commodity', 'Quantity', 'Unit', 'Amount', 'Currency', 'Stage', 'Destination', 'Created At'];
+    const rows = filteredOrders.map(o => [
+      o.orderNumber,
+      o.customerName,
+      o.commodity,
+      o.quantity,
+      o.unit,
+      o.totalAmount,
+      o.currency,
+      o.stage,
+      o.destinationCountry,
+      o.createdAt?.toDate ? format(o.createdAt.toDate(), 'yyyy-MM-dd') : 'N/A'
+    ]);
+
+    const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `orders_export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const [showCalculator, setShowCalculator] = useState(false);
+  const [calcData, setCalcData] = useState({ exw: 0, freight: 0, insurance: 0, duty: 0 });
+
+  if (selectedOrder) {
+    return <OrderDetails order={selectedOrder} onBack={() => setSelectedOrder(null)} />;
+  }
+
+  const OrderForm = ({ data, setData }: { data: Partial<ExportOrder>, setData: any }) => (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="space-y-1.5">
+        <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Order Number</label>
+        <input 
+          required
+          type="text" 
+          value={data.orderNumber}
+          onChange={(e) => setData({ ...data, orderNumber: e.target.value })}
+          className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Customer Name</label>
+        <input 
+          required
+          type="text" 
+          value={data.customerName}
+          onChange={(e) => setData({ ...data, customerName: e.target.value })}
+          className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+          placeholder="e.g. Global Spices Ltd"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Customer Phone (WhatsApp)</label>
+        <input 
+          type="tel" 
+          value={data.customerPhone}
+          onChange={(e) => setData({ ...data, customerPhone: e.target.value })}
+          className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+          placeholder="e.g. +919876543210"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Commodity</label>
+        <input 
+          required
+          type="text" 
+          value={data.commodity}
+          onChange={(e) => setData({ ...data, commodity: e.target.value })}
+          className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+          placeholder="e.g. Black Pepper"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Quantity</label>
+        <div className="flex gap-2">
+          <input 
+            required
+            type="number" 
+            value={data.quantity}
+            onChange={(e) => setData({ ...data, quantity: parseFloat(e.target.value) })}
+            className="flex-1 px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+            placeholder="0.00"
+          />
+          <select
+            value={data.unit}
+            onChange={(e) => setData({ ...data, unit: e.target.value })}
+            className="w-24 px-2 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+          >
+            <option value="MT">MT</option>
+            <option value="KG">KG</option>
+            <option value="TON">TON</option>
+            <option value="LBS">LBS</option>
+          </select>
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Destination Country</label>
+        <input 
+          required
+          type="text" 
+          value={data.destinationCountry}
+          onChange={(e) => setData({ ...data, destinationCountry: e.target.value })}
+          className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+          placeholder="e.g. United Kingdom"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Total Amount</label>
+        <div className="relative">
+          <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={16} />
+          <input 
+            required
+            type="number" 
+            value={data.totalAmount}
+            onChange={(e) => setData({ ...data, totalAmount: parseFloat(e.target.value) })}
+            className="w-full pl-10 pr-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+          />
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Incoterms</label>
+        <select 
+          value={data.incoterms}
+          onChange={(e) => setData({ ...data, incoterms: e.target.value as any })}
+          className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+        >
+          <option value="FOB">FOB (Free On Board)</option>
+          <option value="CIF">CIF (Cost, Insurance, Freight)</option>
+          <option value="EXW">EXW (Ex Works)</option>
+          <option value="DDP">DDP (Delivered Duty Paid)</option>
+        </select>
+      </div>
+      <div className="space-y-1.5">
+        <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Currency</label>
+        <select 
+          value={data.currency}
+          onChange={(e) => setData({ ...data, currency: e.target.value })}
+          className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+        >
+          <option value="USD">USD - US Dollar</option>
+          <option value="EUR">EUR - Euro</option>
+          <option value="GBP">GBP - British Pound</option>
+          <option value="AED">AED - UAE Dirham</option>
+        </select>
+      </div>
+      <div className="space-y-1.5">
+        <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Stage</label>
+        <select 
+          value={data.stage}
+          onChange={(e) => setData({ ...data, stage: e.target.value as OrderStage })}
+          className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+        >
+          <option value="leadReceived">Lead Received</option>
+          <option value="quotationSent">Quotation Sent</option>
+          <option value="orderConfirmed">Order Confirmed</option>
+          <option value="exportDocumentation">Export Documentation</option>
+          <option value="shipmentReady">Shipment Ready</option>
+          <option value="shippedDelivered">Shipped/Delivered</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-6">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-3xl font-bold text-zinc-900">Export Orders</h2>
+          <p className="text-zinc-500 mt-1">Track and manage international shipments</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => setShowCalculator(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-zinc-200 text-zinc-700 rounded-lg text-sm font-medium hover:bg-zinc-50 transition-colors shadow-sm"
+          >
+            <Zap size={18} className="text-amber-500" />
+            Incoterms Calc
+          </button>
+          <button 
+            onClick={exportToCSV}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-zinc-200 text-zinc-700 rounded-lg text-sm font-medium hover:bg-zinc-50 transition-colors shadow-sm"
+          >
+            <Download size={18} />
+            Export
+          </button>
+          <button 
+            onClick={() => setIsModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm"
+          >
+            <Plus size={18} />
+            New Order
+          </button>
+        </div>
+      </header>
+
+      <Modal 
+        isOpen={isModalOpen || !!editingOrder} 
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingOrder(null);
+        }} 
+        title={editingOrder ? "Edit Export Order" : "Create New Export Order"}
+      >
+        <form onSubmit={editingOrder ? handleUpdateOrder : handleCreateOrder} className="space-y-6">
+          <OrderForm data={editingOrder || newOrder} setData={editingOrder ? setEditingOrder : setNewOrder} />
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-zinc-100">
+            <button 
+              type="button"
+              onClick={() => {
+                setIsModalOpen(false);
+                setEditingOrder(null);
+              }}
+              className="px-4 py-2 text-sm font-medium text-zinc-600 hover:text-zinc-900 transition-colors"
+            >
+              Cancel
+            </button>
+            <button 
+              type="submit"
+              disabled={isSubmitting}
+              className="flex items-center gap-2 px-6 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-50"
+            >
+              {isSubmitting ? <RefreshCw size={18} className="animate-spin" /> : <Save size={18} />}
+              {editingOrder ? "Save Changes" : "Create Order"}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        isOpen={showCalculator}
+        onClose={() => setShowCalculator(false)}
+        title="Incoterms Cost Calculator"
+      >
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">EXW Price (Factory)</label>
+              <input 
+                type="number" 
+                value={calcData.exw}
+                onChange={(e) => setCalcData({ ...calcData, exw: parseFloat(e.target.value) || 0 })}
+                className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm font-bold"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Ocean Freight</label>
+              <input 
+                type="number" 
+                value={calcData.freight}
+                onChange={(e) => setCalcData({ ...calcData, freight: parseFloat(e.target.value) || 0 })}
+                className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm font-bold"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Insurance</label>
+              <input 
+                type="number" 
+                value={calcData.insurance}
+                onChange={(e) => setCalcData({ ...calcData, insurance: parseFloat(e.target.value) || 0 })}
+                className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm font-bold"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Import Duty (%)</label>
+              <input 
+                type="number" 
+                value={calcData.duty}
+                onChange={(e) => setCalcData({ ...calcData, duty: parseFloat(e.target.value) || 0 })}
+                className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm font-bold"
+              />
+            </div>
+          </div>
+
+          <div className="p-6 bg-zinc-900 rounded-3xl text-white space-y-4 shadow-xl">
+            <div className="flex justify-between items-center border-b border-zinc-800 pb-2">
+              <span className="text-xs font-bold text-zinc-400">FOB (Free On Board)</span>
+              <span className="text-sm font-black text-emerald-400">${(calcData.exw * 1.05).toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between items-center border-b border-zinc-800 pb-2">
+              <span className="text-xs font-bold text-zinc-400">CFR (Cost & Freight)</span>
+              <span className="text-sm font-black text-emerald-400">${(calcData.exw * 1.05 + calcData.freight).toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between items-center border-b border-zinc-800 pb-2">
+              <span className="text-xs font-bold text-zinc-400">CIF (Cost, Insurance, Freight)</span>
+              <span className="text-sm font-black text-emerald-400">${(calcData.exw * 1.05 + calcData.freight + calcData.insurance).toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-xs font-bold text-zinc-400">DDP (Delivered Duty Paid)</span>
+              <span className="text-sm font-black text-emerald-400">
+                ${((calcData.exw * 1.05 + calcData.freight + calcData.insurance) * (1 + calcData.duty/100)).toFixed(2)}
+              </span>
+            </div>
+          </div>
+          
+          <button 
+            onClick={() => setShowCalculator(false)}
+            className="w-full py-3 bg-zinc-100 text-zinc-900 rounded-2xl font-bold text-sm hover:bg-zinc-200 transition-all"
+          >
+            Close Calculator
+          </button>
+        </div>
+      </Modal>
+
+      <div className="flex flex-col sm:flex-row items-center gap-4 bg-white p-4 rounded-xl border border-zinc-200 shadow-sm">
+        <div className="relative flex-1 w-full">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
+          <input 
+            type="text" 
+            placeholder="Search orders by number or customer..." 
+            className="w-full pl-10 pr-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <Filter size={18} className="text-zinc-400" />
+          <select 
+            value={filterStage}
+            onChange={(e) => setFilterStage(e.target.value)}
+            className="flex-1 sm:flex-none px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm font-medium text-zinc-600 outline-none focus:ring-2 focus:ring-emerald-500/20"
+          >
+            <option value="all">All Stages</option>
+            <option value="leadReceived">Lead Received</option>
+            <option value="quotationSent">Quotation Sent</option>
+            <option value="orderConfirmed">Order Confirmed</option>
+            <option value="exportDocumentation">Export Documentation</option>
+            <option value="shipmentReady">Shipment Ready</option>
+            <option value="shippedDelivered">Shipped/Delivered</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+      </div>
+
+      {selectedOrderIds.length > 0 && (
+        <motion.div 
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center justify-between p-4 bg-emerald-50 border border-emerald-100 rounded-xl"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-bold text-emerald-700">
+              {selectedOrderIds.length} orders selected
+            </span>
+            <button 
+              onClick={toggleSelectAll}
+              className="text-xs text-emerald-600 hover:underline font-medium"
+            >
+              Deselect All
+            </button>
+          </div>
+          <div className="flex items-center gap-3">
+            <select 
+              onChange={(e) => handleBulkStageUpdate(e.target.value as OrderStage)}
+              className="px-3 py-1.5 bg-white border border-emerald-200 rounded-lg text-xs font-bold text-emerald-700 outline-none"
+              defaultValue=""
+            >
+              <option value="" disabled>Update Stage</option>
+              <option value="orderConfirmed">Order Confirmed</option>
+              <option value="exportDocumentation">Export Documentation</option>
+              <option value="shipmentReady">Shipment Ready</option>
+              <option value="shippedDelivered">Shipped/Delivered</option>
+            </select>
+            <button 
+              onClick={handleBulkDelete}
+              className="p-2 text-rose-600 hover:bg-rose-100 rounded-lg transition-colors"
+              title="Delete Selected"
+            >
+              <Trash2 size={18} />
+            </button>
+          </div>
+        </motion.div>
+      )}
+
+      <div className="grid grid-cols-1 gap-4">
+        {loading ? (
+          <div className="py-12 text-center bg-white rounded-2xl border border-zinc-200">
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+              <p className="text-sm text-zinc-500 font-medium">Loading orders...</p>
+            </div>
+          </div>
+        ) : filteredOrders.length === 0 ? (
+          <div className="py-12 text-center bg-white rounded-2xl border border-zinc-200">
+            <p className="text-zinc-400 text-sm font-medium">No orders found matching your criteria</p>
+          </div>
+        ) : (
+          filteredOrders.map((order) => (
+            <div 
+              key={order.id} 
+              className={`bg-white p-6 rounded-2xl border transition-all group relative ${
+                selectedOrderIds.includes(order.id) ? 'border-emerald-500 ring-1 ring-emerald-500' : 'border-zinc-200 hover:shadow-md'
+              }`}
+            >
+              <div className="absolute top-4 left-4 z-10">
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleSelect(order.id);
+                  }}
+                  className="p-1 rounded-md hover:bg-zinc-100 transition-colors"
+                >
+                  {selectedOrderIds.includes(order.id) ? (
+                    <CheckSquare className="text-emerald-600" size={20} />
+                  ) : (
+                    <Square className="text-zinc-300" size={20} />
+                  )}
+                </button>
+              </div>
+
+              <div className="flex items-start justify-between pl-8" onClick={() => setSelectedOrder(order)}>
+                <div className="flex items-start gap-4 cursor-pointer">
+                  <div className="p-3 bg-emerald-50 rounded-xl text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                    <Ship size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-zinc-900 group-hover:text-emerald-600 transition-colors">{order.orderNumber} - {order.customerName}</h3>
+                    <div className="flex items-center gap-4 mt-2">
+                      <div className="flex items-center gap-1.5 text-zinc-500">
+                        <DollarSign size={14} />
+                        <span className="text-sm font-medium">{formatCurrency(order.totalAmount)}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-zinc-500">
+                        <Ship size={14} />
+                        <span className="text-sm font-medium">{order.incoterms}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-zinc-500">
+                        <Package size={14} />
+                        <span className="text-sm font-medium">{order.destinationCountry}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${getStatusColor(order.status)}`}>
+                    {order.status}
+                  </span>
+                  <div className="flex items-center gap-2 text-zinc-400 mt-2 justify-end">
+                    <Clock size={12} />
+                    <span className="text-[10px] font-medium">{formatDate(order.createdAt)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 flex items-center justify-between pt-6 border-t border-zinc-100 pl-8">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Commodity:</span>
+                  <span className="text-xs font-bold text-zinc-700">{order.commodity} ({order.quantity} {order.unit})</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      checkCompliance(order);
+                    }}
+                    disabled={checkingCompliance === order.id}
+                    className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-50"
+                    title="Check Compliance"
+                  >
+                    {checkingCompliance === order.id ? <RefreshCw size={18} className="animate-spin" /> : <Zap size={18} />}
+                  </button>
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingOrder(order);
+                    }}
+                    className="p-2 text-zinc-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+                    title="Edit Order"
+                  >
+                    <Edit2 size={18} />
+                  </button>
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteOrder(order.id);
+                    }}
+                    className="p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                    title="Delete Order"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                  <button 
+                    onClick={() => setSelectedOrder(order)}
+                    className="px-4 py-1.5 bg-zinc-900 text-white rounded-lg text-sm font-medium hover:bg-zinc-800 transition-colors"
+                  >
+                    View Details
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,36 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Outfit", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+@layer utilities {
+  .glass {
+    @apply bg-white/70 backdrop-blur-md border border-white/20 shadow-xl;
+  }
+  
+  .glass-dark {
+    @apply bg-zinc-900/70 backdrop-blur-md border border-zinc-800/20 shadow-xl;
+  }
+  
+  .glass-card {
+    @apply bg-white/40 backdrop-blur-lg border border-white/30 shadow-lg hover:shadow-xl transition-all duration-300;
+  }
+  
+  .glass-card-dark {
+    @apply bg-zinc-900/40 backdrop-blur-lg border border-zinc-800/30 shadow-lg hover:shadow-xl transition-all duration-300;
+  }
+}
+
+@layer base {
+  body {
+    @apply bg-zinc-50 text-zinc-900 transition-colors duration-300;
+  }
+  
+  .dark body {
+    @apply bg-zinc-950 text-zinc-100;
+  }
+}
