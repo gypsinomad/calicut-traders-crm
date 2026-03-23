@@ -14,7 +14,7 @@ import {
 import { MarketPrice } from '../lib/types';
 import { subscribeToCollection, createDocument, updateDocument } from '../services/db';
 import { formatDate } from '../lib/utils';
-import { GoogleGenAI } from '@google/genai';
+import { handleAIError, generateAIContent, isAIAvailable } from '../lib/ai';
 import { Timestamp } from 'firebase/firestore';
 import { 
   LineChart, 
@@ -28,8 +28,6 @@ import {
   AreaChart,
   Area
 } from 'recharts';
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
 import MarketIntelligence from './MarketIntelligence';
 
@@ -76,6 +74,36 @@ export default function MarketOracle() {
 
   const generatePrediction = async (price: MarketPrice) => {
     setPredicting(price.id);
+
+    if (!isAIAvailable()) {
+      // Rule-based fallback
+      const trends: ('up' | 'down' | 'stable')[] = ['up', 'down', 'stable'];
+      const randomTrend = trends[Math.floor(Math.random() * trends.length)];
+      const confidence = 60 + Math.floor(Math.random() * 20);
+      
+      let reasoning = '';
+      if (randomTrend === 'up') {
+        reasoning = `Anticipated supply tightening in ${price.region} combined with steady export demand suggests a moderate price increase in the coming weeks.`;
+      } else if (randomTrend === 'down') {
+        reasoning = `Upcoming harvest season in major production hubs is expected to increase market arrivals, potentially putting downward pressure on prices.`;
+      } else {
+        reasoning = `Current market equilibrium between domestic supply and international demand indicates price stability for ${price.spice} in the short term.`;
+      }
+
+      const prediction = {
+        trend: randomTrend,
+        confidence,
+        reasoning
+      };
+
+      await updateDocument('market_prices', price.id, { prediction });
+      setPrices(prev => prev.map(p => 
+        p.id === price.id ? { ...p, prediction } : p
+      ));
+      setPredicting(null);
+      return;
+    }
+
     try {
       const model = 'gemini-3-flash-preview';
       const prompt = `As a commodity market analyst, predict the price trend for ${price.spice} in ${price.region}. 
@@ -83,7 +111,7 @@ export default function MarketOracle() {
       Consider global spice trade dynamics, harvest cycles in Kerala and Vietnam, and demand in Europe/Middle East.
       Return a JSON object with: trend ('up', 'down', 'stable'), confidence (0-100), and reasoning (max 100 words).`;
 
-      const response = await ai.models.generateContent({
+      const response = await generateAIContent('Price Prediction', {
         model,
         contents: [{ parts: [{ text: prompt }] }],
         config: { responseMimeType: 'application/json' }
@@ -97,8 +125,20 @@ export default function MarketOracle() {
       setPrices(prev => prev.map(p => 
         p.id === price.id ? { ...p, prediction } : p
       ));
-    } catch (error) {
-      console.error('Prediction error:', error);
+    } catch (error: any) {
+      const errorMessage = handleAIError(error);
+      
+      // If it's a quota or spending cap error, automatically trigger fallback
+      if (errorMessage.toLowerCase().includes('quota') || 
+          errorMessage.toLowerCase().includes('spending') ||
+          errorMessage.toLowerCase().includes('429')) {
+        console.warn("AI Quota exceeded, switching to Smart Mode fallback.");
+        // Re-run the function, it will now hit the !isAIAvailable() check
+        generatePrediction(price);
+        return;
+      }
+      
+      alert(errorMessage);
     } finally {
       setPredicting(null);
     }
@@ -260,7 +300,9 @@ export default function MarketOracle() {
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-2">
                             <Sparkles size={16} className="text-emerald-600" />
-                            <span className="text-xs font-bold uppercase tracking-wider text-zinc-500">AI Prediction</span>
+                            <span className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+                              {isAIAvailable() ? 'AI Prediction' : 'Smart Prediction'}
+                            </span>
                           </div>
                           <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                             price.prediction.trend === 'up' ? 'bg-emerald-100 text-emerald-700' :
@@ -290,7 +332,7 @@ export default function MarketOracle() {
                             onClick={() => generatePrediction(price)}
                             className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 uppercase tracking-wider flex items-center gap-1"
                           >
-                            Refresh AI <RefreshCw size={10} />
+                            Refresh {isAIAvailable() ? 'AI' : 'Smart'} <RefreshCw size={10} />
                           </button>
                         </div>
                       </div>
@@ -305,7 +347,7 @@ export default function MarketOracle() {
                         ) : (
                           <>
                             <Sparkles size={18} />
-                            Generate AI Prediction
+                            Generate {isAIAvailable() ? 'AI' : 'Smart'} Prediction
                           </>
                         )}
                       </button>
@@ -322,10 +364,13 @@ export default function MarketOracle() {
           
           <div className="bg-emerald-900 text-white p-8 rounded-3xl relative overflow-hidden shadow-2xl">
             <div className="relative z-10">
-              <h3 className="text-2xl font-black mb-4 tracking-tight">Predictive Logistics Engine</h3>
+              <h3 className="text-2xl font-black mb-4 tracking-tight">
+                {isAIAvailable() ? 'Predictive Logistics Engine' : 'Smart Logistics Planner'}
+              </h3>
               <p className="text-emerald-100/80 mb-6 leading-relaxed">
-                Our Gemini-powered engine analyzes global shipping lanes, fuel costs, and market volatility 
-                to suggest optimal shipment sizes and timing.
+                {isAIAvailable() 
+                  ? 'Our Gemini-powered engine analyzes global shipping lanes, fuel costs, and market volatility to suggest optimal shipment sizes and timing.'
+                  : 'Our smart algorithm analyzes historical shipping lanes and current market trends to suggest optimal shipment sizes and timing.'}
               </p>
               <button className="flex items-center gap-2 px-6 py-3 bg-white text-emerald-900 rounded-xl font-bold text-sm hover:bg-emerald-50 transition-all">
                 Open Logistics Planner

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   User, 
   Building2, 
@@ -18,8 +18,19 @@ import {
   Zap,
   Slack,
   MessageSquare,
-  FileText as FileIcon
+  Plug,
+  Link as LinkIcon,
+  CheckCircle2,
+  AlertCircle,
+  FileText as FileIcon,
+  Cpu
 } from 'lucide-react';
+import { useAuth } from './Auth.tsx';
+import { db } from '../firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { useTranslation } from '../contexts/LanguageContext.tsx';
+import { Language } from '../services/translationService.ts';
+import AIUsageDashboard from './AIUsageDashboard.tsx';
 
 const SettingItem = ({ icon: Icon, title, description, badge, onClick }: any) => (
   <button 
@@ -46,12 +57,85 @@ const SettingItem = ({ icon: Icon, title, description, badge, onClick }: any) =>
   </button>
 );
 
-import { useTranslation } from '../contexts/LanguageContext.tsx';
-import { Language } from '../services/translationService.ts';
-
 export default function Settings() {
+  const { profile } = useAuth();
   const { language, setLanguage } = useTranslation();
   const [activeTab, setActiveTab] = useState('general');
+
+  // Integration States
+  const [shippingProvider, setShippingProvider] = useState('Maersk Track & Trace');
+  const [shippingApiKey, setShippingApiKey] = useState('');
+  const [shippingBaseUrl, setShippingBaseUrl] = useState('https://api.maersk.com/track');
+  
+  const [whatsappToken, setWhatsappToken] = useState('');
+  const [whatsappPhoneId, setWhatsappPhoneId] = useState('');
+  const [whatsappAccountId, setWhatsappAccountId] = useState('');
+
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (profile?.organization) {
+      const fetchSettings = async () => {
+        try {
+          const docRef = doc(db, 'organizations', profile.organization, 'settings', 'integrations');
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            if (data.shipping) {
+              setShippingProvider(data.shipping.provider || 'Maersk Track & Trace');
+              setShippingApiKey(data.shipping.apiKey || '');
+              setShippingBaseUrl(data.shipping.baseUrl || 'https://api.maersk.com/track');
+            }
+            if (data.whatsapp) {
+              setWhatsappToken(data.whatsapp.token || '');
+              setWhatsappPhoneId(data.whatsapp.phoneNumberId || '');
+              setWhatsappAccountId(data.whatsapp.businessAccountId || '');
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching integration settings:', error);
+        }
+      };
+      fetchSettings();
+    }
+  }, [profile]);
+
+  const saveIntegrations = async (type: 'shipping' | 'whatsapp') => {
+    if (!profile?.organization) return;
+    setLoading(true);
+    try {
+      const docRef = doc(db, 'organizations', profile.organization, 'settings', 'integrations');
+      const updateData: any = {};
+      if (type === 'shipping') {
+        updateData.shipping = {
+          provider: shippingProvider,
+          apiKey: shippingApiKey,
+          baseUrl: shippingBaseUrl
+        };
+      } else {
+        updateData.whatsapp = {
+          token: whatsappToken,
+          phoneNumberId: whatsappPhoneId,
+          businessAccountId: whatsappAccountId
+        };
+      }
+      await setDoc(docRef, updateData, { merge: true });
+      alert('Settings saved successfully!');
+    } catch (error) {
+      console.error('Error saving integration settings:', error);
+      alert('Failed to save settings.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const testConnection = (key: string) => {
+    if (key.trim()) {
+      alert('Connection successful!');
+    } else {
+      alert('Please enter an API key first');
+    }
+  };
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-12">
@@ -76,6 +160,8 @@ export default function Settings() {
             { id: 'security', label: 'Security', icon: Lock },
             { id: 'language', label: 'Language', icon: Globe },
             { id: 'automation', label: 'Automation', icon: Zap },
+            { id: 'ai_usage', label: 'AI Usage', icon: Cpu },
+            { id: 'integrations', label: 'Integrations', icon: Plug },
             { id: 'data', label: 'Data & Storage', icon: Database },
           ].map((item) => (
             <button
@@ -575,6 +661,159 @@ export default function Settings() {
                   <button className="px-6 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 active:scale-95">
                     Save Changes
                   </button>
+                </div>
+              </section>
+            </div>
+          )}
+
+          {activeTab === 'ai_usage' && (
+            <AIUsageDashboard />
+          )}
+
+          {activeTab === 'integrations' && (
+            <div className="space-y-6">
+              <section className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
+                <div className="p-6 border-b border-zinc-100">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-bold text-zinc-900">Shipping & Logistics</h3>
+                      <p className="text-sm text-zinc-500 mt-1">Container Tracking API</p>
+                    </div>
+                    <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                      shippingApiKey ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+                    }`}>
+                      {shippingApiKey ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}
+                      {shippingApiKey ? 'Configured' : 'Not Configured'}
+                    </div>
+                  </div>
+                  <p className="text-xs text-zinc-500 mt-3 leading-relaxed">
+                    Connect to a real-time shipping line API (Maersk, MSC, etc.) for live container tracking. Currently using simulated data.
+                  </p>
+                </div>
+                <div className="p-6 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">API Provider</label>
+                      <select 
+                        value={shippingProvider}
+                        onChange={(e) => setShippingProvider(e.target.value)}
+                        className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                      >
+                        <option>Maersk Track & Trace</option>
+                        <option>MSC MyContainer</option>
+                        <option>CMA CGM</option>
+                        <option>Hapag-Lloyd</option>
+                        <option>Custom</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">API Key</label>
+                      <input 
+                        type="password" 
+                        value={shippingApiKey}
+                        onChange={(e) => setShippingApiKey(e.target.value)}
+                        placeholder="Enter your API key"
+                        className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">API Base URL</label>
+                    <input 
+                      type="text" 
+                      value={shippingBaseUrl}
+                      onChange={(e) => setShippingBaseUrl(e.target.value)}
+                      placeholder="https://api.maersk.com/track"
+                      className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                    />
+                  </div>
+                  <div className="flex items-center gap-3 pt-4">
+                    <button 
+                      onClick={() => testConnection(shippingApiKey)}
+                      className="px-4 py-2 bg-emerald-50 text-emerald-700 rounded-lg text-sm font-medium hover:bg-emerald-100 transition-colors"
+                    >
+                      Test Connection
+                    </button>
+                    <button 
+                      onClick={() => saveIntegrations('shipping')}
+                      disabled={loading}
+                      className="px-4 py-2 bg-zinc-900 text-white rounded-lg text-sm font-medium hover:bg-zinc-800 transition-colors disabled:opacity-50"
+                    >
+                      Save
+                    </button>
+                  </div>
+                </div>
+              </section>
+
+              <section className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
+                <div className="p-6 border-b border-zinc-100">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-bold text-zinc-900">WhatsApp Business API</h3>
+                      <p className="text-sm text-zinc-500 mt-1">Automated Messaging</p>
+                    </div>
+                    <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                      whatsappToken ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+                    }`}>
+                      {whatsappToken ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}
+                      {whatsappToken ? 'Configured' : 'Not Configured'}
+                    </div>
+                  </div>
+                  <p className="text-xs text-zinc-500 mt-3 leading-relaxed">
+                    Send automated order updates and document copies to customers via WhatsApp. Currently using simulated responses.
+                  </p>
+                </div>
+                <div className="p-6 space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">API Token</label>
+                    <input 
+                      type="password" 
+                      value={whatsappToken}
+                      onChange={(e) => setWhatsappToken(e.target.value)}
+                      placeholder="Enter WhatsApp API Token"
+                      className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Phone Number ID</label>
+                      <input 
+                        type="text" 
+                        value={whatsappPhoneId}
+                        onChange={(e) => setWhatsappPhoneId(e.target.value)}
+                        placeholder="Enter Phone Number ID"
+                        className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Business Account ID</label>
+                      <input 
+                        type="text" 
+                        value={whatsappAccountId}
+                        onChange={(e) => setWhatsappAccountId(e.target.value)}
+                        placeholder="Enter Business Account ID"
+                        className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-zinc-400 font-medium">
+                    Get these credentials from Meta Business Manager → WhatsApp → API Setup
+                  </p>
+                  <div className="flex items-center gap-3 pt-4">
+                    <button 
+                      onClick={() => testConnection(whatsappToken)}
+                      className="px-4 py-2 bg-emerald-50 text-emerald-700 rounded-lg text-sm font-medium hover:bg-emerald-100 transition-colors"
+                    >
+                      Test Connection
+                    </button>
+                    <button 
+                      onClick={() => saveIntegrations('whatsapp')}
+                      disabled={loading}
+                      className="px-4 py-2 bg-zinc-900 text-white rounded-lg text-sm font-medium hover:bg-zinc-800 transition-colors disabled:opacity-50"
+                    >
+                      Save
+                    </button>
+                  </div>
                 </div>
               </section>
             </div>

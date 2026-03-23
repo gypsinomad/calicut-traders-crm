@@ -24,16 +24,19 @@ import {
   ChevronDown,
   Zap,
   Save,
-  User
+  User,
+  Send,
+  Eye
 } from 'lucide-react';
 import { TranslatedText } from './TranslatedText';
 import { useAuth } from './Auth';
 import { motion, AnimatePresence } from 'motion/react';
 import { subscribeToCollection, createDocument, updateDocument, deleteDocument } from '../services/db';
 import { Timestamp } from 'firebase/firestore';
-import { GoogleGenAI } from '@google/genai';
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+import { handleAIError, generateAIContent, isAIAvailable } from '../lib/ai';
+import { generateDocument } from '../lib/documentGenerator';
+import QuoteBuilder from './QuoteBuilder';
+import SendToBuyerDialog from './SendToBuyerDialog';
 
 export default function QuoteList() {
   const { profile } = useAuth();
@@ -45,18 +48,11 @@ export default function QuoteList() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
   const [selectedQuotes, setSelectedQuotes] = useState<string[]>([]);
-  const [suggestingPrice, setSuggestingPrice] = useState<number | null>(null);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [aiDraft, setAiDraft] = useState<Partial<Quote> | null>(null);
-  
-  const [newQuote, setNewQuote] = useState<Partial<Quote>>({
-    quoteNumber: `QT-${Math.floor(100000 + Math.random() * 900000)}`,
-    status: 'draft',
-    currency: 'USD',
-    items: [],
-    totalAmount: 0,
-    validUntil: Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)) as any,
-  });
+  const [sendingQuote, setSendingQuote] = useState<Quote | null>(null);
+  const [previewingQuote, setPreviewingQuote] = useState<Quote | null>(null);
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
 
   useEffect(() => {
     if (!profile?.organization) return;
@@ -78,38 +74,6 @@ export default function QuoteList() {
     };
   }, [profile]);
 
-  const handleCreateQuote = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!profile?.organization) return;
-
-    try {
-      const quoteData = {
-        ...newQuote,
-        organization: profile.organization,
-        createdBy: profile.uid,
-      };
-
-      await createDocument('quotes', quoteData);
-      setShowCreateModal(false);
-      resetNewQuote();
-    } catch (error) {
-      console.error("Error creating quote:", error);
-    }
-  };
-
-  const handleUpdateQuote = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingQuote) return;
-
-    try {
-      const { id, ...data } = editingQuote;
-      await updateDocument('quotes', id, data);
-      setEditingQuote(null);
-    } catch (error) {
-      console.error("Error updating quote:", error);
-    }
-  };
-
   const handleBulkStatusUpdate = async (status: Quote['status']) => {
     if (selectedQuotes.length === 0) return;
     try {
@@ -126,117 +90,6 @@ export default function QuoteList() {
       await deleteDocument('quotes', id);
     } catch (error) {
       console.error("Error deleting quote:", error);
-    }
-  };
-
-  const resetNewQuote = () => {
-    setNewQuote({
-      quoteNumber: `QT-${Math.floor(100000 + Math.random() * 900000)}`,
-      status: 'draft',
-      currency: 'USD',
-      items: [],
-      totalAmount: 0,
-      validUntil: Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)) as any,
-    });
-  };
-
-  const suggestPrice = async (index: number, isEditing: boolean) => {
-    const quote = isEditing ? editingQuote : newQuote;
-    const item = quote?.items?.[index];
-    if (!item || !item.productName) return;
-
-    setSuggestingPrice(index);
-    try {
-      const model = 'gemini-3-flash-preview';
-      const prompt = `Suggest a competitive export price for the following spice:
-      Spice: ${item.productName}
-      Quantity: ${item.quantity} ${item.unit}
-      
-      Consider current global market trends for high-quality spices from India.
-      Return a JSON object with: suggestedPrice (number, per unit), currency ('USD'), and reasoning (max 30 words).`;
-
-      const response = await ai.models.generateContent({
-        model,
-        contents: [{ parts: [{ text: prompt }] }],
-        config: { responseMimeType: 'application/json' }
-      });
-
-      const suggestion = JSON.parse(response.text || '{}');
-      const updatedItems = [...(quote?.items || [])];
-      updatedItems[index] = { 
-        ...item, 
-        unitPrice: suggestion.suggestedPrice,
-        totalPrice: suggestion.suggestedPrice * item.quantity,
-        aiSuggestion: suggestion
-      };
-      
-      if (isEditing && editingQuote) {
-        setEditingQuote({ ...editingQuote, items: updatedItems, totalAmount: updatedItems.reduce((sum, i) => sum + i.totalPrice, 0) });
-      } else {
-        setNewQuote({ ...newQuote, items: updatedItems, totalAmount: updatedItems.reduce((sum, i) => sum + i.totalPrice, 0) });
-      }
-    } catch (error) {
-      console.error('Price suggestion error:', error);
-    } finally {
-      setSuggestingPrice(null);
-    }
-  };
-
-  const addItem = (isEditing: boolean) => {
-    const newItem: QuoteItem = {
-      productId: `PRD-${Math.random().toString(36).substr(2, 9)}`,
-      productName: '',
-      quantity: 1,
-      unit: 'kg',
-      unitPrice: 0,
-      totalPrice: 0
-    };
-
-    if (isEditing && editingQuote) {
-      setEditingQuote({
-        ...editingQuote,
-        items: [...editingQuote.items, newItem]
-      });
-    } else {
-      setNewQuote({
-        ...newQuote,
-        items: [...(newQuote.items || []), newItem]
-      });
-    }
-  };
-
-  const removeItem = (index: number, isEditing: boolean) => {
-    if (isEditing && editingQuote) {
-      const items = [...editingQuote.items];
-      items.splice(index, 1);
-      const total = items.reduce((sum, item) => sum + item.totalPrice, 0);
-      setEditingQuote({ ...editingQuote, items, totalAmount: total });
-    } else {
-      const items = [...(newQuote.items || [])];
-      items.splice(index, 1);
-      const total = items.reduce((sum, item) => sum + item.totalPrice, 0);
-      setNewQuote({ ...newQuote, items, totalAmount: total });
-    }
-  };
-
-  const updateItem = (index: number, field: keyof QuoteItem, value: any, isEditing: boolean) => {
-    const updateItems = (items: QuoteItem[]) => {
-      const newItems = [...items];
-      newItems[index] = { ...newItems[index], [field]: value };
-      if (field === 'quantity' || field === 'unitPrice') {
-        newItems[index].totalPrice = newItems[index].quantity * newItems[index].unitPrice;
-      }
-      return newItems;
-    };
-
-    if (isEditing && editingQuote) {
-      const items = updateItems(editingQuote.items);
-      const total = items.reduce((sum, item) => sum + item.totalPrice, 0);
-      setEditingQuote({ ...editingQuote, items, totalAmount: total });
-    } else {
-      const items = updateItems(newQuote.items || []);
-      const total = items.reduce((sum, item) => sum + item.totalPrice, 0);
-      setNewQuote({ ...newQuote, items, totalAmount: total });
     }
   };
 
@@ -318,9 +171,52 @@ export default function QuoteList() {
 
   const handleAIDraft = async (lead: Lead) => {
     setIsGeneratingAI(true);
+    setSelectedLead(lead);
+
     try {
+      if (!isAIAvailable()) {
+        // Smart Mode Fallback (Rule-based)
+        const draft = {
+          items: [
+            { 
+              productName: lead.productInterest || 'Premium Spices', 
+              quantity: 1, 
+              unit: 'MT', 
+              unitPrice: 4500, 
+              totalPrice: 4500 
+            }
+          ],
+          totalAmount: 4500,
+          currency: 'USD',
+          validUntilDays: 30
+        };
+
+        setAiDraft({
+          quoteNumber: `QT-SMART-${Math.floor(100000 + Math.random() * 900000)}`,
+          leadId: lead.id,
+          companyName: lead.companyName,
+          contactName: lead.fullName,
+          email: lead.email,
+          phone: lead.phone,
+          whatsappNumber: lead.whatsappNumber || lead.phone,
+          destinationCountry: lead.destinationCountry,
+          items: draft.items.map((item: any) => ({
+            ...item,
+            productId: Math.random().toString(36).substr(2, 9)
+          })),
+          totalAmount: draft.totalAmount,
+          currency: draft.currency || 'USD',
+          status: 'draft',
+          validUntil: Timestamp.fromDate(new Date(Date.now() + (draft.validUntilDays || 30) * 24 * 60 * 60 * 1000)) as any
+        });
+        return;
+      }
+
       const prompt = `Generate a draft Proforma Invoice for the following lead:
       Company: ${lead.companyName}
+      Contact: ${lead.fullName}
+      Email: ${lead.email}
+      Phone: ${lead.phone}
       Country: ${lead.destinationCountry}
       Interest: ${lead.productInterest}
       
@@ -332,27 +228,66 @@ export default function QuoteList() {
       validUntilDays: number (e.g. 30)
       `;
 
-      const response = await ai.models.generateContent({
+      const response = await generateAIContent('AI Draft Generation', {
         model: 'gemini-3-flash-preview',
         contents: [{ parts: [{ text: prompt }] }],
         config: { responseMimeType: 'application/json' }
       });
 
       const draft = JSON.parse(response.text || '{}');
+        setAiDraft({
+          quoteNumber: `QT-AI-${Math.floor(100000 + Math.random() * 900000)}`,
+          leadId: lead.id,
+          companyName: lead.companyName,
+          contactName: lead.fullName,
+          email: lead.email,
+          phone: lead.phone,
+          whatsappNumber: lead.whatsappNumber || lead.phone,
+          destinationCountry: lead.destinationCountry,
+          items: (draft.items && draft.items.length > 0 ? draft.items : [
+            { 
+              productName: lead.productInterest || 'Premium Spices', 
+              quantity: 1, 
+              unit: 'MT', 
+              unitPrice: 4500, 
+              totalPrice: 4500 
+            }
+          ]).map((item: any) => ({
+            ...item,
+            productId: Math.random().toString(36).substr(2, 9)
+          })),
+          totalAmount: draft.totalAmount || 4500,
+          currency: draft.currency || 'USD',
+          status: 'draft',
+          validUntil: Timestamp.fromDate(new Date(Date.now() + (draft.validUntilDays || 30) * 24 * 60 * 60 * 1000)) as any
+        });
+    } catch (error: any) {
+      handleAIError(error);
+      // Smart Mode Fallback (Rule-based)
       setAiDraft({
-        quoteNumber: `QT-AI-${Math.floor(100000 + Math.random() * 900000)}`,
+        quoteNumber: `QT-SMART-${Math.floor(100000 + Math.random() * 900000)}`,
         leadId: lead.id,
-        companyId: lead.id,
         companyName: lead.companyName,
+        contactName: lead.fullName,
+        email: lead.email,
+        phone: lead.phone,
+        whatsappNumber: lead.whatsappNumber || lead.phone,
         destinationCountry: lead.destinationCountry,
-        items: draft.items,
-        totalAmount: draft.totalAmount,
-        currency: draft.currency || 'USD',
+        items: [
+          { 
+            productId: Math.random().toString(36).substr(2, 9),
+            productName: lead.productInterest || 'Premium Spices', 
+            quantity: 1, 
+            unit: 'MT', 
+            unitPrice: 4500, 
+            totalPrice: 4500 
+          }
+        ],
+        totalAmount: 4500,
+        currency: 'USD',
         status: 'draft',
-        validUntil: Timestamp.fromDate(new Date(Date.now() + (draft.validUntilDays || 30) * 24 * 60 * 60 * 1000)) as any
+        validUntil: Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)) as any
       });
-    } catch (error) {
-      console.error('AI Draft error:', error);
     } finally {
       setIsGeneratingAI(false);
     }
@@ -397,156 +332,6 @@ export default function QuoteList() {
     link.click();
     document.body.removeChild(link);
   };
-
-  const QuoteForm = ({ data, setData, isEditing }: { data: Partial<Quote>, setData: any, isEditing: boolean }) => (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Quote Number</label>
-          <input
-            type="text"
-            value={data.quoteNumber}
-            onChange={(e) => setData({ ...data, quoteNumber: e.target.value })}
-            className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500/20 outline-none"
-            required
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Associate Lead</label>
-          <select
-            value={data.leadId || ''}
-            onChange={(e) => {
-              const lead = leads.find(l => l.id === e.target.value);
-              setData({ 
-                ...data, 
-                leadId: e.target.value,
-                companyId: lead?.id || '',
-                companyName: lead?.companyName || '',
-                destinationCountry: lead?.destinationCountry || ''
-              });
-            }}
-            className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500/20 outline-none"
-          >
-            <option value="">Select a Lead</option>
-            {leads.map(lead => (
-              <option key={lead.id} value={lead.id}>{lead.fullName} ({lead.companyName})</option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Currency</label>
-          <select
-            value={data.currency}
-            onChange={(e) => setData({ ...data, currency: e.target.value })}
-            className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500/20 outline-none"
-          >
-            <option value="USD">USD</option>
-            <option value="EUR">EUR</option>
-            <option value="AED">AED</option>
-            <option value="INR">INR</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Valid Until</label>
-          <input
-            type="date"
-            value={data.validUntil?.toDate ? format(data.validUntil.toDate(), 'yyyy-MM-dd') : ''}
-            onChange={(e) => setData({ ...data, validUntil: Timestamp.fromDate(new Date(e.target.value)) as any })}
-            className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500/20 outline-none"
-            required
-          />
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <label className="block text-xs font-bold text-zinc-500 uppercase">Line Items</label>
-          <button
-            type="button"
-            onClick={() => addItem(isEditing)}
-            className="text-xs font-bold text-emerald-600 flex items-center gap-1 hover:underline"
-          >
-            <Plus size={14} /> Add Item
-          </button>
-        </div>
-        <div className="space-y-3">
-          {data.items?.map((item, index) => (
-            <div key={index} className="flex items-start gap-3 p-4 bg-zinc-50 rounded-2xl border border-zinc-200">
-              <div className="flex-1 grid grid-cols-1 sm:grid-cols-4 gap-3">
-                <div className="sm:col-span-2">
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-[10px] font-bold text-zinc-400 uppercase">Product Name</label>
-                    <button 
-                      type="button"
-                      onClick={() => suggestPrice(index, isEditing)}
-                      disabled={suggestingPrice === index}
-                      className="text-emerald-600 hover:text-emerald-700 disabled:opacity-50 flex items-center gap-1"
-                      title="AI Price Suggestion"
-                    >
-                      {suggestingPrice === index ? <RefreshCw size={10} className="animate-spin" /> : <Sparkles size={10} />}
-                      <span className="text-[10px]">AI Suggest</span>
-                    </button>
-                  </div>
-                  <input
-                    placeholder="Product Name"
-                    value={item.productName}
-                    onChange={(e) => updateItem(index, 'productName', e.target.value, isEditing)}
-                    className="w-full px-3 py-1.5 bg-white border border-zinc-200 rounded-lg text-xs outline-none focus:ring-1 focus:ring-emerald-500"
-                  />
-                  {item.aiSuggestion && (
-                    <div className="mt-1 p-2 bg-emerald-50 rounded-lg border border-emerald-100 flex items-start gap-2">
-                      <Zap size={10} className="text-emerald-600 mt-0.5" />
-                      <p className="text-[9px] text-emerald-700 italic leading-tight">
-                        AI Suggestion: ${item.aiSuggestion.suggestedPrice} - {item.aiSuggestion.reasoning}
-                      </p>
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <input
-                    type="number"
-                    placeholder="Qty"
-                    value={item.quantity}
-                    onChange={(e) => updateItem(index, 'quantity', Number(e.target.value), isEditing)}
-                    className="w-full px-3 py-1.5 bg-white border border-zinc-200 rounded-lg text-xs outline-none focus:ring-1 focus:ring-emerald-500"
-                  />
-                </div>
-                <div>
-                  <input
-                    type="number"
-                    placeholder="Price"
-                    value={item.unitPrice}
-                    onChange={(e) => updateItem(index, 'unitPrice', Number(e.target.value), isEditing)}
-                    className="w-full px-3 py-1.5 bg-white border border-zinc-200 rounded-lg text-xs outline-none focus:ring-1 focus:ring-emerald-500"
-                  />
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => removeItem(index, isEditing)}
-                className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
-              >
-                <Trash2 size={16} />
-              </button>
-            </div>
-          ))}
-          {(!data.items || data.items.length === 0) && (
-            <div className="text-center py-6 border-2 border-dashed border-zinc-200 rounded-2xl">
-              <p className="text-xs text-zinc-400">No items added yet</p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="pt-4 border-t border-zinc-100 flex justify-between items-center">
-        <span className="text-sm font-bold text-zinc-500">Total Amount:</span>
-        <span className="text-lg font-bold text-emerald-600">{data.currency} {data.totalAmount?.toLocaleString()}</span>
-      </div>
-    </div>
-  );
 
   return (
     <div className="space-y-6">
@@ -661,8 +446,8 @@ export default function QuoteList() {
                       disabled={isGeneratingAI}
                       className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 rounded-lg text-[10px] font-bold hover:bg-emerald-100 transition-colors border border-emerald-100"
                     >
-                      {isGeneratingAI ? <RefreshCw size={12} className="animate-spin" /> : <Sparkles size={12} />}
-                      AI Generate Quote
+                      {isGeneratingAI ? <RefreshCw size={12} className="animate-spin" /> : (isAIAvailable() ? <Sparkles size={12} /> : <Zap size={12} />)}
+                      {isAIAvailable() ? 'AI Generate Quote' : 'Smart Generate Quote'}
                     </button>
                   </td>
                 </tr>
@@ -762,6 +547,20 @@ export default function QuoteList() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button 
+                          onClick={() => setPreviewingQuote(quote)}
+                          className="p-2 text-zinc-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+                          title="Preview PI"
+                        >
+                          <Eye size={18} />
+                        </button>
+                        <button 
+                          onClick={() => setSendingQuote(quote)}
+                          className="p-2 text-zinc-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+                          title="Send to Buyer"
+                        >
+                          <Send size={18} />
+                        </button>
                         {quote.status === 'accepted' && (
                           <button 
                             onClick={() => convertToOrder(quote)}
@@ -774,12 +573,14 @@ export default function QuoteList() {
                         <button 
                           onClick={() => setEditingQuote(quote)}
                           className="p-2 text-zinc-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+                          title="Edit"
                         >
                           <Edit2 size={18} />
                         </button>
                         <button 
                           onClick={() => handleDeleteQuote(quote.id)}
                           className="p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                          title="Delete"
                         >
                           <Trash2 size={18} />
                         </button>
@@ -793,129 +594,103 @@ export default function QuoteList() {
         </div>
       </div>
 
-      <AnimatePresence>
-        {aiDraft && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-zinc-900/60 backdrop-blur-sm"
-              onClick={() => setAiDraft(null)}
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden"
-            >
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-lg font-bold text-zinc-900 flex items-center gap-2">
-                    <Sparkles size={20} className="text-emerald-600" />
-                    AI Drafted Quotation
-                  </h3>
-                  <button onClick={() => setAiDraft(null)} className="text-zinc-400 hover:text-zinc-600">
-                    <X size={20} />
-                  </button>
-                </div>
-                
-                <div className="space-y-4 mb-6">
-                  <div className="p-4 bg-zinc-50 rounded-2xl border border-zinc-200">
-                    <p className="text-[10px] font-bold text-zinc-400 uppercase mb-2">Items</p>
-                    <div className="space-y-2">
-                      {aiDraft.items?.map((item: any, i: number) => (
-                        <div key={i} className="flex justify-between text-xs">
-                          <span className="text-zinc-600">{item.productName} ({item.quantity}{item.unit})</span>
-                          <span className="font-bold text-zinc-900">${item.totalPrice}</span>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="mt-3 pt-3 border-t border-zinc-200 flex justify-between items-center">
-                      <span className="text-xs font-bold text-zinc-900">Total</span>
-                      <span className="text-sm font-bold text-emerald-600">${aiDraft.totalAmount}</span>
-                    </div>
-                  </div>
-                </div>
+      <QuoteBuilder
+        isOpen={showCreateModal || !!editingQuote || !!aiDraft}
+        onClose={() => {
+          setShowCreateModal(false);
+          setEditingQuote(null);
+          setAiDraft(null);
+          setSelectedLead(null);
+        }}
+        quote={editingQuote || (aiDraft as Quote)}
+        lead={selectedLead || undefined}
+        onSaved={() => {
+          setShowCreateModal(false);
+          setEditingQuote(null);
+          setAiDraft(null);
+          setSelectedLead(null);
+        }}
+      />
 
-                <div className="flex gap-3">
-                  <button 
-                    onClick={() => {
-                      navigator.clipboard.writeText(JSON.stringify(aiDraft, null, 2));
-                      alert('Draft copied to clipboard!');
-                    }}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-zinc-100 text-zinc-700 rounded-xl text-xs font-bold hover:bg-zinc-200 transition-all"
-                  >
-                    <Copy size={16} />
-                    Copy JSON
-                  </button>
-                  <button 
-                    onClick={saveAIDraft}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20"
-                  >
-                    <Save size={16} />
-                    Save as Quote
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      {sendingQuote && (
+        <SendToBuyerDialog
+          isOpen={!!sendingQuote}
+          onClose={() => setSendingQuote(null)}
+          quote={sendingQuote}
+          onSent={() => {
+            setSendingQuote(null);
+          }}
+        />
+      )}
 
-      <AnimatePresence>
-        {(showCreateModal || editingQuote) && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => {
-                setShowCreateModal(false);
-                setEditingQuote(null);
-              }}
-              className="fixed inset-0 bg-zinc-900/60 backdrop-blur-sm"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden my-8"
-            >
-              <div className="p-8 max-h-[90vh] overflow-y-auto">
-                <h3 className="text-xl font-bold text-zinc-900 mb-6">
-                  {editingQuote ? 'Edit Quotation' : 'Create New Quotation'}
-                </h3>
-                <form onSubmit={editingQuote ? handleUpdateQuote : handleCreateQuote}>
-                  <QuoteForm 
-                    data={editingQuote || newQuote} 
-                    setData={editingQuote ? setEditingQuote : setNewQuote}
-                    isEditing={!!editingQuote}
-                  />
-                  <div className="flex gap-3 mt-8">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowCreateModal(false);
-                        setEditingQuote(null);
-                      }}
-                      className="flex-1 px-4 py-2 bg-zinc-100 text-zinc-600 rounded-xl text-sm font-bold hover:bg-zinc-200 transition-all"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20"
-                    >
-                      {editingQuote ? 'Save Changes' : 'Create Quote'}
-                    </button>
-                  </div>
-                </form>
+      {previewingQuote && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-6 border-b border-zinc-100 flex justify-between items-center">
+              <h3 className="text-xl font-black text-zinc-900">Proforma Invoice Preview</h3>
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => window.print()}
+                  className="p-2 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 rounded-full transition-all"
+                >
+                  <Printer size={20} />
+                </button>
+                <button 
+                  onClick={() => setPreviewingQuote(null)}
+                  className="p-2 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 rounded-full transition-all"
+                >
+                  <X size={20} />
+                </button>
               </div>
-            </motion.div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-8 bg-zinc-50">
+              <div 
+                className="bg-white shadow-lg mx-auto p-12 min-h-[800px] w-full max-w-[800px]"
+                dangerouslySetInnerHTML={{ 
+                  __html: generateDocument('proformaInvoice', {
+                    orderNumber: previewingQuote.quoteNumber,
+                    customerName: previewingQuote.companyName || previewingQuote.contactName || 'Valued Customer',
+                    commodity: previewingQuote.items[0]?.productName || 'Premium Spices',
+                    quantity: previewingQuote.items[0]?.quantity || 1,
+                    unit: previewingQuote.items[0]?.unit || 'MT',
+                    totalAmount: previewingQuote.totalAmount,
+                    currency: previewingQuote.currency,
+                    destination: previewingQuote.destinationCountry || 'International',
+                    destinationCountry: previewingQuote.destinationCountry || '',
+                    incoterms: previewingQuote.incoterms,
+                    paymentTerms: previewingQuote.paymentTerms,
+                    items: previewingQuote.items.map(i => ({
+                      productName: i.productName,
+                      quantity: i.quantity,
+                      unit: i.unit,
+                      unitPrice: i.unitPrice,
+                      totalPrice: i.totalPrice
+                    }))
+                  } as any)
+                }}
+              />
+            </div>
+            <div className="p-6 border-t border-zinc-100 bg-white flex justify-end gap-4">
+              <button 
+                onClick={() => setPreviewingQuote(null)}
+                className="px-6 py-2 bg-zinc-100 text-zinc-600 rounded-xl font-bold hover:bg-zinc-200 transition-all"
+              >
+                Close
+              </button>
+              <button 
+                onClick={() => {
+                  setSendingQuote(previewingQuote);
+                  setPreviewingQuote(null);
+                }}
+                className="px-6 py-2 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 flex items-center gap-2"
+              >
+                <Send size={18} />
+                Send to Buyer
+              </button>
+            </div>
           </div>
-        )}
-      </AnimatePresence>
+        </div>
+      )}
     </div>
   );
 }

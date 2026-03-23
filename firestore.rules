@@ -36,8 +36,17 @@ service cloud.firestore {
     // Collection: audit_logs
     // Fields: userId, userEmail, action, entityType, entityId, organization, timestamp
     //
+    // Collection: ai_usage
+    // Fields: feature, inputTokens, outputTokens, totalTokens, estimatedCostUSD, estimatedCostINR, timestamp, userId
+    //
     // Collection: notifications
     // Fields: title, message, type, read, userId, timestamp
+    //
+    // Collection: generated_documents
+    // Fields: orderId, documentType, generatedAt, generatedBy, htmlContent, status, organization
+    //
+    // Collection: send_history
+    // Fields: documentId, quoteId, sentTo, sentVia, sentAt, sentBy, messageBody, organization
     //
     // Collection: organizations
     // Fields: companyName, taxId, address, primaryRegion, defaultIncoterms, currency, sanctionScreening, autoDocGen, riskAlerts, onboardingCompleted, createdBy, createdAt, updatedAt
@@ -178,6 +187,24 @@ service cloud.firestore {
              data.totalAmount is number && data.totalAmount >= 0 &&
              data.currency is string && data.currency.size() < 10 &&
              data.status in ['draft', 'sent', 'accepted', 'rejected', 'expired', 'converted'] &&
+             data.organization is string && data.organization.size() > 0 &&
+             (!('items' in data) || data.items is list) &&
+             (!('subtotal' in data) || data.subtotal is number) &&
+             (!('freightEstimate' in data) || data.freightEstimate is number) &&
+             (!('insurance' in data) || data.insurance is number) &&
+             (!('incoterms' in data) || data.incoterms is string) &&
+             (!('paymentTerms' in data) || data.paymentTerms is string) &&
+             (!('packaging' in data) || data.packaging is string) &&
+             (!('portOfLoading' in data) || data.portOfLoading is string);
+    }
+
+    function isValidSendHistory(data) {
+      return hasRequiredFields(['sentTo', 'sentVia', 'sentAt', 'sentBy', 'messageBody', 'organization']) &&
+             data.sentTo is string &&
+             data.sentVia in ['email', 'whatsapp'] &&
+             data.sentAt is timestamp &&
+             data.sentBy is string &&
+             data.messageBody is string &&
              data.organization is string && data.organization.size() > 0;
     }
 
@@ -229,6 +256,34 @@ service cloud.firestore {
              data.organization is string && data.organization.size() > 0;
     }
 
+    function isValidAIUsage(data) {
+      return hasRequiredFields(['feature', 'inputTokens', 'outputTokens', 'totalTokens', 'estimatedCostUSD', 'estimatedCostINR', 'timestamp', 'userId']) &&
+             data.feature is string && data.feature.size() > 0 &&
+             data.inputTokens is number && data.inputTokens >= 0 &&
+             data.outputTokens is number && data.outputTokens >= 0 &&
+             data.totalTokens is number && data.totalTokens >= 0 &&
+             data.estimatedCostUSD is number && data.estimatedCostUSD >= 0 &&
+             data.estimatedCostINR is number && data.estimatedCostINR >= 0 &&
+             data.timestamp is timestamp &&
+             data.userId is string && data.userId.size() > 0;
+    }
+
+    function isValidGeneratedDocument(data) {
+      return hasRequiredFields(['orderId', 'documentType', 'generatedAt', 'generatedBy', 'htmlContent', 'status', 'organization']) &&
+             data.orderId is string &&
+             data.documentType in [
+               'proformaInvoice', 'commercialInvoice', 'packingList', 'billOfLading', 
+               'certificateOfOrigin', 'phytosanitaryCertificate', 'fssaiDeclaration', 
+               'shippingBill', 'gstInvoice', 'lcUtilization', 'qualityCertificate', 
+               'fumigationCertificate', 'contract', 'apeda', 'other'
+             ] &&
+             data.generatedAt is timestamp &&
+             data.generatedBy is string &&
+             data.htmlContent is string && data.htmlContent.size() > 0 && data.htmlContent.size() < 1048576 &&
+             data.status in ['draft', 'finalized'] &&
+             data.organization is string && data.organization.size() > 0;
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
@@ -244,6 +299,16 @@ service cloud.firestore {
     match /organizations/{orgId} {
       allow read: if isAuthenticated() && (isAdmin() || getUserData().organization == orgId);
       allow write: if isAuthenticated() && (isAdmin() || getUserData().organization == orgId);
+
+      match /settings/{settingId} {
+        allow read, write: if isAuthenticated() && (isAdmin() || getUserData().organization == orgId);
+      }
+
+      match /ai_usage/{usageId} {
+        allow read: if isAuthenticated() && (isAdmin() || getUserData().organization == orgId);
+        allow create: if isAuthenticated() && (isAdmin() || getUserData().organization == orgId) && isValidAIUsage(request.resource.data);
+        allow delete: if isAdmin();
+      }
     }
 
     match /leads/{leadId} {
@@ -284,6 +349,21 @@ service cloud.firestore {
       allow update: if belongsToOrg(resource.data.organization) && isValidDocument(request.resource.data) && 
                     request.resource.data.organization == resource.data.organization;
       allow delete: if isAdmin() || isManager();
+    }
+
+    match /generated_documents/{docId} {
+      allow read: if belongsToOrg(resource.data.organization);
+      allow create: if belongsToOrg(request.resource.data.organization) && isValidGeneratedDocument(request.resource.data);
+      allow update: if belongsToOrg(resource.data.organization) && isValidGeneratedDocument(request.resource.data) && 
+                    request.resource.data.organization == resource.data.organization;
+      allow delete: if isAdmin() || isManager();
+    }
+
+    match /send_history/{historyId} {
+      allow read: if belongsToOrg(resource.data.organization);
+      allow create: if belongsToOrg(request.resource.data.organization) && isValidSendHistory(request.resource.data);
+      allow update: if false;
+      allow delete: if isAdmin();
     }
 
     match /notifications/{notificationId} {

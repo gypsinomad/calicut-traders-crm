@@ -11,6 +11,8 @@ import { motion, AnimatePresence } from 'motion/react';
 
 import { useTranslation } from '../contexts/LanguageContext.tsx';
 import { TranslatedText } from './TranslatedText.tsx';
+import AICostBadge from './AICostBadge.tsx';
+import AIStatusBanner from './AIStatusBanner.tsx';
 
 export default function Layout() {
   const { profile, logout } = useAuth();
@@ -96,6 +98,7 @@ export default function Layout() {
       </AnimatePresence>
 
       <div className="flex-1 flex flex-col min-w-0 w-full">
+        <AIStatusBanner />
         <header className="h-16 bg-white border-b border-zinc-200 flex items-center justify-between px-4 md:px-8 shrink-0 z-10">
           <div className="flex items-center gap-4 flex-1 max-w-xl">
             <button 
@@ -210,6 +213,7 @@ export default function Layout() {
               </button>
             </div>
             <NotificationCenter />
+            <AICostBadge />
             <div className="h-8 w-[1px] bg-zinc-200 mx-1 md:mx-2" />
             <div className="flex items-center gap-2 md:gap-3 pl-2 group relative">
               <div className={`${isRTL ? 'text-left' : 'text-right'} hidden sm:block`}>

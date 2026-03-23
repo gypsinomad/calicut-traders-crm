@@ -21,6 +21,7 @@ import {
   MoreVertical,
   X,
   Sparkles,
+  Zap,
   Download,
   Filter,
   CheckSquare,
@@ -34,9 +35,7 @@ import { Timestamp } from 'firebase/firestore';
 import Modal from './Modal';
 import { clsx } from 'clsx';
 import { motion, AnimatePresence } from 'motion/react';
-import { GoogleGenAI } from '@google/genai';
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+import { handleAIError, generateAIContent, isAIAvailable } from '../lib/ai';
 
 type OnboardingStep = 'basicInfo' | 'compliance' | 'qc' | 'finalized';
 
@@ -126,6 +125,26 @@ export default function SupplierPortal() {
 
   const analyzeRisk = async (supplier: Supplier) => {
     setAnalyzingRisk(supplier.id);
+
+    if (!isAIAvailable()) {
+      // Rule-based fallback for supplier risk analysis
+      const riskScore = supplier.status === 'active' ? 15 : 45;
+      const riskLevel = riskScore < 30 ? 'Low' : riskScore < 70 ? 'Medium' : 'High';
+      const keyRisks = [
+        "Geopolitical stability in region",
+        "Climate impact on spice yields",
+        "Regulatory compliance history"
+      ];
+
+      const riskAnalysis = { riskScore, riskLevel, keyRisks };
+      await updateDocument('suppliers', supplier.id, { 
+        riskScore,
+        riskAnalysis 
+      });
+      setAnalyzingRisk(null);
+      return;
+    }
+
     try {
       const model = 'gemini-3-flash-preview';
       const prompt = `Analyze the supply chain risk for this spice supplier:
@@ -138,7 +157,7 @@ export default function SupplierPortal() {
       Consider geopolitical stability, climate impact on spice yields in their region, and regulatory compliance history.
       Return a JSON object with: riskScore (0-100), riskLevel ('Low', 'Medium', 'High'), and keyRisks (array of strings, max 3).`;
 
-      const response = await ai.models.generateContent({
+      const response = await generateAIContent('Supplier Risk Score', {
         model,
         contents: [{ parts: [{ text: prompt }] }],
         config: { responseMimeType: 'application/json' }
@@ -149,8 +168,8 @@ export default function SupplierPortal() {
         riskScore: riskAnalysis.riskScore,
         riskAnalysis 
       });
-    } catch (error) {
-      console.error('Risk analysis error:', error);
+    } catch (error: any) {
+      alert(handleAIError(error));
     } finally {
       setAnalyzingRisk(null);
     }
@@ -365,15 +384,15 @@ export default function SupplierPortal() {
                         "font-black",
                         supplier.riskScore < 30 ? "text-emerald-600" : supplier.riskScore < 70 ? "text-amber-600" : "text-rose-600"
                       )}>
-                        {supplier.riskScore}% Risk
+                        {supplier.riskScore}% {isAIAvailable() ? 'Risk' : 'Smart Risk'}
                       </span>
                     )}
                   </div>
                   {supplier.riskAnalysis ? (
                     <div className="p-3 bg-zinc-50 rounded-xl border border-zinc-100">
                       <div className="flex items-center gap-2 mb-2">
-                        <Sparkles size={12} className="text-emerald-600" />
-                        <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">AI Insight</span>
+                        {isAIAvailable() ? <Sparkles size={12} className="text-emerald-600" /> : <Zap size={12} className="text-emerald-600" />}
+                        <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">{isAIAvailable() ? 'AI Insight' : 'Smart Insight'}</span>
                       </div>
                       <div className="flex flex-wrap gap-1">
                         {supplier.riskAnalysis.keyRisks?.map((risk: string, i: number) => (
@@ -392,8 +411,8 @@ export default function SupplierPortal() {
                       disabled={analyzingRisk === supplier.id}
                       className="w-full py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200 transition-all flex items-center justify-center gap-2"
                     >
-                      {analyzingRisk === supplier.id ? <RefreshCw size={12} className="animate-spin" /> : <Sparkles size={12} />}
-                      Run Risk AI
+                      {analyzingRisk === supplier.id ? <RefreshCw size={12} className="animate-spin" /> : (isAIAvailable() ? <Sparkles size={12} /> : <Zap size={12} />)}
+                      {isAIAvailable() ? 'Run Risk AI' : 'Run Smart Risk'}
                     </button>
                   )}
                 </div>

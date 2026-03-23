@@ -1,4 +1,48 @@
-import { ExportOrder } from '../lib/types';
+import { ExportOrder, Quote } from '../lib/types';
+
+// Opens WhatsApp with pre-filled message
+export function sendWhatsAppMessage(phone: string, message: string): void {
+  const encoded = encodeURIComponent(message);
+  const url = `https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=${encoded}`;
+  window.open(url, '_blank');
+}
+
+// Builds quote message
+export function buildQuoteMessage(quote: Quote): string {
+  const itemsSummary = quote.items.map(item => `• ${item.productName}: ${item.quantity} ${item.unit}`).join('\n');
+  const validUntil = quote.validUntil.toDate().toLocaleDateString();
+  
+  return `
+Hello ${quote.companyName || 'Valued Customer'},
+
+Please find attached our Proforma Invoice ${quote.quoteNumber} from Calicut Spice Traders.
+
+Details:
+${itemsSummary}
+• Total Value: ${quote.currency} ${quote.totalAmount.toLocaleString()}
+• Valid Until: ${validUntil}
+
+Kindly confirm your acceptance at the earliest.
+
+Best regards,
+Calicut Spice Traders LLP
+Kozhikode, Kerala
+  `.trim();
+}
+
+// Builds document notification message  
+export function buildDocumentMessage(docType: string, orderRef: string, buyerName: string): string {
+  return `
+Hello ${buyerName},
+
+We have generated the ${docType} for your order ${orderRef}.
+
+Please find the document attached for your review.
+
+Best regards,
+Calicut Spice Traders LLP
+  `.trim();
+}
 
 /**
  * Simulated WhatsApp Business API Service

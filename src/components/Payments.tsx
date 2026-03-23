@@ -27,10 +27,8 @@ import { subscribeToCollection, createDocument, updateDocument, deleteDocument }
 import { Payment, ExportOrder } from '../lib/types';
 import { useAuth } from './Auth';
 import { formatCurrency, formatDate } from '../lib/utils';
-import { Timestamp } from 'firebase/firestore';
-import { GoogleGenAI } from '@google/genai';
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+import { Timestamp, serverTimestamp } from 'firebase/firestore';
+import { handleAIError, generateAIContent, isAIAvailable } from '../lib/ai';
 
 export default function Payments() {
   const { profile } = useAuth();
@@ -104,6 +102,27 @@ export default function Payments() {
 
   const assessPaymentRisk = async (payment: Payment) => {
     setAssessingRisk(payment.id);
+
+    if (!isAIAvailable()) {
+      // Rule-based fallback for payment risk assessment
+      const riskLevel = (payment.method === 'letterOfCredit' ? 'low' : payment.amount > 50000 ? 'medium' : 'low') as "high" | "medium" | "low";
+      const score = riskLevel === 'medium' ? 45 : 15;
+      const keyRisks = [
+        "Standard verification for export payment",
+        "Bank transfer processing time",
+        "Documentation compliance check"
+      ];
+      const recommendation = `Standard payment risk assessment for ${payment.method}. Transaction appears within normal parameters.`;
+
+      const risk = { riskLevel, score, keyRisks, recommendation, lastAnalyzed: serverTimestamp() as any };
+      await updateDocument('payments', payment.id, { riskAI: risk });
+      if (selectedPayment?.id === payment.id) {
+        setSelectedPayment({ ...selectedPayment, riskAI: risk });
+      }
+      setAssessingRisk(null);
+      return;
+    }
+
     try {
       const model = 'gemini-3-flash-preview';
       const prompt = `Assess payment risk for this transaction:
@@ -115,7 +134,7 @@ export default function Payments() {
       Consider typical export payment risks (e.g., Letter of Credit discrepancies, bank transfer delays from specific regions).
       Return a JSON object with: riskLevel ('low', 'medium', 'high'), score (0-100), and keyRisks (array of strings), and recommendation (max 50 words).`;
 
-      const response = await ai.models.generateContent({
+      const response = await generateAIContent('Payment Risk Analysis', {
         model,
         contents: [{ parts: [{ text: prompt }] }],
         config: { responseMimeType: 'application/json' }
@@ -126,8 +145,8 @@ export default function Payments() {
       if (selectedPayment?.id === payment.id) {
         setSelectedPayment({ ...selectedPayment, riskAI: risk });
       }
-    } catch (error) {
-      console.error('Payment risk assessment error:', error);
+    } catch (error: any) {
+      alert(handleAIError(error));
     } finally {
       setAssessingRisk(null);
     }
@@ -384,9 +403,9 @@ export default function Payments() {
                         }}
                         disabled={assessingRisk === payment.id}
                         className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-50"
-                        title="Assess Risk"
+                        title={isAIAvailable() ? "Assess Risk with AI" : "Assess Risk with Smart Rules"}
                       >
-                        {assessingRisk === payment.id ? <RefreshCw size={16} className="animate-spin" /> : <Zap size={16} />}
+                        {assessingRisk === payment.id ? <RefreshCw size={16} className="animate-spin" /> : (isAIAvailable() ? <Sparkles size={16} /> : <Zap size={16} />)}
                       </button>
                       <button className="p-2 hover:bg-white rounded-lg text-zinc-400 hover:text-zinc-900 transition-all">
                         <MoreVertical size={16} />
@@ -584,12 +603,16 @@ export default function Payments() {
                     }`}>
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
-                          <Sparkles size={16} className={
+                          {isAIAvailable() ? <Sparkles size={16} className={
                             selectedPayment.riskAI.riskLevel === 'high' ? 'text-rose-600' :
                             selectedPayment.riskAI.riskLevel === 'medium' ? 'text-amber-600' :
                             'text-emerald-600'
-                          } />
-                          <span className="text-xs font-bold uppercase tracking-wider">AI Risk Assessment</span>
+                          } /> : <Zap size={16} className={
+                            selectedPayment.riskAI.riskLevel === 'high' ? 'text-rose-600' :
+                            selectedPayment.riskAI.riskLevel === 'medium' ? 'text-amber-600' :
+                            'text-emerald-600'
+                          } />}
+                          <span className="text-xs font-bold uppercase tracking-wider">{isAIAvailable() ? 'AI Risk Assessment' : 'Smart Risk Assessment'}</span>
                         </div>
                         <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
                           selectedPayment.riskAI.riskLevel === 'high' ? 'bg-rose-100 text-rose-700' :

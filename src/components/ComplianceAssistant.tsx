@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageSquare, Send, X, Bot, Sparkles, FileText, ShieldCheck } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
+import { handleAIError, generateAIContent, isAIAvailable } from '../lib/ai';
 import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
 
@@ -66,8 +66,46 @@ export default function ComplianceAssistant() {
     setIsLoading(true);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
-      const response = await ai.models.generateContent({
+      if (!isAIAvailable()) {
+        // Rule-based fallback
+        let assistantMessage = "I'm currently operating in Smart Mode (AI offline). I can still help with standard compliance information.";
+        
+        const lowerText = messageToSend.toLowerCase();
+        if (lowerText.includes('apeda')) {
+          assistantMessage = `### APEDA Compliance Checklist for Spices
+- **Registration**: Ensure your RCMC (Registration Cum Membership Certificate) is active.
+- **Quality Standards**: Spices must meet Agmark or FSSAI standards as per the destination country requirements.
+- **Packaging**: Use food-grade packaging with proper labeling (HS Code, Batch No, Date of Packing).
+- **Testing**: Mandatory testing for pesticide residues (e.g., Ethylene Oxide for EU/UK).`;
+        } else if (lowerText.includes('phytosanitary')) {
+          assistantMessage = `### Draft Phytosanitary Certificate Information
+To obtain a Phytosanitary Certificate for **Cardamom** or other spices:
+1. **Application**: Apply via the Plant Quarantine Information Management System (PQIS).
+2. **Inspection**: Arrange for physical inspection of the consignment by a Plant Quarantine Officer.
+3. **Treatment**: Fumigation may be required (e.g., Methyl Bromide) depending on the destination.
+4. **Validity**: Usually valid for 30 days from the date of issue.`;
+        } else if (lowerText.includes('origin')) {
+          assistantMessage = `### Certificate of Origin (CoO) Guide
+For exports from Kerala:
+- **Issuing Authority**: Spices Board of India or Chamber of Commerce.
+- **Type**: Preferential (for countries with FTA like UAE) or Non-Preferential.
+- **Requirement**: Necessary to prove the goods were produced in India to avail duty benefits.`;
+        } else if (lowerText.includes('invoice')) {
+          assistantMessage = `### Commercial Invoice Template
+Your commercial invoice should include:
+- **Exporter/Importer Details**: Full names and addresses.
+- **HS Codes**: e.g., 0904.11 (Black Pepper), 0908.31 (Cardamom).
+- **Incoterms**: Clearly state (e.g., FOB Kochi, CIF Dubai).
+- **Payment Terms**: e.g., 100% LC at sight.
+- **Declaration**: "We declare that this invoice shows the actual price of the goods described."`;
+        }
+
+        setMessages(prev => [...prev, { role: 'model', content: assistantMessage }]);
+        setIsLoading(false);
+        return;
+      }
+
+      const response = await generateAIContent('Compliance Assistant', {
         model: "gemini-3-flash-preview",
         contents: newMessages.map(m => ({
           role: m.role,
@@ -85,9 +123,8 @@ export default function ComplianceAssistant() {
         // In a real app, we'd use TTS here
         console.log('Speaking:', assistantMessage);
       }
-    } catch (error) {
-      console.error('AI Error:', error);
-      setMessages(prev => [...prev, { role: 'model', content: "Sorry, I encountered an error. Please check your API key or try again later." }]);
+    } catch (error: any) {
+      setMessages(prev => [...prev, { role: 'model', content: handleAIError(error) }]);
     } finally {
       setIsLoading(false);
     }
@@ -138,10 +175,12 @@ export default function ComplianceAssistant() {
                   <Bot size={18} className="text-white" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold">Compliance AI</h3>
+                  <h3 className="text-sm font-bold">
+                    {isAIAvailable() ? 'Compliance AI' : 'Smart Compliance'}
+                  </h3>
                   <div className="flex items-center gap-1">
-                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                    <span className="text-[10px] text-zinc-400">Online</span>
+                    <div className={`w-1.5 h-1.5 ${isAIAvailable() ? 'bg-emerald-500' : 'bg-amber-500'} rounded-full animate-pulse`} />
+                    <span className="text-[10px] text-zinc-400">{isAIAvailable() ? 'Online' : 'Smart Mode'}</span>
                   </div>
                 </div>
               </div>
@@ -234,7 +273,7 @@ export default function ComplianceAssistant() {
               </div>
               <p className="text-[10px] text-zinc-400 mt-2 text-center flex items-center justify-center gap-1">
                 <Sparkles size={10} />
-                Powered by Gemini AI
+                {isAIAvailable() ? 'Powered by Gemini AI' : 'Powered by Smart Rules'}
               </p>
             </div>
           </motion.div>

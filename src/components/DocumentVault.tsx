@@ -27,17 +27,16 @@ import {
   Square,
   ChevronDown
 } from 'lucide-react';
-import { Document } from '../lib/types.ts';
+import { Document, GeneratedDocument } from '../lib/types.ts';
 import Modal from './Modal.tsx';
-import { subscribeToCollection, createDocument, updateDocument, deleteDocument } from '../services/db';
+import { subscribeToCollection, createDocument, updateDocument, deleteDocument, db, handleFirestoreError, OperationType } from '../services/db';
 import { formatDate } from '../lib/utils';
 import { useAuth } from './Auth.tsx';
-import { Timestamp } from 'firebase/firestore';
+import { Timestamp, collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
 import DocumentParser from './DocumentParser.tsx';
 import { motion, AnimatePresence } from 'motion/react';
-import { GoogleGenAI } from '@google/genai';
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+import { handleAIError, generateAIContent } from '../lib/ai';
+import { Printer } from 'lucide-react';
 const typeLabels: Record<string, string> = {
   proformaInvoice: 'Proforma Invoice',
   commercialInvoice: 'Commercial Invoice',
@@ -61,6 +60,10 @@ export default function DocumentVault() {
   const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
   const [analyzingDoc, setAnalyzingDoc] = useState<string | null>(null);
   const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
+  const [activeTab, setActiveTab] = useState<'vault' | 'generated'>('vault');
+  const [generatedDocs, setGeneratedDocs] = useState<GeneratedDocument[]>([]);
+  const [loadingGenerated, setLoadingGenerated] = useState(false);
+  const [previewDoc, setPreviewDoc] = useState<GeneratedDocument | null>(null);
 
   const [newDoc, setNewDoc] = useState<Partial<Document>>({
     name: '',
@@ -91,6 +94,28 @@ export default function DocumentVault() {
 
     return () => unsubscribe();
   }, [profile, documents.length]);
+
+  useEffect(() => {
+    if (!profile?.organization || activeTab !== 'generated') return;
+
+    setLoadingGenerated(true);
+    const q = query(
+      collection(db, 'generated_documents'),
+      where('organization', '==', profile.organization),
+      orderBy('generatedAt', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as GeneratedDocument));
+      setGeneratedDocs(docs);
+      setLoadingGenerated(false);
+    }, (error) => {
+      setLoadingGenerated(false);
+      handleFirestoreError(error, OperationType.LIST, 'generated_documents');
+    });
+
+    return () => unsubscribe();
+  }, [profile, activeTab]);
 
   const totalStorage = documents.reduce((sum, doc) => sum + (doc.size || 0), 0);
   const storageLimit = 100 * 1024 * 1024; // 100MB
@@ -155,7 +180,7 @@ export default function DocumentVault() {
       Provide a compliance analysis for an export/logistics company.
       Return a JSON object with: complianceStatus ('verified', 'flagged', 'incomplete'), score (0-100), keyFindings (array of strings), and summary (max 50 words).`;
 
-      const response = await ai.models.generateContent({
+      const response = await generateAIContent('Document Compliance Analysis', {
         model,
         contents: [{ parts: [{ text: prompt }] }],
         config: { responseMimeType: 'application/json' }
@@ -169,8 +194,8 @@ export default function DocumentVault() {
       if (selectedDoc?.id === doc.id) {
         setSelectedDoc({ ...selectedDoc, analysisAI: analysis, status: analysis.complianceStatus === 'verified' ? 'verified' : 'pending' });
       }
-    } catch (error) {
-      console.error('Document analysis error:', error);
+    } catch (error: any) {
+      alert(handleAIError(error));
     } finally {
       setAnalyzingDoc(null);
     }
@@ -198,7 +223,7 @@ export default function DocumentVault() {
         const base64Data = (reader.result as string).split(',')[1];
         
         const prompt = "Extract key trade information from this document image. Return JSON with: consignee, vesselName, totalWeight, invoiceNumber, date.";
-        const response = await ai.models.generateContent({
+        const response = await generateAIContent('Smart Extract', {
           model: 'gemini-3-flash-preview',
           contents: [{
             parts: [
@@ -220,9 +245,8 @@ export default function DocumentVault() {
         });
         setIsModalOpen(true);
       };
-    } catch (error) {
-      console.error('Extraction error:', error);
-      alert('Failed to extract data. Please try again.');
+    } catch (error: any) {
+      alert(handleAIError(error));
     } finally {
       setIsSubmitting(false);
     }
@@ -231,6 +255,26 @@ export default function DocumentVault() {
   const handleBulkExport = () => {
     if (selectedDocIds.length === 0) return;
     window.print();
+  };
+
+  const handlePrintGenerated = (html: string) => {
+    const printArea = document.getElementById('print-area');
+    if (printArea) {
+      printArea.innerHTML = html;
+      window.print();
+    }
+  };
+
+  const handleDownloadGenerated = (doc: GeneratedDocument) => {
+    const blob = new Blob([doc.htmlContent], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${doc.documentType}_${doc.orderId}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const filteredDocs = documents.filter(doc => {
@@ -284,6 +328,30 @@ export default function DocumentVault() {
           </button>
         </div>
       </header>
+
+      {/* Tabs */}
+      <div className="flex items-center gap-1 bg-zinc-100 p-1 rounded-xl w-fit">
+        <button
+          onClick={() => setActiveTab('vault')}
+          className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${
+            activeTab === 'vault' 
+              ? 'bg-white text-zinc-900 shadow-sm' 
+              : 'text-zinc-500 hover:text-zinc-700'
+          }`}
+        >
+          Uploaded Vault
+        </button>
+        <button
+          onClick={() => setActiveTab('generated')}
+          className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${
+            activeTab === 'generated' 
+              ? 'bg-white text-zinc-900 shadow-sm' 
+              : 'text-zinc-500 hover:text-zinc-700'
+          }`}
+        >
+          Generated Documents
+        </button>
+      </div>
 
       {/* Vault Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -354,138 +422,223 @@ export default function DocumentVault() {
           </div>
 
           <div className="bg-white rounded-3xl border border-zinc-200 shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-zinc-50 border-b border-zinc-200">
-                    <th className="w-12 px-6 py-4">
-                      <input 
-                        type="checkbox" 
-                        checked={selectedDocIds.length === filteredDocs.length && filteredDocs.length > 0}
-                        onChange={() => {
-                          if (selectedDocIds.length === filteredDocs.length) setSelectedDocIds([]);
-                          else setSelectedDocIds(filteredDocs.map(d => d.id));
-                        }}
-                        className="rounded border-zinc-300 text-zinc-900 focus:ring-emerald-500"
-                      />
-                    </th>
-                    <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Document</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Category</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Order Ref</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Security Status</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Timeline</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-100">
-                  {loading ? (
-                    <tr>
-                      <td colSpan={6} className="px-6 py-12 text-center">
-                        <RefreshCw className="animate-spin mx-auto text-zinc-400 mb-2" size={24} />
-                        <p className="text-sm text-zinc-500 font-bold">Accessing Vault...</p>
-                      </td>
+            {activeTab === 'vault' ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-zinc-50 border-b border-zinc-200">
+                      <th className="w-12 px-6 py-4">
+                        <input 
+                          type="checkbox" 
+                          checked={selectedDocIds.length === filteredDocs.length && filteredDocs.length > 0}
+                          onChange={() => {
+                            if (selectedDocIds.length === filteredDocs.length) setSelectedDocIds([]);
+                            else setSelectedDocIds(filteredDocs.map(d => d.id));
+                          }}
+                          className="rounded border-zinc-300 text-zinc-900 focus:ring-emerald-500"
+                        />
+                      </th>
+                      <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Document</th>
+                      <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Category</th>
+                      <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Order Ref</th>
+                      <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Security Status</th>
+                      <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Timeline</th>
+                      <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest"></th>
                     </tr>
-                  ) : filteredDocs.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="px-6 py-12 text-center">
-                        <p className="text-zinc-400 text-sm font-bold">No documents found in this section</p>
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredDocs.map((doc) => (
-                      <tr key={doc.id} className="hover:bg-zinc-50/50 transition-colors group cursor-pointer" onClick={() => setSelectedDoc(doc)}>
-                        <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
-                          <input 
-                            type="checkbox" 
-                            checked={selectedDocIds.includes(doc.id)}
-                            onChange={() => {
-                              setSelectedDocIds(prev => 
-                                prev.includes(doc.id) ? prev.filter(i => i !== doc.id) : [...prev, doc.id]
-                              );
-                            }}
-                            className="rounded border-zinc-300 text-zinc-900 focus:ring-emerald-500"
-                          />
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className="p-2.5 bg-zinc-100 rounded-xl text-zinc-500 group-hover:bg-emerald-100 group-hover:text-emerald-600 transition-all">
-                              <FileText size={20} />
-                            </div>
-                            <div>
-                              <span className="text-sm font-black text-zinc-900 block">{doc.name}</span>
-                              <span className="text-[10px] text-zinc-400 uppercase font-bold">Encrypted Storage</span>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="text-xs font-bold text-zinc-600 bg-zinc-100 px-2 py-1 rounded-md">
-                            {typeLabels[doc.type] || doc.type}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          {doc.relatedOrderId ? (
-                            <div className="flex items-center gap-1.5 text-emerald-600 font-black text-xs">
-                              <span>#{doc.relatedOrderId}</span>
-                              <ExternalLink size={12} />
-                            </div>
-                          ) : (
-                            <span className="text-xs text-zinc-400">—</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            {doc.status === 'finalized' && <CheckCircle2 size={16} className="text-emerald-500" />}
-                            {doc.status === 'verified' && <FileCheck2 size={16} className="text-blue-500" />}
-                            {doc.status === 'uploaded' && <Clock size={16} className="text-amber-500" />}
-                            {doc.status === 'pending' && <AlertCircle size={16} className="text-rose-500" />}
-                            <span className={`text-[10px] font-black uppercase tracking-wider ${
-                              doc.status === 'finalized' ? 'text-emerald-700' :
-                              doc.status === 'verified' ? 'text-blue-700' :
-                              doc.status === 'uploaded' ? 'text-amber-700' :
-                              'text-rose-700'
-                            }`}>
-                              {doc.status}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex flex-col">
-                            <span className="text-xs font-bold text-zinc-900">
-                              {formatDate(doc.uploadedAt)}
-                            </span>
-                            <span className="text-[10px] text-zinc-400 font-bold uppercase">by {doc.uploadedBy}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                analyzeDocument(doc);
-                              }}
-                              disabled={analyzingDoc === doc.id}
-                              className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all disabled:opacity-50"
-                              title="AI Compliance Analysis"
-                            >
-                              {analyzingDoc === doc.id ? <RefreshCw size={18} className="animate-spin" /> : <Zap size={18} />}
-                            </button>
-                            <button className="p-2 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-all">
-                              <Download size={18} />
-                            </button>
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); handleDelete(doc.id); }}
-                              className="p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
-                            >
-                              <Trash2 size={18} />
-                            </button>
-                          </div>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-100">
+                    {loading ? (
+                      <tr>
+                        <td colSpan={6} className="px-6 py-12 text-center">
+                          <RefreshCw className="animate-spin mx-auto text-zinc-400 mb-2" size={24} />
+                          <p className="text-sm text-zinc-500 font-bold">Accessing Vault...</p>
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                    ) : filteredDocs.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="px-6 py-12 text-center">
+                          <p className="text-zinc-400 text-sm font-bold">No documents found in this section</p>
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredDocs.map((doc) => (
+                        <tr key={doc.id} className="hover:bg-zinc-50/50 transition-colors group cursor-pointer" onClick={() => setSelectedDoc(doc)}>
+                          <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                            <input 
+                              type="checkbox" 
+                              checked={selectedDocIds.includes(doc.id)}
+                              onChange={() => {
+                                setSelectedDocIds(prev => 
+                                  prev.includes(doc.id) ? prev.filter(i => i !== doc.id) : [...prev, doc.id]
+                                );
+                              }}
+                              className="rounded border-zinc-300 text-zinc-900 focus:ring-emerald-500"
+                            />
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="p-2.5 bg-zinc-100 rounded-xl text-zinc-500 group-hover:bg-emerald-100 group-hover:text-emerald-600 transition-all">
+                                <FileText size={20} />
+                              </div>
+                              <div>
+                                <span className="text-sm font-black text-zinc-900 block">{doc.name}</span>
+                                <span className="text-[10px] text-zinc-400 uppercase font-bold">Encrypted Storage</span>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="text-xs font-bold text-zinc-600 bg-zinc-100 px-2 py-1 rounded-md">
+                              {typeLabels[doc.type] || doc.type}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            {doc.relatedOrderId ? (
+                              <div className="flex items-center gap-1.5 text-emerald-600 font-black text-xs">
+                                <span>#{doc.relatedOrderId}</span>
+                                <ExternalLink size={12} />
+                              </div>
+                            ) : (
+                              <span className="text-xs text-zinc-400">—</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2">
+                              {doc.status === 'finalized' && <CheckCircle2 size={16} className="text-emerald-500" />}
+                              {doc.status === 'verified' && <FileCheck2 size={16} className="text-blue-500" />}
+                              {doc.status === 'uploaded' && <Clock size={16} className="text-amber-500" />}
+                              {doc.status === 'pending' && <AlertCircle size={16} className="text-rose-500" />}
+                              <span className={`text-[10px] font-black uppercase tracking-wider ${
+                                doc.status === 'finalized' ? 'text-emerald-700' :
+                                doc.status === 'verified' ? 'text-blue-700' :
+                                doc.status === 'uploaded' ? 'text-amber-700' :
+                                'text-rose-700'
+                              }`}>
+                                {doc.status}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex flex-col">
+                              <span className="text-xs font-bold text-zinc-900">
+                                {formatDate(doc.uploadedAt)}
+                              </span>
+                              <span className="text-[10px] text-zinc-400 font-bold uppercase">by {doc.uploadedBy}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  analyzeDocument(doc);
+                                }}
+                                disabled={analyzingDoc === doc.id}
+                                className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all disabled:opacity-50"
+                                title="AI Compliance Analysis"
+                              >
+                                {analyzingDoc === doc.id ? <RefreshCw size={18} className="animate-spin" /> : <Zap size={18} />}
+                              </button>
+                              <button className="p-2 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-all">
+                                <Download size={18} />
+                              </button>
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); handleDelete(doc.id); }}
+                                className="p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                              >
+                                <Trash2 size={18} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-zinc-50 border-b border-zinc-200">
+                      <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Document Type</th>
+                      <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Order Ref</th>
+                      <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Generated At</th>
+                      <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Generated By</th>
+                      <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Status</th>
+                      <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-100">
+                    {loadingGenerated ? (
+                      <tr>
+                        <td colSpan={6} className="px-6 py-12 text-center">
+                          <RefreshCw className="animate-spin mx-auto text-zinc-400 mb-2" size={24} />
+                          <p className="text-sm text-zinc-500 font-bold">Loading Generated Documents...</p>
+                        </td>
+                      </tr>
+                    ) : generatedDocs.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="px-6 py-12 text-center">
+                          <p className="text-zinc-400 text-sm font-bold">No generated documents found</p>
+                        </td>
+                      </tr>
+                    ) : (
+                      generatedDocs.map((doc) => (
+                        <tr key={doc.id} className="hover:bg-zinc-50/50 transition-colors group">
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl">
+                                <FileCheck2 size={20} />
+                              </div>
+                              <span className="text-sm font-black text-zinc-900">{doc.documentType.replace(/([A-Z])/g, ' $1').trim()}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="text-xs font-black text-emerald-600">#{doc.orderId}</span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="text-xs font-bold text-zinc-900">{formatDate(doc.generatedAt)}</span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="text-xs font-bold text-zinc-600">{doc.generatedBy}</span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="px-2 py-1 bg-emerald-100 text-emerald-700 text-[10px] font-black rounded-md uppercase">
+                              {doc.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <button 
+                                onClick={() => setPreviewDoc(doc)}
+                                className="p-2 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-all"
+                                title="Preview"
+                              >
+                                <Eye size={18} />
+                              </button>
+                              <button 
+                                onClick={() => handlePrintGenerated(doc.htmlContent)}
+                                className="p-2 text-zinc-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+                                title="Print"
+                              >
+                                <Printer size={18} />
+                              </button>
+                              <button 
+                                onClick={() => handleDownloadGenerated(doc)}
+                                className="p-2 text-zinc-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                                title="Download"
+                              >
+                                <Download size={18} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
 
@@ -632,6 +785,36 @@ export default function DocumentVault() {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* Preview Modal for Generated Docs */}
+      <Modal
+        isOpen={!!previewDoc}
+        onClose={() => setPreviewDoc(null)}
+        title={`Preview: ${previewDoc?.documentType.replace(/([A-Z])/g, ' $1').trim()}`}
+      >
+        <div className="space-y-6">
+          <div className="flex items-center justify-end gap-3 mb-4">
+            <button 
+              onClick={() => previewDoc && handlePrintGenerated(previewDoc.htmlContent)}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold hover:bg-emerald-700 transition-colors"
+            >
+              <Printer size={18} />
+              Print / PDF
+            </button>
+            <button 
+              onClick={() => previewDoc && handleDownloadGenerated(previewDoc)}
+              className="flex items-center gap-2 px-4 py-2 bg-zinc-100 text-zinc-900 rounded-lg text-sm font-bold hover:bg-zinc-200 transition-colors"
+            >
+              <Download size={18} />
+              Download HTML
+            </button>
+          </div>
+          <div 
+            className="bg-white border border-zinc-200 rounded-xl p-8 overflow-auto max-h-[70vh] shadow-inner"
+            dangerouslySetInnerHTML={{ __html: previewDoc?.htmlContent || '' }}
+          />
+        </div>
       </Modal>
 
       {/* Document Detail Sidebar/Modal */}

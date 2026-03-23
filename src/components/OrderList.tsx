@@ -31,11 +31,8 @@ import { useAuth } from './Auth.tsx';
 import { Timestamp } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
-import { GoogleGenAI } from '@google/genai';
-
+import { handleAIError, generateAIContent } from '../lib/ai';
 import { WhatsAppService } from '../services/whatsapp';
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
 export default function OrderList() {
   const { profile } = useAuth();
@@ -228,7 +225,7 @@ export default function OrderList() {
       Consider typical export regulations for spices from India to ${order.destinationCountry}.
       Return a JSON object with: status ('compliant', 'warning', 'critical'), score (0-100), and missingDocs (array of strings), and recommendation (max 50 words).`;
 
-      const response = await ai.models.generateContent({
+      const response = await generateAIContent('Compliance Check', {
         model,
         contents: [{ parts: [{ text: prompt }] }],
         config: { responseMimeType: 'application/json' }
@@ -236,8 +233,8 @@ export default function OrderList() {
 
       const compliance = JSON.parse(response.text || '{}');
       await updateDocument('orders', order.id, { complianceAI: compliance });
-    } catch (error) {
-      console.error('Compliance check error:', error);
+    } catch (error: any) {
+      alert(handleAIError(error));
     } finally {
       setCheckingCompliance(null);
     }

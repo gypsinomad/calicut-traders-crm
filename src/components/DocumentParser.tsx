@@ -8,9 +8,7 @@ import {
   Loader2,
   ArrowRight
 } from 'lucide-react';
-import { GoogleGenAI } from '@google/genai';
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+import { handleAIError, generateAIContent, isAIAvailable } from '../lib/ai';
 
 export default function DocumentParser() {
   const [file, setFile] = useState<File | null>(null);
@@ -28,6 +26,27 @@ export default function DocumentParser() {
 
   const parseDocument = async () => {
     if (!file) return;
+
+    if (!isAIAvailable()) {
+      // Rule-based fallback: Show a manual entry form or mock extraction
+      setParsing(true);
+      setTimeout(() => {
+        setResult({
+          documentType: 'Manual Entry Required',
+          documentNumber: 'PENDING',
+          date: new Date().toISOString().split('T')[0],
+          totalAmount: 0,
+          currency: 'USD',
+          exporter: 'Calicut Spice Traders LLP',
+          importer: 'Unknown',
+          items: []
+        });
+        setParsing(false);
+        setError('AI parsing is currently unavailable. Please enter details manually.');
+      }, 1500);
+      return;
+    }
+
     setParsing(true);
     setError(null);
 
@@ -47,7 +66,7 @@ export default function DocumentParser() {
       Return a JSON object with fields like: documentType, documentNumber, date, totalAmount, currency, exporter, importer, and a list of items (name, quantity, weight).
       If a field is not found, leave it null.`;
 
-      const response = await ai.models.generateContent({
+      const response = await generateAIContent('Smart Extract', {
         model,
         contents: [
           {
@@ -69,9 +88,8 @@ export default function DocumentParser() {
 
       const parsedData = JSON.parse(response.text);
       setResult(parsedData);
-    } catch (err) {
-      console.error('Parsing error:', err);
-      setError('Failed to parse document. Please ensure it is a clear image or PDF.');
+    } catch (err: any) {
+      setError(handleAIError(err));
     } finally {
       setParsing(false);
     }
@@ -85,8 +103,12 @@ export default function DocumentParser() {
             <Sparkles size={20} />
           </div>
           <div>
-            <h3 className="font-bold text-zinc-900">AI Document Parser</h3>
-            <p className="text-xs text-zinc-500">Extract data from invoices and certificates automatically</p>
+            <h3 className="font-bold text-zinc-900">
+              {isAIAvailable() ? 'AI Document Parser' : 'Smart Document Assistant'}
+            </h3>
+            <p className="text-xs text-zinc-500">
+              {isAIAvailable() ? 'Extract data from invoices and certificates automatically' : 'Upload and manually verify document details'}
+            </p>
           </div>
         </div>
       </div>
@@ -118,12 +140,12 @@ export default function DocumentParser() {
               {parsing ? (
                 <>
                   <Loader2 className="animate-spin" size={20} />
-                  Analyzing Document...
+                  {isAIAvailable() ? 'Analyzing Document...' : 'Preparing Manual Entry...'}
                 </>
               ) : (
                 <>
-                  <Sparkles size={20} />
-                  Extract Data
+                  {isAIAvailable() ? <Sparkles size={20} /> : <FileText size={20} />}
+                  {isAIAvailable() ? 'Extract Data' : 'Process Document'}
                 </>
               )}
             </button>
@@ -133,10 +155,12 @@ export default function DocumentParser() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-emerald-600">
                 <CheckCircle2 size={20} />
-                <span className="text-sm font-bold uppercase tracking-wider">Extraction Complete</span>
+                <span className="text-sm font-bold uppercase tracking-wider">
+                  {isAIAvailable() ? 'Extraction Complete' : 'Ready for Manual Entry'}
+                </span>
               </div>
               <button 
-                onClick={() => {setResult(null); setFile(null);}}
+                onClick={() => {setResult(null); setFile(null); setError(null);}}
                 className="text-xs text-zinc-500 hover:text-zinc-900 underline"
               >
                 Upload New
@@ -184,7 +208,7 @@ export default function DocumentParser() {
         )}
 
         {error && (
-          <div className="flex items-center gap-2 p-4 bg-rose-50 text-rose-600 rounded-xl border border-rose-100 text-sm">
+          <div className={`flex items-center gap-2 p-4 ${isAIAvailable() ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-amber-50 text-amber-600 border-amber-100'} rounded-xl border text-sm`}>
             <AlertCircle size={18} />
             {error}
           </div>

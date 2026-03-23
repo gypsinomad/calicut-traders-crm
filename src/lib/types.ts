@@ -77,6 +77,7 @@ export interface ExportOrder {
   docsTotal: number;
   items: any[];
   documents: any[];
+  documentChecklist?: Record<string, boolean>;
   iceGateStatus?: string;
   etd?: Timestamp;
   eta?: Timestamp;
@@ -207,18 +208,33 @@ export interface SystemHealth {
 export interface Quote {
   id: string;
   quoteNumber: string;
-  leadId: string;
-  companyId: string;
+  leadId?: string;
+  companyId?: string;
   companyName?: string;
+  contactName?: string;
+  email?: string;
+  phone?: string;
+  whatsappNumber?: string;
   destinationCountry?: string;
   items: QuoteItem[];
+  subtotal: number;
+  freightEstimate: number;
+  insurance: number;
   totalAmount: number;
   currency: string;
+  incoterms: string;
+  paymentTerms: string;
+  packaging: string;
+  portOfLoading: string;
   validUntil: Timestamp;
   status: 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired' | 'converted';
   createdAt: Timestamp;
   createdBy: string;
   organization: string;
+  specialNotes?: string;
+  sentAt?: Timestamp;
+  sentVia?: 'email' | 'whatsapp';
+  orderId?: string;
 }
 
 export interface QuoteItem {
@@ -290,17 +306,42 @@ export interface Notification {
 export type DocType = 
   | 'proformaInvoice' 
   | 'commercialInvoice' 
-  | 'contract' 
   | 'packingList' 
   | 'billOfLading' 
-  | 'coo' 
-  | 'fssai' 
-  | 'apeda' 
-  | 'phytoCertificate'
-  | 'invoice'
-  | 'certificate_of_origin'
-  | 'phytosanitary'
+  | 'certificateOfOrigin' 
+  | 'phytosanitaryCertificate' 
+  | 'fssaiDeclaration' 
+  | 'shippingBill' 
+  | 'gstInvoice' 
+  | 'lcUtilization' 
+  | 'qualityCertificate' 
+  | 'fumigationCertificate'
+  | 'contract'
+  | 'apeda'
   | 'other';
+
+export interface GeneratedDocument {
+  id: string;
+  orderId: string;
+  documentType: DocType;
+  generatedAt: Timestamp;
+  generatedBy: string;
+  htmlContent: string;
+  status: 'draft' | 'finalized';
+  organization: string;
+}
+
+export interface SendHistory {
+  id: string;
+  documentId?: string;
+  quoteId?: string;
+  sentTo: string;
+  sentVia: 'email' | 'whatsapp';
+  sentAt: Timestamp;
+  sentBy: string;
+  messageBody: string;
+  organization: string;
+}
 
 export interface Document {
   id: string;

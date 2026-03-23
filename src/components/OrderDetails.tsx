@@ -16,16 +16,22 @@ import {
   Download,
   RefreshCw,
   Save,
-  X
+  X,
+  Send
 } from 'lucide-react';
 import { ExportOrder } from '../lib/types.ts';
 import { getStatusColor, formatDate, formatCurrency } from '../lib/utils';
 import { updateDocument } from '../services/db';
 import Modal from './Modal.tsx';
+import DocumentGenerator from './DocumentGenerator.tsx';
+import { AnimatePresence, motion } from 'motion/react';
+import SendToBuyerDialog from './SendToBuyerDialog';
 
 export default function OrderDetails({ order, onBack }: { order: ExportOrder, onBack: () => void }) {
   const [updating, setUpdating] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDocGenOpen, setIsDocGenOpen] = useState(false);
+  const [isSendDocsOpen, setIsSendDocsOpen] = useState(false);
   const [editedOrder, setEditedOrder] = useState<Partial<ExportOrder>>(order);
 
   const handleEditSave = async (e: React.FormEvent) => {
@@ -119,8 +125,19 @@ export default function OrderDetails({ order, onBack }: { order: ExportOrder, on
           >
             Edit Order
           </button>
-          <button className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors">
-            Generate Invoice
+          <button 
+            onClick={() => setIsSendDocsOpen(true)}
+            className="px-4 py-2 bg-white border border-zinc-200 rounded-lg text-sm font-medium text-zinc-600 hover:bg-zinc-50 transition-colors flex items-center gap-2"
+          >
+            <Send size={16} className="text-emerald-600" />
+            Send Documents
+          </button>
+          <button 
+            onClick={() => setIsDocGenOpen(true)}
+            className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors flex items-center gap-2"
+          >
+            <FileText size={16} />
+            Generate Documents
           </button>
         </div>
       </header>
@@ -303,8 +320,11 @@ export default function OrderDetails({ order, onBack }: { order: ExportOrder, on
           <section className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-bold text-zinc-900">Required Documents</h3>
-              <button className="text-sm font-medium text-emerald-600 hover:text-emerald-700 transition-colors">
-                Manage All
+              <button 
+                onClick={() => setIsDocGenOpen(true)}
+                className="text-sm font-medium text-emerald-600 hover:text-emerald-700 transition-colors"
+              >
+                Manage & Generate
               </button>
             </div>
             <div className="space-y-3">
@@ -489,6 +509,52 @@ export default function OrderDetails({ order, onBack }: { order: ExportOrder, on
           </div>
         </form>
       </Modal>
+
+      {/* Document Generator Modal */}
+      <AnimatePresence>
+        {isDocGenOpen && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsDocGenOpen(false)}
+              className="absolute inset-0 bg-zinc-900/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="relative w-full max-w-6xl max-h-[90vh] bg-zinc-50 rounded-3xl shadow-2xl overflow-hidden flex flex-col"
+            >
+              <div className="p-6 bg-white border-b border-zinc-200 flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-black text-zinc-900">Document Generation Center</h3>
+                  <p className="text-sm text-zinc-500">Order: {order.orderNumber} · {order.customerName}</p>
+                </div>
+                <button 
+                  onClick={() => setIsDocGenOpen(false)}
+                  className="p-2 hover:bg-zinc-100 rounded-full text-zinc-400 hover:text-zinc-900 transition-colors"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-6">
+                <DocumentGenerator order={order} />
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {isSendDocsOpen && (
+        <SendToBuyerDialog
+          isOpen={isSendDocsOpen}
+          onClose={() => setIsSendDocsOpen(false)}
+          order={order}
+          onSent={() => setIsSendDocsOpen(false)}
+        />
+      )}
     </div>
   );
 }

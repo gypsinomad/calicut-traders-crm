@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { generateAIContent } from "../lib/ai";
 
 export type Language = 'en' | 'ar' | 'sw' | 'ml';
 
@@ -36,14 +36,13 @@ class TranslationService {
     }
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
       const model = "gemini-3-flash-preview";
       
       const prompt = `Translate the following text to ${this.getLanguageName(targetLang)}. 
       Return ONLY the translated text, no explanations or extra characters.
       Text: "${text}"`;
 
-      const response = await ai.models.generateContent({
+      const response = await generateAIContent('Translation Service', {
         model,
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
       });

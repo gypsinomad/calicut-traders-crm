@@ -28,10 +28,8 @@ import { subscribeToCollection, createDocument, updateDocument, deleteDocument, 
 import { ShipmentException, ExportOrder } from '../lib/types';
 import { useAuth } from './Auth';
 import { formatDate } from '../lib/utils';
-import { Timestamp } from 'firebase/firestore';
-import { GoogleGenAI } from '@google/genai';
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+import { Timestamp, serverTimestamp } from 'firebase/firestore';
+import { handleAIError, generateAIContent, isAIAvailable } from '../lib/ai';
 
 export default function Exceptions() {
   const { profile } = useAuth();
@@ -113,6 +111,30 @@ export default function Exceptions() {
 
   const suggestResolution = async (exception: ShipmentException) => {
     setSuggestingResolution(exception.id);
+
+    if (!isAIAvailable()) {
+      // Rule-based fallback for resolution suggestion
+      const suggestion = {
+        steps: [
+          "Contact the local shipping agent for an immediate status update.",
+          "Notify the customer about the potential delay and provide a revised ETA.",
+          "Prepare alternative documentation if customs clearance is the bottleneck.",
+          "Check for insurance coverage if damage is reported."
+        ],
+        estimatedTime: "24-48 hours",
+        priority: (exception.severity === 'critical' ? 'high' : 'medium') as "high" | "medium" | "low",
+        summary: `Standard resolution protocol for ${exception.type} exception. Focus on communication and documentation verification.`,
+        lastGenerated: serverTimestamp() as any
+      };
+
+      await updateDocument('shipment_exceptions', exception.id, { resolutionAI: suggestion });
+      if (selectedException?.id === exception.id) {
+        setSelectedException({ ...selectedException, resolutionAI: suggestion });
+      }
+      setSuggestingResolution(null);
+      return;
+    }
+
     try {
       const model = 'gemini-3-flash-preview';
       const prompt = `Suggest a resolution for this shipment exception:
@@ -124,7 +146,7 @@ export default function Exceptions() {
       Provide a professional resolution plan for an export/logistics company.
       Return a JSON object with: steps (array of strings), estimatedTime (string), and priority ('low', 'medium', 'high'), and summary (max 50 words).`;
 
-      const response = await ai.models.generateContent({
+      const response = await generateAIContent('Resolution Suggestion', {
         model,
         contents: [{ parts: [{ text: prompt }] }],
         config: { responseMimeType: 'application/json' }
@@ -135,8 +157,8 @@ export default function Exceptions() {
       if (selectedException?.id === exception.id) {
         setSelectedException({ ...selectedException, resolutionAI: suggestion });
       }
-    } catch (error) {
-      console.error('Resolution suggestion error:', error);
+    } catch (error: any) {
+      alert(handleAIError(error));
     } finally {
       setSuggestingResolution(null);
     }
@@ -379,9 +401,9 @@ export default function Exceptions() {
                         }}
                         disabled={suggestingResolution === exception.id}
                         className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-50"
-                        title="AI Resolution Suggestion"
+                        title={isAIAvailable() ? "AI Resolution Suggestion" : "Smart Resolution Suggestion"}
                       >
-                        {suggestingResolution === exception.id ? <RefreshCw size={16} className="animate-spin" /> : <Zap size={16} />}
+                        {suggestingResolution === exception.id ? <RefreshCw size={16} className="animate-spin" /> : (isAIAvailable() ? <Sparkles size={16} /> : <Zap size={16} />)}
                       </button>
                       <button className="p-2 hover:bg-white rounded-lg text-zinc-400 hover:text-zinc-900 transition-all">
                         <MoreVertical size={16} />
@@ -489,8 +511,8 @@ export default function Exceptions() {
                     <div className="p-6 bg-emerald-50 rounded-2xl border border-emerald-100">
                       <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-2">
-                          <Sparkles size={18} className="text-emerald-600" />
-                          <span className="text-xs font-bold uppercase tracking-wider text-emerald-900">AI Resolution Plan</span>
+                          {isAIAvailable() ? <Sparkles size={18} className="text-emerald-600" /> : <Zap size={18} className="text-emerald-600" />}
+                          <span className="text-xs font-bold uppercase tracking-wider text-emerald-900">{isAIAvailable() ? 'AI Resolution Plan' : 'Smart Resolution Plan'}</span>
                         </div>
                         <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full uppercase">
                           {selectedException.resolutionAI.priority} Priority

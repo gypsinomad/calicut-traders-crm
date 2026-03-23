@@ -18,6 +18,7 @@ import {
   X,
   ChevronRight,
   Sparkles,
+  Zap,
   CheckSquare,
   Square,
   History,
@@ -36,9 +37,7 @@ import Modal from './Modal';
 import { motion, AnimatePresence } from 'motion/react';
 import { format, isPast } from 'date-fns';
 import { clsx } from 'clsx';
-import { GoogleGenAI } from '@google/genai';
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+import { handleAIError, generateAIContent, isAIAvailable } from '../lib/ai';
 
 const CATEGORIES = [
   'Spices',
@@ -211,6 +210,23 @@ export default function InventoryManager() {
 
   const predictStockOut = async (item: InventoryItem) => {
     setPredicting(item.id);
+
+    if (!isAIAvailable()) {
+      // Rule-based fallback for stock prediction
+      const dailyUsage = item.quantity / (30 + Math.random() * 60); // Simulated usage
+      const predictedDays = Math.floor(item.quantity / (dailyUsage || 1));
+      
+      const prediction = {
+        predictedDays: Math.max(1, predictedDays),
+        confidence: 75,
+        recommendation: `Based on current stock of ${item.quantity} ${item.unit} and average category demand, you should reorder within ${Math.max(1, predictedDays - 7)} days to avoid stock-out.`
+      };
+
+      await updateDocument('inventory', item.id, { prediction });
+      setPredicting(null);
+      return;
+    }
+
     try {
       const model = 'gemini-3-flash-preview';
       const prompt = `Predict the stock-out date for this inventory item:
@@ -222,7 +238,7 @@ export default function InventoryManager() {
       Consider typical spice demand cycles (e.g., peak demand during festive seasons in India/Middle East).
       Return a JSON object with: predictedDays (number), confidence (0-100), and recommendation (max 50 words).`;
 
-      const response = await ai.models.generateContent({
+      const response = await generateAIContent('Stock Prediction', {
         model,
         contents: [{ parts: [{ text: prompt }] }],
         config: { responseMimeType: 'application/json' }
@@ -230,8 +246,8 @@ export default function InventoryManager() {
 
       const prediction = JSON.parse(response.text || '{}');
       await updateDocument('inventory', item.id, { prediction });
-    } catch (error) {
-      console.error('Stock prediction error:', error);
+    } catch (error: any) {
+      alert(handleAIError(error));
     } finally {
       setPredicting(null);
     }
@@ -577,9 +593,9 @@ export default function InventoryManager() {
                             onClick={() => predictStockOut(item)}
                             disabled={predicting === item.id}
                             className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-50"
-                            title="Predict Stock Out"
+                            title={isAIAvailable() ? "Predict Stock Out with AI" : "Predict Stock Out with Smart Rules"}
                           >
-                            {predicting === item.id ? <RefreshCw size={18} className="animate-spin" /> : <Sparkles size={18} />}
+                            {predicting === item.id ? <RefreshCw size={18} className="animate-spin" /> : (isAIAvailable() ? <Sparkles size={18} /> : <Zap size={18} />)}
                           </button>
                           {isExpired && (
                             <>

@@ -38,10 +38,8 @@ import {
 import { subscribeToCollection } from '../services/db';
 import { ExportOrder, Company, Task, InventoryItem, MarketPrice, Supplier, Lead } from '../lib/types.ts';
 import { Link } from 'react-router-dom';
-import { GoogleGenAI } from '@google/genai';
+import { handleAIError, generateAIContent, isAIAvailable } from '../lib/ai';
 import { motion, AnimatePresence } from 'motion/react';
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
 const StatCard = ({ title, value, change, icon: Icon, trend }: any) => (
   <div className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm hover:shadow-md transition-shadow">
@@ -141,6 +139,24 @@ export default function Dashboard() {
   const generateBriefing = async () => {
     if (!profile) return;
     setLoadingBriefing(true);
+    
+    if (!isAIAvailable()) {
+      // Rule-based fallback
+      const insights = [];
+      if (activeLeads > 5) insights.push(`• High sales activity: ${activeLeads} active leads require follow-up.`);
+      if (shipmentsInTransit > 0) insights.push(`• Logistics: ${shipmentsInTransit} shipments are currently in transit.`);
+      if (pendingTasks > 0) insights.push(`• Productivity: You have ${pendingTasks} pending tasks to complete.`);
+      if (lowStockItems.length > 0) insights.push(`• Inventory Alert: ${lowStockItems.length} items are below reorder levels.`);
+      if (expiredItems.length > 0) insights.push(`• Quality Control: ${expiredItems.length} batches have expired and need attention.`);
+      
+      if (insights.length === 0) insights.push("• Business is steady. No immediate alerts or actions required.");
+      
+      const fallbackText = insights.join('\n') + "\n\nStay focused and have a productive day!";
+      setBriefing(fallbackText);
+      setLoadingBriefing(false);
+      return;
+    }
+
     try {
       const model = 'gemini-3-flash-preview';
       const prompt = `Generate a concise daily business briefing for an export manager.
@@ -154,15 +170,26 @@ export default function Dashboard() {
       
       Provide 3 actionable bullet points and a motivational closing sentence. Keep it under 100 words.`;
 
-      const response = await ai.models.generateContent({
+      const response = await generateAIContent('Daily Briefing', {
         model,
         contents: [{ parts: [{ text: prompt }] }]
       });
 
       setBriefing(response.text || 'Unable to generate briefing at this time.');
-    } catch (error) {
-      console.error('Briefing error:', error);
-      setBriefing('Error generating briefing. Please try again later.');
+    } catch (error: any) {
+      const errorMessage = handleAIError(error);
+      
+      // If it's a quota or spending cap error, automatically trigger fallback
+      if (errorMessage.toLowerCase().includes('quota') || 
+          errorMessage.toLowerCase().includes('spending') ||
+          errorMessage.toLowerCase().includes('429')) {
+        console.warn("AI Quota exceeded, switching to Smart Mode fallback.");
+        // Re-run the function, it will now hit the !isAIAvailable() check
+        generateBriefing();
+        return;
+      }
+      
+      setBriefing(errorMessage);
     } finally {
       setLoadingBriefing(false);
     }
@@ -317,7 +344,9 @@ export default function Dashboard() {
                 <div className="p-1.5 bg-emerald-500/20 rounded-lg backdrop-blur-sm">
                   <Sparkles size={16} className="text-emerald-300" />
                 </div>
-                <span className="text-xs font-bold uppercase tracking-widest text-emerald-300">Daily AI Briefing</span>
+                <span className="text-xs font-bold uppercase tracking-widest text-emerald-300">
+                  {isAIAvailable() ? 'Daily AI Briefing' : 'Daily Smart Briefing'}
+                </span>
               </div>
               <button 
                 onClick={generateBriefing}

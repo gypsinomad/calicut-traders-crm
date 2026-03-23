@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Brain, TrendingUp, TrendingDown, Minus, RefreshCw, Lightbulb } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
+import { handleAIError, generateAIContent, isAIAvailable } from '../lib/ai';
 import { motion } from 'motion/react';
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
 interface Insight {
   commodity: string;
@@ -20,6 +18,46 @@ export default function MarketIntelligence() {
 
   const generateInsights = async () => {
     setLoading(true);
+
+    if (!isAIAvailable()) {
+      // Rule-based fallback
+      const fallbackInsights: Insight[] = [
+        {
+          commodity: 'Black Pepper',
+          trend: 'up',
+          summary: 'Global supply remains tight with reduced output from Vietnam. Indian domestic demand is picking up ahead of the festive season.',
+          recommendation: 'Consider securing inventory now before further price appreciation.',
+          riskLevel: 'medium'
+        },
+        {
+          commodity: 'Cardamom',
+          trend: 'down',
+          summary: 'Increased arrivals in Idukki auctions and favorable weather conditions suggest a surplus in the coming months.',
+          recommendation: 'Wait for further price correction before making bulk purchases.',
+          riskLevel: 'low'
+        },
+        {
+          commodity: 'Ginger',
+          trend: 'stable',
+          summary: 'Market arrivals are consistent with seasonal averages. Export demand from Middle East remains steady.',
+          recommendation: 'Maintain regular procurement cycles to satisfy existing export contracts.',
+          riskLevel: 'low'
+        },
+        {
+          commodity: 'Turmeric',
+          trend: 'up',
+          summary: 'Reduced acreage in major growing regions and strong demand for high-curcumin varieties are driving prices higher.',
+          recommendation: 'Focus on high-quality varieties to command premium export prices.',
+          riskLevel: 'medium'
+        }
+      ];
+
+      setInsights(fallbackInsights);
+      setLastUpdated(new Date());
+      setLoading(false);
+      return;
+    }
+
     try {
       const model = "gemini-3-flash-preview";
       const prompt = `Analyze the current global spice market (specifically Black Pepper, Cardamom, Ginger, Turmeric, and Cloves) for March 2026. 
@@ -33,7 +71,7 @@ export default function MarketIntelligence() {
       }
       Focus on supply chain disruptions, harvest reports in India and Vietnam, and demand trends in Europe and Middle East.`;
 
-      const response = await ai.models.generateContent({
+      const response = await generateAIContent('Market Intelligence', {
         model,
         contents: [{ parts: [{ text: prompt }] }],
         config: { responseMimeType: "application/json" }
@@ -42,8 +80,20 @@ export default function MarketIntelligence() {
       const data = JSON.parse(response.text || '[]');
       setInsights(data);
       setLastUpdated(new Date());
-    } catch (error) {
-      console.error("Error generating market insights:", error);
+    } catch (error: any) {
+      const errorMessage = handleAIError(error);
+      
+      // If it's a quota or spending cap error, automatically trigger fallback
+      if (errorMessage.toLowerCase().includes('quota') || 
+          errorMessage.toLowerCase().includes('spending') ||
+          errorMessage.toLowerCase().includes('429')) {
+        console.warn("AI Quota exceeded, switching to Smart Mode fallback.");
+        // Re-run the function, it will now hit the !isAIAvailable() check
+        generateInsights();
+        return;
+      }
+      
+      alert(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -61,7 +111,9 @@ export default function MarketIntelligence() {
             <Brain size={20} />
           </div>
           <div>
-            <h3 className="font-bold text-zinc-900">AI Market Intelligence</h3>
+            <h3 className="font-bold text-zinc-900">
+              {isAIAvailable() ? 'AI Market Intelligence' : 'Smart Market Intelligence'}
+            </h3>
             <p className="text-xs text-zinc-500">Real-time global spice market analysis</p>
           </div>
         </div>
@@ -124,7 +176,7 @@ export default function MarketIntelligence() {
         
         {lastUpdated && (
           <p className="text-[10px] text-zinc-400 mt-6 text-center">
-            Last AI analysis: {lastUpdated.toLocaleTimeString()}
+            Last {isAIAvailable() ? 'AI' : 'Smart'} analysis: {lastUpdated.toLocaleTimeString()}
           </p>
         )}
       </div>

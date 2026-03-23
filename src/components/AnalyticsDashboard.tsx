@@ -29,10 +29,8 @@ import {
 } from 'recharts';
 import { ExportOrder } from '../lib/types';
 import { subscribeToCollection } from '../services/db';
-import { GoogleGenAI } from '@google/genai';
+import { handleAIError, generateAIContent } from '../lib/ai';
 import { useAuth } from './Auth';
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
 export default function AnalyticsDashboard() {
   const { profile } = useAuth();
@@ -73,14 +71,14 @@ export default function AnalyticsDashboard() {
       Provide 3 strategic insights for demand forecasting, optimal shipment sizes, and carbon footprint reduction.
       Format as a concise markdown list.`;
 
-      const response = await ai.models.generateContent({
+      const response = await generateAIContent('Strategic Insights', {
         model,
-        contents: prompt
+        contents: [{ parts: [{ text: prompt }] }]
       });
 
       setInsights(response.text);
-    } catch (error) {
-      console.error('Insights error:', error);
+    } catch (error: any) {
+      setInsights(handleAIError(error));
     } finally {
       setAnalyzing(false);
     }

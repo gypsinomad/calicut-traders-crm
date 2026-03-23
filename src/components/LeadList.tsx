@@ -26,11 +26,8 @@ import { subscribeToCollection, createDocument, updateDocument, deleteDocument }
 import { getStatusColor, formatDate } from '../lib/utils';
 import { useAuth } from './Auth.tsx';
 import { Timestamp } from 'firebase/firestore';
-import { GoogleGenAI } from '@google/genai';
-
+import { handleAIError, generateAIContent, isAIAvailable } from '../lib/ai';
 import { TranslatedText } from './TranslatedText.tsx';
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
 export default function LeadList() {
   const { profile } = useAuth();
@@ -112,6 +109,34 @@ export default function LeadList() {
   const calculateRiskScore = async (lead: Lead) => {
     if (isScoring) return;
     setIsScoring(true);
+
+    if (!isAIAvailable()) {
+      // Rule-based fallback
+      let score: 'low' | 'medium' | 'high' = 'low';
+      let explanation = '';
+
+      const highRiskCountries = ['Russia', 'Iran', 'North Korea', 'Syria', 'Venezuela'];
+      const mediumRiskCountries = ['Nigeria', 'Pakistan', 'Iraq', 'Libya', 'Ukraine'];
+
+      if (highRiskCountries.some(c => lead.destinationCountry?.includes(c))) {
+        score = 'high';
+        explanation = `High risk due to current trade sanctions or severe economic instability in ${lead.destinationCountry}.`;
+      } else if (mediumRiskCountries.some(c => lead.destinationCountry?.includes(c))) {
+        score = 'medium';
+        explanation = `Moderate risk due to regional logistics challenges or emerging economic factors in ${lead.destinationCountry}.`;
+      } else {
+        score = 'low';
+        explanation = `Low risk based on stable trade relations and established logistics routes to ${lead.destinationCountry}.`;
+      }
+
+      await updateDocument('leads', lead.id, {
+        riskScore: score,
+        riskExplanation: explanation
+      });
+      setIsScoring(false);
+      return;
+    }
+
     try {
       const prompt = `Assess the international trade risk for an export lead to ${lead.destinationCountry}.
       Consider:
@@ -124,7 +149,7 @@ export default function LeadList() {
       explanation: string (max 40 words)
       `;
 
-      const response = await ai.models.generateContent({
+      const response = await generateAIContent('Risk Score Calculation', {
         model: 'gemini-3-flash-preview',
         contents: [{ parts: [{ text: prompt }] }],
         config: { responseMimeType: 'application/json' }
@@ -135,8 +160,8 @@ export default function LeadList() {
         riskScore: result.riskScore,
         riskExplanation: result.explanation
       });
-    } catch (error) {
-      console.error('Error calculating risk score:', error);
+    } catch (error: any) {
+      alert(handleAIError(error));
     } finally {
       setIsScoring(false);
     }
@@ -494,7 +519,7 @@ export default function LeadList() {
                               {lead.riskScore === 'high' && <ShieldAlert size={14} className="text-rose-500" />}
                               
                               <div className="absolute left-full ml-2 top-0 w-48 p-2 bg-zinc-900 text-white text-[10px] rounded-lg opacity-0 group-hover/risk:opacity-100 transition-opacity z-50 pointer-events-none shadow-xl">
-                                <p className="font-bold uppercase mb-1">AI Risk Assessment: {lead.riskScore}</p>
+                                <p className="font-bold uppercase mb-1">{isAIAvailable() ? 'AI Risk Assessment' : 'Smart Risk Assessment'}: {lead.riskScore}</p>
                                 {lead.riskExplanation}
                               </div>
                             </div>
@@ -502,7 +527,7 @@ export default function LeadList() {
                             <button 
                               onClick={(e) => { e.stopPropagation(); calculateRiskScore(lead); }}
                               className="p-1 text-zinc-300 hover:text-emerald-500 transition-colors"
-                              title="Calculate AI Risk Score"
+                              title={isAIAvailable() ? "Calculate AI Risk Score" : "Calculate Smart Risk Score"}
                             >
                               <Zap size={12} />
                             </button>
