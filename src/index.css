@@ -3,8 +3,23 @@
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Cormorant Garamond", serif;
   --font-display: "Outfit", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+@layer base {
+  body {
+    @apply bg-[#fcfaf7] text-zinc-900 transition-colors duration-300;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-serif;
+  }
+  
+  .dark body {
+    @apply bg-zinc-950 text-zinc-100;
+  }
 }
 
 @layer utilities {
@@ -23,15 +38,13 @@
   .glass-card-dark {
     @apply bg-zinc-900/40 backdrop-blur-lg border border-zinc-800/30 shadow-lg hover:shadow-xl transition-all duration-300;
   }
-}
 
-@layer base {
-  body {
-    @apply bg-zinc-50 text-zinc-900 transition-colors duration-300;
+  .spice-gradient {
+    background: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
   }
-  
-  .dark body {
-    @apply bg-zinc-950 text-zinc-100;
+
+  .saffron-accent {
+    @apply text-[#d97706];
   }
 }
 

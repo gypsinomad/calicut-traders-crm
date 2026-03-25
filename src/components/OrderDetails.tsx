@@ -17,7 +17,9 @@ import {
   RefreshCw,
   Save,
   X,
-  Send
+  Send,
+  TrendingUp,
+  PieChart
 } from 'lucide-react';
 import { ExportOrder } from '../lib/types.ts';
 import { getStatusColor, formatDate, formatCurrency } from '../lib/utils';
@@ -30,9 +32,54 @@ import SendToBuyerDialog from './SendToBuyerDialog';
 export default function OrderDetails({ order, onBack }: { order: ExportOrder, onBack: () => void }) {
   const [updating, setUpdating] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isFinancialsOpen, setIsFinancialsOpen] = useState(false);
   const [isDocGenOpen, setIsDocGenOpen] = useState(false);
   const [isSendDocsOpen, setIsSendDocsOpen] = useState(false);
   const [editedOrder, setEditedOrder] = useState<Partial<ExportOrder>>(order);
+  const [financials, setFinancials] = useState(order.financials || {
+    cogs: 0,
+    packingCost: 0,
+    inlandFreight: 0,
+    terminalCharges: 0,
+    oceanFreight: 0,
+    insurance: 0,
+    bankCharges: 0,
+    otherCosts: 0,
+    totalCost: 0,
+    netProfit: 0,
+    margin: 0
+  });
+
+  const calculateFinancials = (data: typeof financials) => {
+    const totalCost = 
+      (Number(data.cogs) || 0) + 
+      (Number(data.packingCost) || 0) + 
+      (Number(data.inlandFreight) || 0) + 
+      (Number(data.terminalCharges) || 0) + 
+      (Number(data.oceanFreight) || 0) + 
+      (Number(data.insurance) || 0) + 
+      (Number(data.bankCharges) || 0) + 
+      (Number(data.otherCosts) || 0);
+    
+    const netProfit = (order.totalAmount || 0) - totalCost;
+    const margin = order.totalAmount > 0 ? (netProfit / order.totalAmount) * 100 : 0;
+
+    return { ...data, totalCost, netProfit, margin };
+  };
+
+  const handleFinancialsSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setUpdating(true);
+    try {
+      const updatedFinancials = calculateFinancials(financials);
+      await updateDocument('orders', order.id, { financials: updatedFinancials });
+      setIsFinancialsOpen(false);
+    } catch (error) {
+      console.error('Error updating financials:', error);
+    } finally {
+      setUpdating(false);
+    }
+  };
 
   const handleEditSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -131,6 +178,13 @@ export default function OrderDetails({ order, onBack }: { order: ExportOrder, on
           >
             <Send size={16} className="text-emerald-600" />
             Send Documents
+          </button>
+          <button 
+            onClick={() => setIsFinancialsOpen(true)}
+            className="px-4 py-2 bg-white border border-zinc-200 rounded-lg text-sm font-medium text-zinc-600 hover:bg-zinc-50 transition-colors flex items-center gap-2 shadow-sm"
+          >
+            <TrendingUp size={16} className="text-emerald-600" />
+            Financials
           </button>
           <button 
             onClick={() => setIsDocGenOpen(true)}
@@ -401,6 +455,99 @@ export default function OrderDetails({ order, onBack }: { order: ExportOrder, on
           </section>
         </div>
       </div>
+
+      <Modal 
+        isOpen={isFinancialsOpen} 
+        onClose={() => setIsFinancialsOpen(false)} 
+        title="Shipment Profitability Calculator"
+      >
+        <form onSubmit={handleFinancialsSave} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <h4 className="text-xs font-black text-zinc-400 uppercase tracking-widest flex items-center gap-2">
+                <PieChart size={14} />
+                Cost Breakdown
+              </h4>
+              <div className="grid grid-cols-1 gap-3">
+                {[
+                  { label: 'COGS (Product Cost)', key: 'cogs' },
+                  { label: 'Packing & Labeling', key: 'packingCost' },
+                  { label: 'Inland Freight', key: 'inlandFreight' },
+                  { label: 'Terminal Charges (THC)', key: 'terminalCharges' },
+                  { label: 'Ocean/Air Freight', key: 'oceanFreight' },
+                  { label: 'Insurance', key: 'insurance' },
+                  { label: 'Bank Charges', key: 'bankCharges' },
+                  { label: 'Other Costs', key: 'otherCosts' },
+                ].map((field) => (
+                  <div key={field.key} className="space-y-1">
+                    <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{field.label}</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-xs">$</span>
+                      <input 
+                        type="number" 
+                        value={financials[field.key as keyof typeof financials] || ''}
+                        onChange={(e) => setFinancials({ ...financials, [field.key]: parseFloat(e.target.value) || 0 })}
+                        className="w-full pl-7 pr-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              <div className="bg-zinc-900 rounded-2xl p-6 text-white space-y-4">
+                <h4 className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Profitability Summary</h4>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-zinc-400">Revenue</span>
+                    <span className="text-lg font-bold">{formatCurrency(order.totalAmount)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-zinc-400">Total Costs</span>
+                    <span className="text-lg font-bold text-rose-400">-{formatCurrency(calculateFinancials(financials).totalCost)}</span>
+                  </div>
+                  <div className="pt-3 border-t border-zinc-800 flex justify-between items-center">
+                    <span className="text-sm font-bold text-emerald-400">Net Profit</span>
+                    <span className="text-2xl font-black text-emerald-400">{formatCurrency(calculateFinancials(financials).netProfit)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-zinc-400">Profit Margin</span>
+                    <span className={`text-sm font-bold ${calculateFinancials(financials).margin > 15 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                      {calculateFinancials(financials).margin.toFixed(2)}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-100">
+                <p className="text-xs text-emerald-800 leading-relaxed">
+                  <strong>Pro Tip:</strong> Ensure all terminal handling charges (THC) and bank commission for LC/TT are included for accurate margin calculation.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-6 border-t border-zinc-100">
+            <button 
+              type="button"
+              onClick={() => setIsFinancialsOpen(false)}
+              className="px-4 py-2 text-sm font-medium text-zinc-600 hover:text-zinc-900 transition-colors"
+            >
+              Cancel
+            </button>
+            <button 
+              type="submit"
+              disabled={updating}
+              className="flex items-center gap-2 px-6 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-50"
+            >
+              {updating ? <RefreshCw size={18} className="animate-spin" /> : <Save size={18} />}
+              Save Financials
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       <Modal 
         isOpen={isEditModalOpen} 

@@ -15,7 +15,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { getAIUsageSummary, resetAIUsage, AIUsageSummary } from '../lib/aiUsageTracker';
-import { getAISettings, saveAISettings, AISettings } from '../lib/aiSettings';
+import { getAISettings, saveAISettings, AISettings, AIProvider, ProviderSettings } from '../lib/aiSettings';
 import { useAuth } from './Auth';
 import { motion } from 'motion/react';
 import { clsx } from 'clsx';
@@ -34,6 +34,15 @@ import {
 
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
+const PROVIDER_OPTIONS: { value: AIProvider; label: string; icon: string }[] = [
+  { value: 'gemini', label: 'Google Gemini', icon: '✨' },
+  { value: 'openai', label: 'OpenAI (GPT)', icon: '🤖' },
+  { value: 'anthropic', label: 'Anthropic (Claude)', icon: '🎭' },
+  { value: 'deepseek', label: 'DeepSeek', icon: '🔍' },
+  { value: 'mistral', label: 'Mistral AI', icon: '🌪️' },
+  { value: 'nemotron', label: 'NVIDIA Nemotron', icon: '🟢' },
+];
+
 export default function AIUsageDashboard() {
   const { profile } = useAuth();
   const [summary, setSummary] = useState<AIUsageSummary | null>(null);
@@ -43,8 +52,15 @@ export default function AIUsageDashboard() {
   const [isLowQuota, setIsLowQuota] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [settings, setSettings] = useState<AISettings>({
-    apiKey: '',
-    model: 'gemini-3-flash-preview',
+    provider: 'gemini',
+    providers: {
+      gemini: { apiKey: '', model: 'gemini-3-flash-preview', enabled: true },
+      openai: { apiKey: '', model: 'gpt-4o-mini', enabled: false },
+      anthropic: { apiKey: '', model: 'claude-3-5-sonnet-20240620', enabled: false },
+      deepseek: { apiKey: '', model: 'deepseek-chat', enabled: false, baseUrl: 'https://api.deepseek.com' },
+      mistral: { apiKey: '', model: 'mistral-large-latest', enabled: false },
+      nemotron: { apiKey: '', model: 'nvidia/nemotron-4-340b-instruct', enabled: false, baseUrl: 'https://integrate.api.nvidia.com/v1' }
+    },
     spendingCapINR: 1000,
     enabled: true
   });
@@ -54,7 +70,25 @@ export default function AIUsageDashboard() {
     async function loadSettings() {
       if (profile?.organization) {
         const s = await getAISettings(profile.organization);
-        setSettings(s);
+        // Migration/Compatibility check
+        if (!s.providers) {
+          const migrated: AISettings = {
+            provider: 'gemini',
+            providers: {
+              gemini: { apiKey: s.apiKey || '', model: s.model || 'gemini-3-flash-preview', enabled: s.enabled },
+              openai: { apiKey: '', model: 'gpt-4o-mini', enabled: false },
+              anthropic: { apiKey: '', model: 'claude-3-5-sonnet-20240620', enabled: false },
+              deepseek: { apiKey: '', model: 'deepseek-chat', enabled: false, baseUrl: 'https://api.deepseek.com' },
+              mistral: { apiKey: '', model: 'mistral-large-latest', enabled: false },
+              nemotron: { apiKey: '', model: 'nvidia/nemotron-4-340b-instruct', enabled: false, baseUrl: 'https://integrate.api.nvidia.com/v1' }
+            },
+            spendingCapINR: s.spendingCapINR || 1000,
+            enabled: s.enabled
+          };
+          setSettings(migrated);
+        } else {
+          setSettings(s);
+        }
       }
     }
     loadSettings();
@@ -65,13 +99,26 @@ export default function AIUsageDashboard() {
     setSaving(true);
     try {
       await saveAISettings(profile.organization, settings);
-      alert('AI Settings saved successfully!');
+      alert('AI Configuration saved successfully!');
     } catch (error) {
       console.error('Error saving settings:', error);
       alert('Failed to save settings.');
     } finally {
       setSaving(false);
     }
+  };
+
+  const updateProviderSetting = (provider: AIProvider, key: keyof ProviderSettings, value: any) => {
+    setSettings(prev => ({
+      ...prev,
+      providers: {
+        ...prev.providers,
+        [provider]: {
+          ...prev.providers[provider],
+          [key]: value
+        }
+      }
+    }));
   };
 
   useEffect(() => {
@@ -163,7 +210,7 @@ export default function AIUsageDashboard() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h2 className="text-xl font-bold text-zinc-900">AI Configuration</h2>
-            <p className="text-sm text-zinc-500">Manage your Gemini API settings and usage limits</p>
+            <p className="text-sm text-zinc-500">Manage your AI providers, models, and usage limits</p>
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm font-medium text-zinc-600">Enable AI Features</span>
@@ -182,67 +229,107 @@ export default function AIUsageDashboard() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-zinc-400 uppercase tracking-widest mb-2">
-                Gemini API Key
-              </label>
-              <input
-                type="password"
-                value={settings.apiKey}
-                onChange={(e) => setSettings(s => ({ ...s, apiKey: e.target.value }))}
-                placeholder="Enter your API key (optional if env var set)"
-                className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-zinc-900 outline-none transition-all font-mono text-sm"
-              />
-              <p className="mt-1 text-[10px] text-zinc-400">
-                Leave blank to use the system default key.
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-zinc-400 uppercase tracking-widest mb-2">
-                AI Model Selection
-              </label>
-              <select
-                value={settings.model}
-                onChange={(e) => setSettings(s => ({ ...s, model: e.target.value }))}
-                className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-zinc-900 outline-none transition-all"
+        <div className="space-y-8">
+          {/* Provider Selection */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            {PROVIDER_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setSettings(s => ({ ...s, provider: opt.value }))}
+                className={clsx(
+                  "flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all",
+                  settings.provider === opt.value 
+                    ? "bg-emerald-50 border-emerald-200 shadow-sm" 
+                    : "bg-zinc-50 border-zinc-100 hover:border-zinc-200"
+                )}
               >
-                <option value="gemini-3-flash-preview">Gemini 3 Flash (Fast & Efficient)</option>
-                <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Complex Reasoning)</option>
-              </select>
-            </div>
+                <span className="text-2xl">{opt.icon}</span>
+                <span className={clsx(
+                  "text-[10px] font-black uppercase tracking-widest",
+                  settings.provider === opt.value ? "text-emerald-700" : "text-zinc-500"
+                )}>
+                  {opt.label}
+                </span>
+              </button>
+            ))}
           </div>
 
-          <div className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-zinc-400 uppercase tracking-widest mb-2">
-                Monthly Spending Cap (INR)
-              </label>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 font-bold">₹</span>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4 border-t border-zinc-100">
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-zinc-400 uppercase tracking-widest mb-2">
+                  {settings.provider.toUpperCase()} API Key
+                </label>
                 <input
-                  type="number"
-                  value={settings.spendingCapINR}
-                  onChange={(e) => setSettings(s => ({ ...s, spendingCapINR: Number(e.target.value) }))}
-                  className="w-full pl-8 pr-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-zinc-900 outline-none transition-all font-bold"
+                  type="password"
+                  value={settings.providers[settings.provider].apiKey}
+                  onChange={(e) => updateProviderSetting(settings.provider, 'apiKey', e.target.value)}
+                  placeholder={`Enter your ${settings.provider} API key`}
+                  className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-zinc-900 outline-none transition-all font-mono text-sm"
+                />
+                <p className="mt-1 text-[10px] text-zinc-400">
+                  {settings.provider === 'gemini' ? 'Leave blank to use the system default key.' : `Required for ${settings.provider} integration.`}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-zinc-400 uppercase tracking-widest mb-2">
+                  Model Selection
+                </label>
+                <input
+                  type="text"
+                  value={settings.providers[settings.provider].model}
+                  onChange={(e) => updateProviderSetting(settings.provider, 'model', e.target.value)}
+                  placeholder="e.g. gpt-4o, claude-3-opus, etc."
+                  className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-zinc-900 outline-none transition-all text-sm"
                 />
               </div>
-              <p className="mt-1 text-[10px] text-zinc-400">
-                AI features will be disabled once this limit is reached.
-              </p>
+
+              {(settings.provider === 'deepseek' || settings.provider === 'nemotron') && (
+                <div>
+                  <label className="block text-xs font-bold text-zinc-400 uppercase tracking-widest mb-2">
+                    Base URL (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={settings.providers[settings.provider].baseUrl || ''}
+                    onChange={(e) => updateProviderSetting(settings.provider, 'baseUrl', e.target.value)}
+                    placeholder="https://api.example.com/v1"
+                    className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-zinc-900 outline-none transition-all text-sm"
+                  />
+                </div>
+              )}
             </div>
 
-            <div className="pt-6">
-              <button
-                onClick={handleSaveSettings}
-                disabled={saving}
-                className="w-full py-3 bg-zinc-900 text-white rounded-xl font-bold hover:bg-zinc-800 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {saving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
-                Save AI Configuration
-              </button>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-zinc-400 uppercase tracking-widest mb-2">
+                  Monthly Spending Cap (INR)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 font-bold">₹</span>
+                  <input
+                    type="number"
+                    value={settings.spendingCapINR}
+                    onChange={(e) => setSettings(s => ({ ...s, spendingCapINR: Number(e.target.value) }))}
+                    className="w-full pl-8 pr-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-zinc-900 outline-none transition-all font-bold"
+                  />
+                </div>
+                <p className="mt-1 text-[10px] text-zinc-400">
+                  AI features will be disabled once this limit is reached.
+                </p>
+              </div>
+
+              <div className="pt-6">
+                <button
+                  onClick={handleSaveSettings}
+                  disabled={saving}
+                  className="w-full py-3 bg-zinc-900 text-white rounded-xl font-bold hover:bg-zinc-800 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {saving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
+                  Save AI Configuration
+                </button>
+              </div>
             </div>
           </div>
         </div>

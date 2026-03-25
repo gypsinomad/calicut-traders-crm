@@ -22,6 +22,10 @@ export default function AIStatusBanner() {
                        error.toLowerCase().includes('spending') ||
                        error.toLowerCase().includes('resource_exhausted');
 
+  const isSpendingCap = error.toLowerCase().includes('spending') || 
+                        error.toLowerCase().includes('cap') ||
+                        error.toLowerCase().includes('limit');
+
   return (
     <AnimatePresence>
       <motion.div
@@ -36,25 +40,30 @@ export default function AIStatusBanner() {
               <AlertTriangle size={16} />
             </div>
             <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
-              <p className="text-xs font-medium text-amber-900">
-                {isQuotaError ? 'AI Quota Reached' : 'AI Service Issue'}
+              <p className="text-xs font-bold text-amber-900">
+                {isSpendingCap ? 'AI Spending Cap Reached' : isQuotaError ? 'AI Quota Reached' : 'AI Service Issue'}
               </p>
               <p className="text-[11px] text-amber-700">
-                The app has automatically switched to <span className="font-bold flex inline-items items-center gap-0.5"><Zap size={10} className="inline" /> Smart Mode</span> (rule-based logic) to ensure uninterrupted service.
+                {isSpendingCap 
+                  ? 'The AI service has reached its spending limit. ' 
+                  : 'The AI service is currently unavailable. '}
+                The app has automatically switched to <span className="font-bold inline-flex items-center gap-0.5"><Zap size={10} className="inline" /> Smart Mode</span> (rule-based logic) to ensure uninterrupted service.
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                clearAIError();
-                window.location.reload();
-              }}
-              className="px-3 py-1 bg-white border border-amber-200 text-amber-700 rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-amber-100 transition-colors flex items-center gap-1.5"
-            >
-              <RefreshCw size={10} />
-              Retry AI
-            </button>
+            {!isSpendingCap && (
+              <button
+                onClick={() => {
+                  clearAIError();
+                  window.location.reload();
+                }}
+                className="px-3 py-1 bg-white border border-amber-200 text-amber-700 rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-amber-100 transition-colors flex items-center gap-1.5"
+              >
+                <RefreshCw size={10} />
+                Retry AI
+              </button>
+            )}
             <button
               onClick={() => setIsVisible(false)}
               className="p-1 text-amber-400 hover:text-amber-600 transition-colors"

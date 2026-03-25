@@ -8,13 +8,15 @@ export interface UserProfile {
   displayName: string;
   role: UserRole;
   isActive: boolean;
+  lastActive?: Timestamp;
   createdAt: Timestamp;
   avatarUrl?: string;
   organization?: string;
   onboardingCompleted?: boolean;
+  isApproved?: boolean;
 }
 
-export type LeadStatus = 'new' | 'contacted' | 'qualified' | 'quoted' | 'converted' | 'lost';
+export type LeadStatus = 'lead' | 'contacted' | 'sampleSent' | 'negotiation' | 'orderConfirmed' | 'repeatBuyer' | 'lost' | 'new' | 'qualified' | 'quoted' | 'converted';
 export type LeadPriority = 'hot' | 'warm' | 'cold';
 export type LeadSource = 'manual' | 'website' | 'whatsapp' | 'tradeShow' | 'referral';
 
@@ -39,16 +41,44 @@ export interface Lead {
   organization?: string;
   riskScore?: 'low' | 'medium' | 'high';
   riskExplanation?: string;
+  smartScore?: number;
+  smartScoreExplanation?: string;
+  activityLog?: {
+    type: 'call' | 'email' | 'whatsapp' | 'meeting';
+    note: string;
+    timestamp: Timestamp;
+    performedBy: string;
+  }[];
+  scorecard?: {
+    paymentReliability: number; // 1-5
+    orderFrequency: number; // 1-5
+    orderSize: number; // 1-5
+    totalScore: number;
+  };
+  lastContactDate?: Timestamp;
+  preferredProducts?: string[];
+  totalOrders?: number;
+  totalValue?: number;
 }
 
 export type OrderStage = 
-  | 'leadReceived' 
-  | 'quotationSent' 
-  | 'orderConfirmed' 
-  | 'exportDocumentation' 
-  | 'shipmentReady' 
-  | 'shippedDelivered' 
-  | 'cancelled';
+  | 'inquiry'
+  | 'quotationSent'
+  | 'piIssued'
+  | 'orderConfirmed'
+  | 'production'
+  | 'customs'
+  | 'shipped'
+  | 'inTransit'
+  | 'delivered'
+  | 'paymentReceived'
+  | 'cancelled'
+  | 'leadReceived'
+  | 'exportDocumentation'
+  | 'shipmentReady'
+  | 'shippedDelivered';
+
+export type PaymentTerm = 'LC' | 'TT' | 'DP' | 'DA';
 
 export interface ExportOrder {
   id: string;
@@ -71,46 +101,50 @@ export interface ExportOrder {
   contactId: string;
   currency: string;
   incoterms: string;
-  paymentTerms: string;
+  paymentTerms: PaymentTerm;
   productType: string;
   docsCompleted: number;
   docsTotal: number;
   items: any[];
   documents: any[];
   documentChecklist?: Record<string, boolean>;
-  iceGateStatus?: string;
+  financials?: {
+    cogs: number;
+    packingCost: number;
+    inlandFreight: number;
+    terminalCharges: number;
+    oceanFreight: number;
+    insurance: number;
+    bankCharges: number;
+    customsCharges: number;
+    otherCosts: number;
+    totalCost: number;
+    netProfit: number;
+    margin: number;
+  };
+  containerNumber?: string;
+  vesselName?: string;
   etd?: Timestamp;
   eta?: Timestamp;
   paymentDueDate?: Timestamp;
-  complianceRiskLevel?: string;
-  hsCode?: string;
-  containerType?: string;
-  fssaiNumber?: string;
-  certificateRequirements?: string[];
-  activityLog?: ActivityLogEntry[];
   organization?: string;
   priority?: 'low' | 'medium' | 'high' | 'urgent';
-  transportMode?: 'sea' | 'air' | 'road' | 'rail';
+  carbonFootprint?: number;
+  containerType?: string;
   shipmentStatus?: string;
   originPort?: string;
   destinationPort?: string;
-  containerNumber?: string;
-  carbonFootprint?: number;
+  logisticsAI?: any;
+  transportMode?: string;
+  hsCode?: string;
   riskScore?: number;
-  complianceAI?: {
-    status: 'verified' | 'flagged' | 'incomplete';
-    score: number;
-    missingDocs: string[];
-    recommendations: string[];
-    lastChecked: Timestamp;
-  };
-  logisticsAI?: {
-    route: string;
-    transitTime: string;
-    riskLevel: 'low' | 'medium' | 'high';
-    tips: string[];
-    lastOptimized: Timestamp;
-  };
+  certificates?: {
+    id: string;
+    type: string;
+    number: string;
+    expiryDate: Timestamp;
+    status: 'valid' | 'expiring' | 'expired';
+  }[];
 }
 
 export interface InventoryItem {
@@ -122,6 +156,9 @@ export interface InventoryItem {
   reorderLevel: number;
   batchNumber: string;
   category: string;
+  certifications?: string[];
+  labReportUrl?: string;
+  origin?: string;
   organization: string;
   createdAt: Timestamp;
   prediction?: {
@@ -164,6 +201,7 @@ export interface Supplier {
   location: string;
   status?: 'active' | 'inactive' | 'pending' | 'onboarding';
   onboardingStep?: string;
+  completedSteps?: string[];
   riskAnalysis?: {
     score: number;
     level: 'low' | 'medium' | 'high';
@@ -378,6 +416,45 @@ export interface Task {
   organization?: string;
 }
 
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  description?: string;
+  start: Timestamp;
+  end: Timestamp;
+  type: 'meeting' | 'deadline' | 'reminder' | 'compliance' | 'other';
+  isCommon: boolean;
+  userId: string;
+  organization: string;
+  createdAt: Timestamp;
+  relatedEntityId?: string;
+  relatedEntityType?: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  text: string;
+  senderId: string;
+  senderName: string;
+  senderPhoto?: string;
+  timestamp: Timestamp;
+  organization: string;
+  channelId?: string;
+}
+
+export interface DailyObjective {
+  id: string;
+  userId: string;
+  userName: string;
+  date: string;
+  objectives: {
+    text: string;
+    completed: boolean;
+  }[];
+  organization: string;
+  updatedAt: Timestamp;
+}
+
 export interface Company {
   id: string;
   legalName: string;
@@ -406,4 +483,16 @@ export interface Company {
     fssaiNumber?: string;
   };
   organization?: string;
+}
+
+export interface AuditTrail {
+  id: string;
+  userId: string;
+  userName: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  timestamp: Timestamp;
+  organization: string;
+  details?: string;
 }

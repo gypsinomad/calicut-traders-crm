@@ -1,4 +1,4 @@
-import { generateAIContent } from "../lib/ai";
+import { generateAIContent, isAIAvailable } from "../lib/ai";
 
 export type Language = 'en' | 'ar' | 'sw' | 'ml';
 
@@ -33,6 +33,10 @@ class TranslationService {
     
     if (this.cache[targetLang]?.[text]) {
       return this.cache[targetLang][text];
+    }
+
+    if (!isAIAvailable()) {
+      return text;
     }
 
     try {

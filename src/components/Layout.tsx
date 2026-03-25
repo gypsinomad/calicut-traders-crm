@@ -81,7 +81,7 @@ export default function Layout() {
   }, []);
 
   return (
-    <div className={`flex h-screen bg-zinc-50 overflow-hidden ${isRTL ? 'flex-row-reverse' : 'flex-row'}`}>
+    <div className={`flex h-screen bg-[#fcfaf7] overflow-hidden ${isRTL ? 'flex-row-reverse' : 'flex-row'}`}>
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
       {/* Mobile Overlay */}
@@ -99,23 +99,23 @@ export default function Layout() {
 
       <div className="flex-1 flex flex-col min-w-0 w-full">
         <AIStatusBanner />
-        <header className="h-16 bg-white border-b border-zinc-200 flex items-center justify-between px-4 md:px-8 shrink-0 z-10">
-          <div className="flex items-center gap-4 flex-1 max-w-xl">
+        <header className="h-20 bg-white/80 backdrop-blur-md border-b border-zinc-200/50 flex items-center justify-between px-6 md:px-10 shrink-0 z-10">
+          <div className="flex items-center gap-6 flex-1 max-w-2xl">
             <button 
               onClick={() => setSidebarOpen(true)}
-              className="p-2 text-zinc-500 hover:bg-zinc-100 rounded-lg md:hidden"
+              className="p-2.5 text-zinc-500 hover:bg-zinc-100 rounded-xl md:hidden transition-colors"
             >
               <Menu size={20} />
             </button>
-            <div className="hidden sm:block relative w-full" ref={searchRef}>
-              <Search className={`${isRTL ? 'right-3' : 'left-3'} absolute top-1/2 -translate-y-1/2 text-zinc-400`} size={18} />
+            <div className="hidden sm:block relative w-full group" ref={searchRef}>
+              <Search className={`${isRTL ? 'right-4' : 'left-4'} absolute top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-[#064e3b] transition-colors`} size={18} />
               <input 
                 type="text" 
                 placeholder="Search leads, orders, or suppliers..." 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onFocus={() => searchTerm.trim() && setShowResults(true)}
-                className={`w-full ${isRTL ? 'pr-10 pl-4' : 'pl-10 pr-4'} py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/5 transition-all`}
+                className={`w-full ${isRTL ? 'pr-12 pl-6' : 'pl-12 pr-6'} py-3 bg-zinc-100/50 border border-transparent rounded-2xl text-sm focus:outline-none focus:bg-white focus:border-emerald-200 focus:ring-4 focus:ring-emerald-500/5 transition-all`}
               />
               
               {/* Search Results Dropdown */}

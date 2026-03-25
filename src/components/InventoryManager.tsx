@@ -361,6 +361,53 @@ export default function InventoryManager() {
           className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
         />
       </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-1.5">
+          <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Origin (Region/State)</label>
+          <input 
+            type="text" 
+            value={data.origin || ''}
+            onChange={(e) => setData({ ...data, origin: e.target.value })}
+            className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+            placeholder="e.g. Wayanad, Kerala"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Lab Report URL</label>
+          <input 
+            type="url" 
+            value={data.labReportUrl || ''}
+            onChange={(e) => setData({ ...data, labReportUrl: e.target.value })}
+            className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+            placeholder="https://..."
+          />
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Certifications</label>
+        <div className="flex flex-wrap gap-2">
+          {['Organic', 'Halal', 'Kosher', 'ISO 22000', 'HACCP', 'FSSAI'].map(cert => (
+            <button
+              key={cert}
+              type="button"
+              onClick={() => {
+                const current = data.certifications || [];
+                const next = current.includes(cert) 
+                  ? current.filter(c => c !== cert)
+                  : [...current, cert];
+                setData({ ...data, certifications: next });
+              }}
+              className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border transition-all ${
+                (data.certifications || []).includes(cert)
+                  ? 'bg-emerald-100 border-emerald-200 text-emerald-700'
+                  : 'bg-zinc-50 border-zinc-200 text-zinc-400 hover:border-zinc-300'
+              }`}
+            >
+              {cert}
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 

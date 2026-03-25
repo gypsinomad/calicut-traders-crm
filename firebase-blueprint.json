@@ -334,6 +334,64 @@
       },
       "required": ["orderId", "documentType", "generatedAt", "generatedBy", "htmlContent", "status", "organization"]
     },
+    "CalendarEvent": {
+      "title": "Calendar Event",
+      "description": "A meeting, deadline, or reminder",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "start": { "type": "string", "format": "date-time" },
+        "end": { "type": "string", "format": "date-time" },
+        "type": { "type": "string", "enum": ["meeting", "deadline", "reminder", "compliance", "other"] },
+        "isCommon": { "type": "boolean" },
+        "userId": { "type": "string" },
+        "organization": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "start", "end", "type", "isCommon", "userId", "organization"]
+    },
+    "ChatMessage": {
+      "title": "Chat Message",
+      "description": "A message in the collaborative space",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "text": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderPhoto": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "organization": { "type": "string" },
+        "channelId": { "type": "string" }
+      },
+      "required": ["text", "senderId", "senderName", "timestamp", "organization"]
+    },
+    "DailyObjective": {
+      "title": "Daily Objective",
+      "description": "Daily goals for team members",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "date": { "type": "string" },
+        "objectives": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "text": { "type": "string" },
+              "completed": { "type": "boolean" }
+            }
+          }
+        },
+        "organization": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "userName", "date", "objectives", "organization"]
+    },
     "IntegrationSettings": {
       "title": "Integration Settings",
       "description": "External API integration credentials",
@@ -377,6 +435,9 @@
     "/organizations/{orgId}/ai_usage/{usageId}": { "schema": "AIUsage", "description": "AI usage logs" },
     "/organizations/{orgId}/settings/integrations": { "schema": "IntegrationSettings", "description": "Integration credentials" },
     "/generated_documents/{docId}": { "schema": "GeneratedDocument", "description": "System-generated documents" },
-    "/send_history/{historyId}": { "schema": "SendHistory", "description": "Document and quote send history" }
+    "/send_history/{historyId}": { "schema": "SendHistory", "description": "Document and quote send history" },
+    "/calendar_events/{eventId}": { "schema": "CalendarEvent", "description": "Calendar events" },
+    "/chat_messages/{messageId}": { "schema": "ChatMessage", "description": "Collaborative chat messages" },
+    "/daily_objectives/{objectiveId}": { "schema": "DailyObjective", "description": "Daily team objectives" }
   }
 }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   User, 
+  Users,
   Building2, 
   Shield, 
   Bell, 
@@ -23,7 +24,12 @@ import {
   CheckCircle2,
   AlertCircle,
   FileText as FileIcon,
-  Cpu
+  Cpu,
+  Smartphone,
+  SmartphoneIcon,
+  Download,
+  RefreshCw,
+  ExternalLink
 } from 'lucide-react';
 import { useAuth } from './Auth.tsx';
 import { db } from '../firebase';
@@ -31,6 +37,10 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useTranslation } from '../contexts/LanguageContext.tsx';
 import { Language } from '../services/translationService.ts';
 import AIUsageDashboard from './AIUsageDashboard.tsx';
+import { getDocuments, subscribeToCollection, updateDocument } from '../services/db';
+import { formatBytes } from '../lib/utils';
+import { QRCodeSVG } from 'qrcode.react';
+import { UserProfile } from '../lib/types.ts';
 
 const SettingItem = ({ icon: Icon, title, description, badge, onClick }: any) => (
   <button 
@@ -72,6 +82,59 @@ export default function Settings() {
   const [whatsappAccountId, setWhatsappAccountId] = useState('');
 
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [users, setUsers] = useState<UserProfile[]>([]);
+
+  useEffect(() => {
+    if (profile?.role === 'admin' && profile?.organization) {
+      const unsubscribe = subscribeToCollection<UserProfile>(
+        'users',
+        (data) => setUsers(data),
+        [{ field: 'organization', operator: '==', value: profile.organization }]
+      );
+      return () => unsubscribe();
+    }
+  }, [profile]);
+
+  const handleApproveUser = async (userId: string, approved: boolean) => {
+    try {
+      await updateDocument('users', userId, { isApproved: approved });
+    } catch (error) {
+      console.error('Error updating user approval status:', error);
+      alert('Failed to update user status.');
+    }
+  };
+
+  const handleExportAllData = async () => {
+    if (!profile?.organization) return;
+    setExporting(true);
+    try {
+      const collections = ['leads', 'orders', 'payments', 'inventory', 'documents', 'audit_trail'];
+      const allData: Record<string, any[]> = {};
+
+      for (const coll of collections) {
+        const data = await getDocuments(coll, [
+          { field: 'organization', operator: '==', value: profile.organization }
+        ]);
+        allData[coll] = data;
+      }
+
+      const blob = new Blob([JSON.stringify(allData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `calicut_spice_traders_export_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Export error:', error);
+      alert('Failed to export data. Please try again.');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   useEffect(() => {
     if (profile?.organization) {
@@ -158,12 +221,14 @@ export default function Settings() {
             { id: 'notifications', label: 'Notifications', icon: Bell },
             { id: 'whatsapp', label: 'WhatsApp', icon: MessageSquare },
             { id: 'security', label: 'Security', icon: Lock },
+            profile?.role === 'admin' && { id: 'users', label: 'User Management', icon: Users },
             { id: 'language', label: 'Language', icon: Globe },
             { id: 'automation', label: 'Automation', icon: Zap },
             { id: 'ai_usage', label: 'AI Usage', icon: Cpu },
+            { id: 'mobile_app', label: 'Mobile App', icon: Smartphone },
             { id: 'integrations', label: 'Integrations', icon: Plug },
             { id: 'data', label: 'Data & Storage', icon: Database },
-          ].map((item) => (
+          ].filter((item): item is any => !!item).map((item) => (
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
@@ -670,6 +735,77 @@ export default function Settings() {
             <AIUsageDashboard />
           )}
 
+          {activeTab === 'mobile_app' && (
+            <div className="space-y-6">
+              <section className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
+                <div className="p-6 border-b border-zinc-100">
+                  <h3 className="text-lg font-bold text-zinc-900">Mobile Access</h3>
+                  <p className="text-sm text-zinc-500 mt-1">Install the CRM on your mobile device for quick access</p>
+                </div>
+                <div className="p-6 space-y-8">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600">
+                          <Smartphone size={20} />
+                        </div>
+                        <h4 className="font-bold text-zinc-900">Progressive Web App (PWA)</h4>
+                      </div>
+                      <p className="text-sm text-zinc-600 leading-relaxed">
+                        The fastest way to get the CRM on your phone. It works just like a native app, supports offline access, and doesn't require a store download.
+                      </p>
+                      <div className="space-y-3">
+                        <div className="flex items-start gap-3">
+                          <div className="w-6 h-6 bg-zinc-100 rounded-full flex items-center justify-center text-[10px] font-bold text-zinc-500 mt-0.5">1</div>
+                          <p className="text-xs text-zinc-500">Open this URL in Safari (iOS) or Chrome (Android)</p>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <div className="w-6 h-6 bg-zinc-100 rounded-full flex items-center justify-center text-[10px] font-bold text-zinc-500 mt-0.5">2</div>
+                          <p className="text-xs text-zinc-500">Tap the <span className="font-bold">Share</span> button (iOS) or <span className="font-bold">Menu</span> (Android)</p>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <div className="w-6 h-6 bg-zinc-100 rounded-full flex items-center justify-center text-[10px] font-bold text-zinc-500 mt-0.5">3</div>
+                          <p className="text-xs text-zinc-500">Select <span className="font-bold text-emerald-600">"Add to Home Screen"</span></p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600">
+                          <Globe size={20} />
+                        </div>
+                        <h4 className="font-bold text-zinc-900">Store Submission</h4>
+                      </div>
+                      <p className="text-sm text-zinc-600 leading-relaxed">
+                        If you require a listing on the Google Play Store or Apple App Store, we recommend using <span className="font-bold">Capacitor</span> or <span className="font-bold">TWA (Trusted Web Activities)</span>.
+                      </p>
+                      <div className="p-4 bg-zinc-50 rounded-xl border border-zinc-100">
+                        <p className="text-xs text-zinc-500 font-medium">
+                          Contact your technical team to package this web application using Capacitor. It allows you to use the same codebase for both stores.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-8 border-t border-zinc-100 flex flex-col items-center text-center">
+                    <div className="bg-white p-4 rounded-2xl shadow-sm border border-zinc-200 flex items-center justify-center mb-4">
+                      <QRCodeSVG 
+                        value={window.location.origin} 
+                        size={128}
+                        level="H"
+                        includeMargin={true}
+                      />
+                    </div>
+                    <p className="text-xs text-zinc-400 max-w-xs">
+                      Scan this QR code with your mobile device to open the CRM directly.
+                    </p>
+                  </div>
+                </div>
+              </section>
+            </div>
+          )}
+
           {activeTab === 'integrations' && (
             <div className="space-y-6">
               <section className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
@@ -744,76 +880,71 @@ export default function Settings() {
                   </div>
                 </div>
               </section>
+            </div>
+          )}
 
+          {activeTab === 'users' && profile?.role === 'admin' && (
+            <div className="space-y-6">
               <section className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
                 <div className="p-6 border-b border-zinc-100">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-lg font-bold text-zinc-900">WhatsApp Business API</h3>
-                      <p className="text-sm text-zinc-500 mt-1">Automated Messaging</p>
-                    </div>
-                    <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                      whatsappToken ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
-                    }`}>
-                      {whatsappToken ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}
-                      {whatsappToken ? 'Configured' : 'Not Configured'}
-                    </div>
-                  </div>
-                  <p className="text-xs text-zinc-500 mt-3 leading-relaxed">
-                    Send automated order updates and document copies to customers via WhatsApp. Currently using simulated responses.
-                  </p>
+                  <h3 className="text-lg font-bold text-zinc-900">User Management</h3>
+                  <p className="text-sm text-zinc-500 mt-1">Approve and manage user access for your organization</p>
                 </div>
-                <div className="p-6 space-y-4">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">API Token</label>
-                    <input 
-                      type="password" 
-                      value={whatsappToken}
-                      onChange={(e) => setWhatsappToken(e.target.value)}
-                      placeholder="Enter WhatsApp API Token"
-                      className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
-                    />
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Phone Number ID</label>
-                      <input 
-                        type="text" 
-                        value={whatsappPhoneId}
-                        onChange={(e) => setWhatsappPhoneId(e.target.value)}
-                        placeholder="Enter Phone Number ID"
-                        className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
-                      />
+                <div className="divide-y divide-zinc-100">
+                  {users.length === 0 ? (
+                    <div className="p-12 text-center">
+                      <Users size={48} className="text-zinc-200 mx-auto mb-4" />
+                      <p className="text-zinc-500">No users found in your organization.</p>
                     </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Business Account ID</label>
-                      <input 
-                        type="text" 
-                        value={whatsappAccountId}
-                        onChange={(e) => setWhatsappAccountId(e.target.value)}
-                        placeholder="Enter Business Account ID"
-                        className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
-                      />
-                    </div>
-                  </div>
-                  <p className="text-[10px] text-zinc-400 font-medium">
-                    Get these credentials from Meta Business Manager → WhatsApp → API Setup
-                  </p>
-                  <div className="flex items-center gap-3 pt-4">
-                    <button 
-                      onClick={() => testConnection(whatsappToken)}
-                      className="px-4 py-2 bg-emerald-50 text-emerald-700 rounded-lg text-sm font-medium hover:bg-emerald-100 transition-colors"
-                    >
-                      Test Connection
-                    </button>
-                    <button 
-                      onClick={() => saveIntegrations('whatsapp')}
-                      disabled={loading}
-                      className="px-4 py-2 bg-zinc-900 text-white rounded-lg text-sm font-medium hover:bg-zinc-800 transition-colors disabled:opacity-50"
-                    >
-                      Save
-                    </button>
-                  </div>
+                  ) : (
+                    users.map((u) => (
+                      <div key={u.uid} className="p-6 flex items-center justify-between hover:bg-zinc-50 transition-colors">
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 bg-zinc-100 rounded-full flex items-center justify-center overflow-hidden">
+                            {u.avatarUrl ? (
+                              <img src={u.avatarUrl} alt={u.displayName} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                            ) : (
+                              <User size={20} className="text-zinc-400" />
+                            )}
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-bold text-zinc-900">{u.displayName}</h4>
+                            <p className="text-xs text-zinc-500">{u.email}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 bg-zinc-100 text-zinc-600 rounded">
+                                {u.role}
+                              </span>
+                              {u.isApproved ? (
+                                <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded flex items-center gap-1">
+                                  <CheckCircle2 size={10} />
+                                  Approved
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded flex items-center gap-1">
+                                  <AlertCircle size={10} />
+                                  Pending Approval
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {u.uid !== profile.uid && (
+                            <button
+                              onClick={() => handleApproveUser(u.uid, !u.isApproved)}
+                              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                u.isApproved 
+                                  ? 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200' 
+                                  : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                              }`}
+                            >
+                              {u.isApproved ? 'Revoke Access' : 'Approve User'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </section>
             </div>
@@ -832,17 +963,22 @@ export default function Settings() {
                       <h4 className="text-sm font-bold text-zinc-900">Export All Data</h4>
                       <p className="text-xs text-zinc-500 mt-0.5">Download a complete backup of your leads, orders, and documents</p>
                     </div>
-                    <button className="px-4 py-2 bg-zinc-900 text-white rounded-lg text-sm font-medium hover:bg-zinc-800 transition-colors">
+                    <button 
+                      onClick={handleExportAllData}
+                      disabled={exporting}
+                      className="px-4 py-2 bg-zinc-900 text-white rounded-lg text-sm font-medium hover:bg-zinc-800 transition-colors flex items-center gap-2 disabled:opacity-50"
+                    >
+                      {exporting ? <RefreshCw size={16} className="animate-spin" /> : <Download size={16} />}
                       Download Backup
                     </button>
                   </div>
                   <div className="pt-6 border-t border-zinc-100">
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="text-sm font-bold text-zinc-900">Storage Usage</h4>
-                      <span className="text-xs font-medium text-zinc-500">2.4 GB of 10 GB used</span>
+                      <span className="text-xs font-medium text-zinc-500">{formatBytes(124500000)} of 10 GB used</span>
                     </div>
                     <div className="w-full h-2 bg-zinc-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-emerald-500 rounded-full" style={{ width: '24%' }}></div>
+                      <div className="h-full bg-emerald-500 rounded-full" style={{ width: '1.2%' }}></div>
                     </div>
                   </div>
                 </div>
@@ -851,7 +987,7 @@ export default function Settings() {
           )}
 
           {/* Placeholder for other tabs */}
-          {!['general', 'account', 'notifications', 'security', 'language', 'automation', 'data'].includes(activeTab) && (
+          {!['general', 'account', 'notifications', 'security', 'language', 'automation', 'data', 'whatsapp', 'ai_usage', 'mobile_app', 'integrations'].includes(activeTab) && (
             <div className="bg-white p-12 rounded-2xl border border-zinc-200 shadow-sm text-center">
               <div className="w-16 h-16 bg-zinc-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <Shield size={32} className="text-zinc-400" />

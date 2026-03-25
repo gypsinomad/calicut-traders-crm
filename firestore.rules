@@ -7,7 +7,7 @@ service cloud.firestore {
     // ===============================================================
     //
     // Collection: users
-    // Fields: uid, displayName, email, photoURL, role, isActive, organization, createdAt
+    // Fields: uid, displayName, email, photoURL, role, isActive, organization, createdAt, isApproved, onboardingCompleted
     //
     // Collection: leads
     // Fields: fullName, companyName, email, phone, status, source, priority, productInterest, destinationCountry, incotermsPreference, assignedUserId, nextFollowUpAt, organization, createdAt
@@ -119,7 +119,8 @@ service cloud.firestore {
              data.role in ['admin', 'manager', 'staff'] &&
              data.isActive is bool &&
              data.organization is string && data.organization.size() > 0 &&
-             (!('onboardingCompleted' in data) || data.onboardingCompleted is bool);
+             (!('onboardingCompleted' in data) || data.onboardingCompleted is bool) &&
+             (!('isApproved' in data) || data.isApproved is bool);
     }
 
     function isValidOrganization(data) {
@@ -253,7 +254,8 @@ service cloud.firestore {
       return hasRequiredFields(['name', 'email', 'organization']) &&
              data.name is string && data.name.size() > 0 && data.name.size() < 200 &&
              isValidEmail(data.email) &&
-             data.organization is string && data.organization.size() > 0;
+             data.organization is string && data.organization.size() > 0 &&
+             (!('completedSteps' in data) || data.completedSteps is list);
     }
 
     function isValidAIUsage(data) {
@@ -284,6 +286,35 @@ service cloud.firestore {
              data.organization is string && data.organization.size() > 0;
     }
 
+    function isValidCalendarEvent(data) {
+      return hasRequiredFields(['title', 'start', 'end', 'type', 'isCommon', 'userId', 'organization']) &&
+             data.title is string && data.title.size() > 0 &&
+             data.start is timestamp &&
+             data.end is timestamp &&
+             data.type in ['meeting', 'deadline', 'reminder', 'compliance', 'other'] &&
+             data.isCommon is bool &&
+             data.userId is string &&
+             data.organization is string;
+    }
+
+    function isValidChatMessage(data) {
+      return hasRequiredFields(['text', 'senderId', 'senderName', 'timestamp', 'organization']) &&
+             data.text is string && data.text.size() > 0 &&
+             data.senderId is string &&
+             data.senderName is string &&
+             data.timestamp is timestamp &&
+             data.organization is string;
+    }
+
+    function isValidDailyObjective(data) {
+      return hasRequiredFields(['userId', 'userName', 'date', 'objectives', 'organization']) &&
+             data.userId is string &&
+             data.userName is string &&
+             data.date is string &&
+             data.objectives is list &&
+             data.organization is string;
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
@@ -292,7 +323,8 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && isValidUser(request.resource.data) && (isOwner(userId) || isAdmin());
       allow update: if isAuthenticated() && (isOwner(userId) || isAdmin()) && 
-                    (request.resource.data.role == resource.data.role || isAdmin());
+                    (request.resource.data.role == resource.data.role || isAdmin()) &&
+                    (request.resource.data.get('isApproved', false) == resource.data.get('isApproved', false) || isAdmin());
       allow delete: if isAdmin();
     }
 
@@ -364,6 +396,27 @@ service cloud.firestore {
       allow create: if belongsToOrg(request.resource.data.organization) && isValidSendHistory(request.resource.data);
       allow update: if false;
       allow delete: if isAdmin();
+    }
+
+    match /calendar_events/{eventId} {
+      allow read: if belongsToOrg(resource.data.organization) && (resource.data.isCommon || resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if belongsToOrg(request.resource.data.organization) && isValidCalendarEvent(request.resource.data);
+      allow update: if belongsToOrg(resource.data.organization) && isValidCalendarEvent(request.resource.data) && (resource.data.userId == request.auth.uid || isAdmin() || isManager());
+      allow delete: if belongsToOrg(resource.data.organization) && (resource.data.userId == request.auth.uid || isAdmin() || isManager());
+    }
+
+    match /chat_messages/{messageId} {
+      allow read: if belongsToOrg(resource.data.organization);
+      allow create: if belongsToOrg(request.resource.data.organization) && isValidChatMessage(request.resource.data);
+      allow update: if false;
+      allow delete: if isAdmin() || isManager() || (resource.data.senderId == request.auth.uid);
+    }
+
+    match /daily_objectives/{objectiveId} {
+      allow read: if belongsToOrg(resource.data.organization);
+      allow create: if belongsToOrg(request.resource.data.organization) && isValidDailyObjective(request.resource.data);
+      allow update: if belongsToOrg(resource.data.organization) && isValidDailyObjective(request.resource.data) && (resource.data.userId == request.auth.uid || isAdmin() || isManager());
+      allow delete: if isAdmin() || isManager();
     }
 
     match /notifications/{notificationId} {

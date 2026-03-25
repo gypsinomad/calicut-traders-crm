@@ -24,14 +24,19 @@ import InventoryManager from './components/InventoryManager.tsx';
 import MarketOracle from './components/MarketOracle.tsx';
 import SupplierPortal from './components/SupplierPortal.tsx';
 import AnalyticsDashboard from './components/AnalyticsDashboard.tsx';
-import PWAInventoryScanner from './components/PWAInventoryScanner.tsx';
+import SmartScanner from './components/SmartScanner.tsx';
 import ComplianceAssistant from './components/ComplianceAssistant.tsx';
 import ShipmentKanban from './components/ShipmentKanban.tsx';
 import OnboardingWizard from './components/OnboardingWizard.tsx';
 import CommandPalette from './components/CommandPalette.tsx';
 import QuoteList from './components/QuoteList.tsx';
 import CustomerPortal from './components/CustomerPortal.tsx';
-import { AuthProvider, useAuth, LoginScreen } from './components/Auth.tsx';
+import CalendarView from './components/CalendarView.tsx';
+import CollaborationSpace from './components/CollaborationSpace.tsx';
+import ExportDocumentManager from './components/ExportDocumentManager.tsx';
+import BuyerPipeline from './components/BuyerPipeline.tsx';
+import ShipmentTracker from './components/ShipmentTracker.tsx';
+import { AuthProvider, useAuth, LoginScreen, PendingApprovalScreen } from './components/Auth.tsx';
 import { Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { db } from './firebase';
@@ -44,7 +49,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     async function checkOnboarding() {
-      if (!user || !profile) {
+      if (!user || !profile || !profile.isApproved) {
         setCheckingOnboarding(false);
         return;
       }
@@ -99,6 +104,10 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <LoginScreen />;
   }
 
+  if (profile && !profile.isApproved) {
+    return <PendingApprovalScreen />;
+  }
+
   return (
     <>
       {showOnboarding && (
@@ -130,6 +139,11 @@ function AppContent() {
             <Route path="tasks" element={<TaskList />} />
             <Route path="companies" element={<CompanyList />} />
             <Route path="reports" element={<ReportList />} />
+            <Route path="documents-manager" element={<ExportDocumentManager />} />
+            <Route path="buyer-pipeline" element={<BuyerPipeline />} />
+            <Route path="shipment-tracker" element={<ShipmentTracker />} />
+            <Route path="calendar" element={<CalendarView />} />
+            <Route path="collaboration" element={<CollaborationSpace />} />
             <Route path="inventory" element={<InventoryManager />} />
             <Route path="market" element={<MarketOracle />} />
             <Route path="suppliers" element={<SupplierPortal />} />
@@ -139,7 +153,7 @@ function AppContent() {
             <Route path="audit" element={<AuditTrail />} />
             <Route path="health" element={<SystemHealth />} />
             <Route path="analytics" element={<Analytics />} />
-            <Route path="scanner" element={<PWAInventoryScanner />} />
+            <Route path="scanner" element={<SmartScanner />} />
             <Route path="settings" element={<Settings />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

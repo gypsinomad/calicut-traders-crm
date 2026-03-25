@@ -9,7 +9,9 @@ import {
   updateDoc, 
   deleteDoc,
   Timestamp,
-  getDocFromServer
+  getDocFromServer,
+  getDocs,
+  getDoc
 } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 export { db, auth };
@@ -64,6 +66,33 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   console.error('Firestore Error: ', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
 }
+
+export const getDocuments = async <T>(
+  path: string, 
+  filters?: { field: string; operator: any; value: any }[],
+  sortField?: string,
+  sortOrder: 'asc' | 'desc' = 'desc'
+) => {
+  try {
+    let q = query(collection(db, path));
+
+    if (filters) {
+      filters.forEach(f => {
+        q = query(q, where(f.field, f.operator, f.value));
+      });
+    }
+
+    if (sortField) {
+      q = query(q, orderBy(sortField, sortOrder));
+    }
+
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as T));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, path);
+    return [];
+  }
+};
 
 export const subscribeToCollection = <T>(
   path: string, 

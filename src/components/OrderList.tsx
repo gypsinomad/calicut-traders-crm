@@ -4,6 +4,7 @@ import {
   Filter, 
   Plus, 
   Ship, 
+  Globe,
   DollarSign,
   ChevronRight,
   Clock,
@@ -26,12 +27,12 @@ import { ExportOrder, OrderStage } from '../lib/types.ts';
 import OrderDetails from './OrderDetails.tsx';
 import Modal from './Modal.tsx';
 import { subscribeToCollection, createDocument, updateDocument, deleteDocument } from '../services/db';
-import { getStatusColor, formatDate, formatCurrency } from '../lib/utils';
+import { getStatusColor, formatDate, formatCurrency, cn } from '../lib/utils';
 import { useAuth } from './Auth.tsx';
 import { Timestamp } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
-import { handleAIError, generateAIContent } from '../lib/ai';
+import { handleAIError, generateAIContent, isAIAvailable } from '../lib/ai';
 import { WhatsAppService } from '../services/whatsapp';
 
 export default function OrderList() {
@@ -47,6 +48,7 @@ export default function OrderList() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const [checkingCompliance, setCheckingCompliance] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   useEffect(() => {
     selectedOrderRef.current = selectedOrder;
@@ -139,9 +141,9 @@ export default function OrderList() {
   };
 
   const handleDeleteOrder = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this order?')) return;
     try {
       await deleteDocument('orders', id);
+      setDeleteConfirmId(null);
     } catch (error) {
       console.error('Error deleting order:', error);
     }
@@ -215,6 +217,28 @@ export default function OrderList() {
   const checkCompliance = async (order: ExportOrder) => {
     setCheckingCompliance(order.id);
     try {
+      if (!isAIAvailable()) {
+        // Rule-based fallback
+        const missingDocs = [];
+        if (order.commodity.toLowerCase().includes('pepper') || order.commodity.toLowerCase().includes('cardamom')) {
+          missingDocs.push('Phytosanitary Certificate', 'Spices Board RCMC');
+        }
+        if (order.destinationCountry.toLowerCase().includes('uk') || order.destinationCountry.toLowerCase().includes('europe')) {
+          missingDocs.push('Ethylene Oxide (EtO) Test Report');
+        }
+        missingDocs.push('Certificate of Origin', 'Commercial Invoice', 'Packing List');
+
+        const compliance = {
+          status: missingDocs.length > 5 ? 'critical' : 'warning',
+          score: Math.max(30, 100 - (missingDocs.length * 10)),
+          missingDocs,
+          recommendation: `Smart Mode: Based on destination ${order.destinationCountry}, ensure all mandatory spice export documents are ready. Pesticide residue testing is highly recommended for this region.`
+        };
+
+        await updateDocument('orders', order.id, { complianceAI: compliance });
+        return;
+      }
+
       const model = 'gemini-3-flash-preview';
       const prompt = `Check export compliance for this order:
       Order: ${order.orderNumber}
@@ -411,30 +435,30 @@ export default function OrderList() {
   );
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-10 pb-12">
+      <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <h2 className="text-3xl font-bold text-zinc-900">Export Orders</h2>
-          <p className="text-zinc-500 mt-1">Track and manage international shipments</p>
+          <h2 className="text-5xl font-serif font-bold text-zinc-900 tracking-tight">Export Orders</h2>
+          <p className="text-zinc-500 mt-2 text-lg font-serif italic">Track and manage your global spice shipments.</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           <button 
             onClick={() => setShowCalculator(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-zinc-200 text-zinc-700 rounded-lg text-sm font-medium hover:bg-zinc-50 transition-colors shadow-sm"
+            className="px-6 py-3 bg-white border border-zinc-200 text-zinc-700 rounded-2xl text-sm font-bold hover:bg-zinc-50 transition-all shadow-sm flex items-center gap-2"
           >
             <Zap size={18} className="text-amber-500" />
             Incoterms Calc
           </button>
           <button 
             onClick={exportToCSV}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-zinc-200 text-zinc-700 rounded-lg text-sm font-medium hover:bg-zinc-50 transition-colors shadow-sm"
+            className="px-6 py-3 bg-white border border-zinc-200 text-zinc-700 rounded-2xl text-sm font-bold hover:bg-zinc-50 transition-all shadow-sm flex items-center gap-2"
           >
             <Download size={18} />
             Export
           </button>
           <button 
             onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm"
+            className="px-8 py-3 bg-[#064e3b] text-white rounded-2xl text-sm font-bold hover:bg-[#065f46] transition-all shadow-xl shadow-emerald-900/20 flex items-center gap-2"
           >
             <Plus size={18} />
             New Order
@@ -550,194 +574,185 @@ export default function OrderList() {
         </div>
       </Modal>
 
-      <div className="flex flex-col sm:flex-row items-center gap-4 bg-white p-4 rounded-xl border border-zinc-200 shadow-sm">
-        <div className="relative flex-1 w-full">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
-          <input 
-            type="text" 
-            placeholder="Search orders by number or customer..." 
-            className="w-full pl-10 pr-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <Filter size={18} className="text-zinc-400" />
-          <select 
-            value={filterStage}
-            onChange={(e) => setFilterStage(e.target.value)}
-            className="flex-1 sm:flex-none px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm font-medium text-zinc-600 outline-none focus:ring-2 focus:ring-emerald-500/20"
-          >
-            <option value="all">All Stages</option>
-            <option value="leadReceived">Lead Received</option>
-            <option value="quotationSent">Quotation Sent</option>
-            <option value="orderConfirmed">Order Confirmed</option>
-            <option value="exportDocumentation">Export Documentation</option>
-            <option value="shipmentReady">Shipment Ready</option>
-            <option value="shippedDelivered">Shipped/Delivered</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
-        </div>
-      </div>
-
-      {selectedOrderIds.length > 0 && (
-        <motion.div 
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between p-4 bg-emerald-50 border border-emerald-100 rounded-xl"
-        >
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-bold text-emerald-700">
-              {selectedOrderIds.length} orders selected
-            </span>
-            <button 
-              onClick={toggleSelectAll}
-              className="text-xs text-emerald-600 hover:underline font-medium"
-            >
-              Deselect All
-            </button>
-          </div>
-          <div className="flex items-center gap-3">
-            <select 
-              onChange={(e) => handleBulkStageUpdate(e.target.value as OrderStage)}
-              className="px-3 py-1.5 bg-white border border-emerald-200 rounded-lg text-xs font-bold text-emerald-700 outline-none"
-              defaultValue=""
-            >
-              <option value="" disabled>Update Stage</option>
-              <option value="orderConfirmed">Order Confirmed</option>
-              <option value="exportDocumentation">Export Documentation</option>
-              <option value="shipmentReady">Shipment Ready</option>
-              <option value="shippedDelivered">Shipped/Delivered</option>
-            </select>
-            <button 
-              onClick={handleBulkDelete}
-              className="p-2 text-rose-600 hover:bg-rose-100 rounded-lg transition-colors"
-              title="Delete Selected"
-            >
-              <Trash2 size={18} />
-            </button>
-          </div>
-        </motion.div>
-      )}
-
-      <div className="grid grid-cols-1 gap-4">
-        {loading ? (
-          <div className="py-12 text-center bg-white rounded-2xl border border-zinc-200">
-            <div className="flex flex-col items-center gap-2">
-              <div className="w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
-              <p className="text-sm text-zinc-500 font-medium">Loading orders...</p>
+      <div className="bg-white rounded-[2.5rem] border border-zinc-200/50 shadow-sm overflow-hidden">
+        <div className="p-8 border-b border-zinc-100 bg-[#fcfaf7]/50">
+          <div className="flex flex-col md:flex-row gap-6">
+            <div className="relative flex-1 group">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-[#064e3b] transition-colors" size={18} />
+              <input 
+                type="text" 
+                placeholder="Search orders by number or customer..." 
+                className="w-full pl-12 pr-6 py-3 bg-white border border-zinc-200 rounded-2xl text-sm focus:outline-none focus:border-emerald-200 focus:ring-4 focus:ring-emerald-500/5 transition-all"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <Filter size={18} className="text-zinc-400" />
+              <select 
+                value={filterStage}
+                onChange={(e) => setFilterStage(e.target.value)}
+                className="bg-white border border-zinc-200 rounded-2xl px-6 py-3 text-sm font-bold focus:outline-none focus:border-emerald-200 transition-all"
+              >
+                <option value="all">All Stages</option>
+                <option value="leadReceived">Lead Received</option>
+                <option value="quotationSent">Quotation Sent</option>
+                <option value="orderConfirmed">Order Confirmed</option>
+                <option value="exportDocumentation">Export Documentation</option>
+                <option value="shipmentReady">Shipment Ready</option>
+                <option value="shippedDelivered">Shipped/Delivered</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
             </div>
           </div>
-        ) : filteredOrders.length === 0 ? (
-          <div className="py-12 text-center bg-white rounded-2xl border border-zinc-200">
-            <p className="text-zinc-400 text-sm font-medium">No orders found matching your criteria</p>
-          </div>
-        ) : (
-          filteredOrders.map((order) => (
-            <div 
-              key={order.id} 
-              className={`bg-white p-6 rounded-2xl border transition-all group relative ${
-                selectedOrderIds.includes(order.id) ? 'border-emerald-500 ring-1 ring-emerald-500' : 'border-zinc-200 hover:shadow-md'
-              }`}
-            >
-              <div className="absolute top-4 left-4 z-10">
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleSelect(order.id);
-                  }}
-                  className="p-1 rounded-md hover:bg-zinc-100 transition-colors"
-                >
-                  {selectedOrderIds.includes(order.id) ? (
-                    <CheckSquare className="text-emerald-600" size={20} />
-                  ) : (
-                    <Square className="text-zinc-300" size={20} />
-                  )}
-                </button>
-              </div>
+        </div>
 
-              <div className="flex items-start justify-between pl-8" onClick={() => setSelectedOrder(order)}>
-                <div className="flex items-start gap-4 cursor-pointer">
-                  <div className="p-3 bg-emerald-50 rounded-xl text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-                    <Ship size={24} />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-zinc-900 group-hover:text-emerald-600 transition-colors">{order.orderNumber} - {order.customerName}</h3>
-                    <div className="flex items-center gap-4 mt-2">
-                      <div className="flex items-center gap-1.5 text-zinc-500">
-                        <DollarSign size={14} />
-                        <span className="text-sm font-medium">{formatCurrency(order.totalAmount)}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-zinc-500">
-                        <Ship size={14} />
-                        <span className="text-sm font-medium">{order.incoterms}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-zinc-500">
-                        <Package size={14} />
-                        <span className="text-sm font-medium">{order.destinationCountry}</span>
+        <div className="p-8 space-y-6">
+          {loading ? (
+            <div className="py-20 text-center">
+              <RefreshCw className="animate-spin mx-auto text-zinc-400" size={32} />
+            </div>
+          ) : filteredOrders.length === 0 ? (
+            <div className="py-20 text-center bg-zinc-50/50 rounded-[2rem] border border-dashed border-zinc-200">
+              <p className="text-zinc-400 font-serif italic text-lg">No orders found matching your criteria.</p>
+            </div>
+          ) : (
+            filteredOrders.map((order) => (
+              <div 
+                key={order.id} 
+                className={cn(
+                  "bg-white p-8 rounded-[2rem] border transition-all group relative",
+                  selectedOrderIds.includes(order.id) ? "border-[#064e3b] ring-4 ring-emerald-500/5" : "border-zinc-100 hover:border-emerald-200 hover:shadow-xl hover:shadow-emerald-900/5"
+                )}
+              >
+                <div className="absolute top-8 left-8 z-10">
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleSelect(order.id);
+                    }}
+                    className={cn(
+                      "p-1.5 rounded-xl transition-all",
+                      selectedOrderIds.includes(order.id) ? "bg-[#064e3b] text-white" : "bg-white/80 backdrop-blur-sm text-zinc-300 border border-zinc-100 opacity-0 group-hover:opacity-100"
+                    )}
+                  >
+                    {selectedOrderIds.includes(order.id) ? <CheckSquare size={18} /> : <Square size={18} />}
+                  </button>
+                </div>
+
+                <div className="flex items-start justify-between pl-12" onClick={() => setSelectedOrder(order)}>
+                  <div className="flex items-start gap-6 cursor-pointer">
+                    <div className="p-4 bg-[#fcfaf7] rounded-2xl text-[#064e3b] group-hover:bg-[#064e3b] group-hover:text-white transition-all duration-500 shadow-inner">
+                      <Ship size={28} />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-serif font-bold text-zinc-900 group-hover:text-[#064e3b] transition-colors tracking-tight">
+                        {order.orderNumber} · {order.customerName}
+                      </h3>
+                      <div className="flex items-center gap-6 mt-3">
+                        <div className="flex items-center gap-2 text-zinc-500">
+                          <DollarSign size={16} className="text-emerald-600" />
+                          <span className="text-sm font-bold text-zinc-700">{formatCurrency(order.totalAmount)}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-zinc-500">
+                          <Ship size={16} className="text-blue-600" />
+                          <span className="text-sm font-bold text-zinc-700">{order.incoterms}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-zinc-500">
+                          <Globe size={16} className="text-indigo-600" />
+                          <span className="text-sm font-bold text-zinc-700">{order.destinationCountry}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
+                  <div className="text-right">
+                    <span className={cn(
+                      "inline-flex items-center px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border",
+                      getStatusColor(order.status)
+                    )}>
+                      {order.status}
+                    </span>
+                    <div className="flex items-center gap-2 text-zinc-400 mt-3 justify-end">
+                      <Clock size={14} />
+                      <span className="text-[10px] font-black uppercase tracking-widest">{formatDate(order.createdAt)}</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${getStatusColor(order.status)}`}>
-                    {order.status}
-                  </span>
-                  <div className="flex items-center gap-2 text-zinc-400 mt-2 justify-end">
-                    <Clock size={12} />
-                    <span className="text-[10px] font-medium">{formatDate(order.createdAt)}</span>
+
+                <div className="mt-8 flex items-center justify-between pt-8 border-t border-zinc-100 pl-12">
+                  <div className="flex items-center gap-3">
+                    <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Commodity Profile:</span>
+                    <span className="px-3 py-1 bg-zinc-100 text-zinc-700 rounded-lg text-xs font-bold font-serif italic">
+                      {order.commodity} ({order.quantity} {order.unit})
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        checkCompliance(order);
+                      }}
+                      disabled={checkingCompliance === order.id}
+                      className="p-3 text-[#064e3b] hover:bg-emerald-50 rounded-2xl transition-all disabled:opacity-50"
+                      title="Check Compliance"
+                    >
+                      {checkingCompliance === order.id ? <RefreshCw size={20} className="animate-spin" /> : <Zap size={20} />}
+                    </button>
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingOrder(order);
+                      }}
+                      className="p-3 text-zinc-400 hover:text-[#064e3b] hover:bg-emerald-50 rounded-2xl transition-all"
+                      title="Edit Order"
+                    >
+                      <Edit2 size={20} />
+                    </button>
+                    {deleteConfirmId === order.id ? (
+                      <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-2 duration-200">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteOrder(order.id);
+                          }}
+                          className="px-3 py-1 bg-rose-600 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg hover:bg-rose-700 transition-colors shadow-sm"
+                        >
+                          Del
+                        </button>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteConfirmId(null);
+                          }}
+                          className="px-3 py-1 bg-zinc-100 text-zinc-600 text-[10px] font-bold uppercase tracking-wider rounded-lg hover:bg-zinc-200 transition-colors"
+                        >
+                          X
+                        </button>
+                      </div>
+                    ) : (
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteConfirmId(order.id);
+                        }}
+                        className="p-3 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-2xl transition-all"
+                        title="Delete Order"
+                      >
+                        <Trash2 size={20} />
+                      </button>
+                    )}
+                    <button 
+                      onClick={() => setSelectedOrder(order)}
+                      className="px-8 py-2.5 bg-[#064e3b] text-white rounded-2xl text-sm font-bold hover:bg-[#065f46] transition-all shadow-lg shadow-emerald-900/10"
+                    >
+                      View Details
+                    </button>
                   </div>
                 </div>
               </div>
-
-              <div className="mt-6 flex items-center justify-between pt-6 border-t border-zinc-100 pl-8">
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Commodity:</span>
-                  <span className="text-xs font-bold text-zinc-700">{order.commodity} ({order.quantity} {order.unit})</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      checkCompliance(order);
-                    }}
-                    disabled={checkingCompliance === order.id}
-                    className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-50"
-                    title="Check Compliance"
-                  >
-                    {checkingCompliance === order.id ? <RefreshCw size={18} className="animate-spin" /> : <Zap size={18} />}
-                  </button>
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setEditingOrder(order);
-                    }}
-                    className="p-2 text-zinc-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
-                    title="Edit Order"
-                  >
-                    <Edit2 size={18} />
-                  </button>
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteOrder(order.id);
-                    }}
-                    className="p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
-                    title="Delete Order"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                  <button 
-                    onClick={() => setSelectedOrder(order)}
-                    className="px-4 py-1.5 bg-zinc-900 text-white rounded-lg text-sm font-medium hover:bg-zinc-800 transition-colors"
-                  >
-                    View Details
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))
-        )}
+            ))
+          )}
+        </div>
       </div>
     </div>
   );

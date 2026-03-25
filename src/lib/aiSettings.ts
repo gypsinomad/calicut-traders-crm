@@ -1,16 +1,34 @@
 import { db } from '../firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
-export interface AISettings {
+export type AIProvider = 'gemini' | 'openai' | 'anthropic' | 'deepseek' | 'mistral' | 'nemotron';
+
+export interface ProviderSettings {
   apiKey: string;
   model: string;
+  enabled: boolean;
+  baseUrl?: string; // For OpenAI-compatible APIs like DeepSeek/Nemotron
+}
+
+export interface AISettings {
+  provider: AIProvider;
+  providers: Record<AIProvider, ProviderSettings>;
   spendingCapINR: number;
   enabled: boolean;
+  apiKey?: string; // Legacy support
+  model?: string; // Legacy support
 }
 
 const DEFAULT_SETTINGS: AISettings = {
-  apiKey: '',
-  model: 'gemini-3-flash-preview',
+  provider: 'gemini',
+  providers: {
+    gemini: { apiKey: '', model: 'gemini-3-flash-preview', enabled: true },
+    openai: { apiKey: '', model: 'gpt-4o-mini', enabled: false },
+    anthropic: { apiKey: '', model: 'claude-3-5-sonnet-20240620', enabled: false },
+    deepseek: { apiKey: '', model: 'deepseek-chat', enabled: false, baseUrl: 'https://api.deepseek.com' },
+    mistral: { apiKey: '', model: 'mistral-large-latest', enabled: false },
+    nemotron: { apiKey: '', model: 'nvidia/nemotron-4-340b-instruct', enabled: false, baseUrl: 'https://integrate.api.nvidia.com/v1' }
+  },
   spendingCapINR: 1000,
   enabled: true
 };

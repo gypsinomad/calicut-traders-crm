@@ -8,7 +8,7 @@ import {
 import { auth, db, googleProvider } from '../firebase';
 import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
 import { UserProfile } from '../lib/types';
-import { LogIn, LogOut, Loader2 } from 'lucide-react';
+import { LogIn, LogOut, Loader2, ShieldAlert, Clock } from 'lucide-react';
 
 enum OperationType {
   CREATE = 'create',
@@ -91,10 +91,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             let updatedData = { ...data };
             let needsUpdate = false;
 
-            // Check if this is the default admin and needs a role upgrade
-            if (currentUser.email === 'akhilvenugopal@gmail.com' && data.role !== 'admin') {
-              updatedData.role = 'admin';
-              needsUpdate = true;
+            // Check if this is the default admin and needs a role upgrade or approval
+            if (currentUser.email === 'akhilvenugopal@gmail.com') {
+              if (data.role !== 'admin' || !data.isApproved) {
+                updatedData.role = 'admin';
+                updatedData.isApproved = true;
+                needsUpdate = true;
+              }
             }
 
             // Ensure organization exists
@@ -110,11 +113,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               setProfile(data);
             }
           } else {
+            const isAdmin = currentUser.email === 'akhilvenugopal@gmail.com';
             const newProfile: UserProfile = {
               uid: currentUser.uid,
               email: currentUser.email || '',
               displayName: currentUser.displayName || 'User',
-              role: currentUser.email === 'akhilvenugopal@gmail.com' ? 'admin' : 'staff',
+              role: isAdmin ? 'admin' : 'staff',
+              isApproved: isAdmin, // Default admin is approved, others are not
               isActive: true,
               createdAt: Timestamp.now(),
               organization: 'Calicut Spice Traders LLP',
@@ -165,6 +170,41 @@ export function useAuth() {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
+}
+
+export function PendingApprovalScreen() {
+  const { logout } = useAuth();
+
+  return (
+    <div className="min-h-screen bg-zinc-50 flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-white p-10 rounded-3xl border border-zinc-200 shadow-2xl text-center">
+        <div className="w-20 h-20 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-8 rotate-3 shadow-inner">
+          <Clock size={40} />
+        </div>
+        <h1 className="text-3xl font-black text-zinc-900 mb-2 tracking-tight">Approval Pending</h1>
+        <p className="text-zinc-500 mb-8 font-medium">
+          Your account has been created successfully. An administrator needs to approve your access before you can enter the system.
+        </p>
+        
+        <div className="bg-zinc-50 p-4 rounded-2xl border border-zinc-100 mb-8 text-left">
+          <div className="flex items-start gap-3">
+            <ShieldAlert className="text-zinc-400 shrink-0 mt-0.5" size={18} />
+            <p className="text-xs text-zinc-500 leading-relaxed">
+              We take security seriously. Once an admin verifies your identity, you'll receive access to the Calicut Spice Traders platform.
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={logout}
+          className="w-full flex items-center justify-center gap-3 px-8 py-4 bg-zinc-100 text-zinc-900 rounded-2xl font-bold hover:bg-zinc-200 transition-all"
+        >
+          <LogOut size={20} />
+          Sign Out
+        </button>
+      </div>
+    </div>
+  );
 }
 
 export function LoginScreen() {
