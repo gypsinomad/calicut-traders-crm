@@ -17,23 +17,23 @@ export default defineConfig(({mode}) => {
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024 // 5MB
         },
         manifest: {
-          name: 'Calicut Spice Traders CRM',
-          short_name: 'SpiceCRM',
-          description: 'Global CRM for Spice Trading Operations',
+          name: 'Calicut Traders CRM',
+          short_name: 'TradeCRM',
+          description: 'Global CRM for Export Trading Operations',
           theme_color: '#059669',
           icons: [
             {
-              src: 'https://picsum.photos/seed/spice/192/192',
+              src: 'https://picsum.photos/seed/trade/192/192',
               sizes: '192x192',
               type: 'image/png'
             },
             {
-              src: 'https://picsum.photos/seed/spice/512/512',
+              src: 'https://picsum.photos/seed/trade/512/512',
               sizes: '512x512',
               type: 'image/png'
             },
             {
-              src: 'https://picsum.photos/seed/spice/512/512',
+              src: 'https://picsum.photos/seed/trade/512/512',
               sizes: '512x512',
               type: 'image/png',
               purpose: 'any maskable'

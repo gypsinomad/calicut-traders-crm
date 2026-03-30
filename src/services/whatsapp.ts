@@ -15,7 +15,7 @@ export function buildQuoteMessage(quote: Quote): string {
   return `
 Hello ${quote.companyName || 'Valued Customer'},
 
-Please find attached our Proforma Invoice ${quote.quoteNumber} from Calicut Spice Traders.
+Please find attached our Proforma Invoice ${quote.quoteNumber} from Global Trade Connect.
 
 Details:
 ${itemsSummary}
@@ -25,7 +25,7 @@ ${itemsSummary}
 Kindly confirm your acceptance at the earliest.
 
 Best regards,
-Calicut Spice Traders LLP
+Global Trade Connect LLP
 Kozhikode, Kerala
   `.trim();
 }
@@ -40,7 +40,7 @@ We have generated the ${docType} for your order ${orderRef}.
 Please find the document attached for your review.
 
 Best regards,
-Calicut Spice Traders LLP
+Global Trade Connect LLP
   `.trim();
 }
 
@@ -98,7 +98,7 @@ Hello *${order.customerName}*, your order has been confirmed.
 • Total Value: ${order.currency} ${order.totalValue.toLocaleString()}
 
 We will notify you once it's shipped. 
-- Calicut Spice Traders LLP
+- Global Trade Connect LLP
       `.trim();
 
       await new Promise(resolve => setTimeout(resolve, 1500));
@@ -152,7 +152,7 @@ Your order *${order.id}* is on its way!
 Estimated Arrival: *${eta}*
 Destination: ${order.destination}
 
-Track your shipment here: https://spicetrace.app/track/${order.id}
+Track your shipment here: https://tradetrace.app/track/${order.id}
       `.trim();
 
       await new Promise(resolve => setTimeout(resolve, 1500));

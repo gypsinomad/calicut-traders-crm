@@ -13,7 +13,8 @@ import {
   Circle,
   RefreshCw,
   Save,
-  X
+  X,
+  Zap
 } from 'lucide-react';
 import { Task } from '../lib/types.ts';
 import Modal from './Modal.tsx';
@@ -42,7 +43,7 @@ export default function TaskList() {
     description: '',
     priority: 'medium',
     status: 'open',
-    organization: profile?.organization || 'Calicut Spice Traders LLP'
+    organization: profile?.organization || 'Global Trade Connect LLP'
   });
 
   useEffect(() => {
@@ -64,7 +65,7 @@ export default function TaskList() {
         ...newTask,
         dueDate: Timestamp.fromDate(new Date(dueDateStr)),
         assigneeId: profile?.uid || '',
-        organization: profile?.organization || 'Calicut Spice Traders LLP'
+        organization: profile?.organization || 'Calicut Traders'
       };
 
       if (editingTask) {
@@ -138,7 +139,7 @@ export default function TaskList() {
         status: t.status
       }));
 
-      const prompt = `As a project manager for a spice export business, prioritize the following tasks. 
+      const prompt = `As a project manager for an export business, prioritize the following tasks. 
       Consider deadlines and priority levels (high/medium/low).
       Return a JSON array of task IDs in the recommended order of execution.
       

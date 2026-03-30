@@ -137,7 +137,7 @@ export default function BuyerPipeline() {
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-5xl font-serif font-bold text-zinc-900 tracking-tight">Buyer Intelligence</h1>
-          <p className="text-zinc-500 mt-2 text-lg font-serif italic">Advanced CRM and sales pipeline for global spice trade.</p>
+          <p className="text-zinc-500 mt-2 text-lg font-serif italic">Advanced CRM and sales pipeline for global trade.</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="relative">

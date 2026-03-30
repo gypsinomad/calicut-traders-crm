@@ -167,7 +167,7 @@ export default function CollaborationSpace() {
       <header className="flex items-center justify-between">
         <div>
           <h1 className="text-5xl font-serif font-bold text-zinc-900 tracking-tight">Collaboration Hub</h1>
-          <p className="text-zinc-500 mt-2 text-lg font-serif italic">Real-time coordination for the spice trade.</p>
+          <p className="text-zinc-500 mt-2 text-lg font-serif italic">Real-time coordination for global trade.</p>
         </div>
         <div className="flex items-center gap-1 bg-zinc-100 p-1 rounded-2xl border border-zinc-200">
           <button 

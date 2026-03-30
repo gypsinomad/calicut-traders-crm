@@ -59,6 +59,7 @@ export interface Lead {
   preferredProducts?: string[];
   totalOrders?: number;
   totalValue?: number;
+  productCategories?: string;
 }
 
 export type OrderStage = 
@@ -73,6 +74,7 @@ export type OrderStage =
   | 'delivered'
   | 'paymentReceived'
   | 'cancelled'
+  | 'draft'
   | 'leadReceived'
   | 'exportDocumentation'
   | 'shipmentReady'
@@ -134,7 +136,9 @@ export interface ExportOrder {
   shipmentStatus?: string;
   originPort?: string;
   destinationPort?: string;
+  updatedAt?: Timestamp;
   logisticsAI?: any;
+  complianceAI?: any;
   transportMode?: string;
   hsCode?: string;
   riskScore?: number;
@@ -171,7 +175,7 @@ export interface InventoryItem {
 
 export interface MarketPrice {
   id: string;
-  spice: string;
+  product: string;
   commodity: string;
   region: string;
   price: number;
@@ -339,6 +343,7 @@ export interface Notification {
   userId: string;
   relatedEntityId?: string;
   relatedEntityType?: string;
+  organization: string;
 }
 
 export type DocType = 
@@ -495,4 +500,92 @@ export interface AuditTrail {
   timestamp: Timestamp;
   organization: string;
   details?: string;
+}
+
+// Communications Hub Types
+export type CommunicationChannel = 'email' | 'whatsapp' | 'facebook' | 'instagram' | 'linkedin' | 'twitter';
+
+export interface EmailMessage {
+  id: string;
+  threadId: string;
+  from: string;
+  to: string[];
+  cc?: string[];
+  subject: string;
+  body: string;
+  timestamp: Timestamp;
+  status: 'sent' | 'received' | 'draft';
+  attachments?: { name: string; url: string; size: number }[];
+  relatedOrderId?: string;
+  relatedLeadId?: string;
+  organization: string;
+}
+
+export interface WhatsAppMessage {
+  id: string;
+  from: string;
+  to: string;
+  text: string;
+  timestamp: Timestamp;
+  status: 'sent' | 'delivered' | 'read' | 'failed';
+  type: 'text' | 'template' | 'image' | 'document';
+  templateName?: string;
+  relatedOrderId?: string;
+  relatedLeadId?: string;
+  organization: string;
+}
+
+export interface SocialPost {
+  id: string;
+  platform: 'facebook' | 'instagram' | 'linkedin' | 'twitter';
+  content: string;
+  mediaUrls?: string[];
+  scheduledAt: Timestamp;
+  publishedAt?: Timestamp;
+  status: 'draft' | 'scheduled' | 'published' | 'failed';
+  analytics?: {
+    reach: number;
+    engagement: number;
+    impressions: number;
+    clicks: number;
+  };
+  organization: string;
+}
+
+export interface UnifiedMessage {
+  id: string;
+  channel: CommunicationChannel;
+  sender: {
+    id: string;
+    name: string;
+    avatar?: string;
+    email?: string;
+    phone?: string;
+  };
+  content: string;
+  timestamp: Timestamp;
+  status: 'unread' | 'read' | 'pending' | 'resolved';
+  assignedTo?: string;
+  relatedEntityId?: string;
+  relatedEntityType?: 'lead' | 'order' | 'company';
+  organization: string;
+}
+
+export interface WhatsAppTemplate {
+  id: string;
+  name: string;
+  category: 'MARKETING' | 'UTILITY' | 'AUTHENTICATION';
+  language: string;
+  components: any[];
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  organization: string;
+}
+
+export interface IntegrationConfig {
+  id: string;
+  platform: 'zoho_mail' | 'whatsapp' | 'meta' | 'zoho_social';
+  isConnected: boolean;
+  lastSyncAt?: Timestamp;
+  config: Record<string, any>;
+  organization: string;
 }

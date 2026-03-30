@@ -18,7 +18,8 @@ import {
   AlertTriangle,
   ShieldCheck,
   ShieldAlert,
-  Shield
+  Shield,
+  Target
 } from 'lucide-react';
 import { Lead, LeadStatus } from '../lib/types.ts';
 import LeadDetails from './LeadDetails.tsx';
@@ -54,11 +55,12 @@ export default function LeadList() {
     phone: '',
     destinationCountry: '',
     productInterest: '',
+    productCategories: '',
     incotermsPreference: 'FOB',
     source: 'website',
     status: 'new',
     priority: 'warm',
-    organization: profile?.organization || 'Calicut Spice Traders LLP'
+    organization: profile?.organization || 'Global Trade Connect LLP'
   });
 
   useEffect(() => {
@@ -85,7 +87,7 @@ export default function LeadList() {
       const leadData: any = {
         ...newLead,
         assignedUserId: profile?.uid || '',
-        organization: profile?.organization || 'Calicut Spice Traders LLP',
+        organization: profile?.organization || 'Global Trade Connect LLP',
         nextFollowUpAt: nextFollowUpDate ? Timestamp.fromDate(new Date(nextFollowUpDate)) : null,
       };
 
@@ -135,6 +137,7 @@ export default function LeadList() {
       phone: lead.phone,
       destinationCountry: lead.destinationCountry,
       productInterest: lead.productInterest,
+      productCategories: (lead as any).productCategories || '',
       incotermsPreference: lead.incotermsPreference,
       source: lead.source,
       status: lead.status,
@@ -213,7 +216,7 @@ export default function LeadList() {
     setIsSmartScoring(true);
 
     try {
-      const prompt = `Evaluate this lead for a spice export business and provide a score from 0 to 100.
+      const prompt = `Evaluate this lead for an export business and provide a score from 0 to 100.
       Lead Details:
       - Company: ${lead.companyName}
       - Product Interest: ${lead.productInterest}
@@ -337,7 +340,7 @@ export default function LeadList() {
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
           <h2 className="text-5xl font-serif font-bold text-zinc-900 tracking-tight">Lead Generation</h2>
-          <p className="text-zinc-500 mt-2 text-lg font-serif italic">Identify and qualify high-potential global spice buyers.</p>
+          <p className="text-zinc-500 mt-2 text-lg font-serif italic">Identify and qualify high-potential global export buyers.</p>
         </div>
         <div className="flex items-center gap-4">
           {selectedLeadIds.length > 0 && (
@@ -428,7 +431,7 @@ export default function LeadList() {
                 value={newLead.companyName}
                 onChange={(e) => setNewLead({ ...newLead, companyName: e.target.value })}
                 className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
-                placeholder="e.g. Global Spices Ltd"
+                placeholder="e.g. Global Products Ltd"
               />
             </div>
             <div className="space-y-1.5">
@@ -463,7 +466,7 @@ export default function LeadList() {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Priority Level</label>
+              <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Lead Temperature</label>
               <select 
                 value={newLead.priority}
                 onChange={(e) => setNewLead({ ...newLead, priority: e.target.value as any })}
@@ -472,6 +475,24 @@ export default function LeadList() {
                 <option value="cold">Cold</option>
                 <option value="warm">Warm</option>
                 <option value="hot">Hot</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Lead Source</label>
+              <select 
+                value={newLead.source}
+                onChange={(e) => setNewLead({ ...newLead, source: e.target.value as any })}
+                className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+              >
+                <option value="manual">Manual</option>
+                <option value="website">Website</option>
+                <option value="whatsapp">WhatsApp</option>
+                <option value="tradeShow">Trade Show</option>
+                <option value="referral">Referral</option>
+                <option value="linkedin">LinkedIn</option>
+                <option value="emailCampaign">Email Campaign</option>
+                <option value="coldCall">Cold Call</option>
+                <option value="importData">Import Data</option>
               </select>
             </div>
             <div className="space-y-1.5">
@@ -484,7 +505,12 @@ export default function LeadList() {
                 <option value="FOB">FOB</option>
                 <option value="CIF">CIF</option>
                 <option value="EXW">EXW</option>
-                <option value="CNF">CNF</option>
+                <option value="CFR">CFR</option>
+                <option value="DDP">DDP</option>
+                <option value="DAP">DAP</option>
+                <option value="FCA">FCA</option>
+                <option value="CPT">CPT</option>
+                <option value="CIP">CIP</option>
               </select>
             </div>
             <div className="space-y-1.5">
@@ -497,15 +523,27 @@ export default function LeadList() {
               />
             </div>
           </div>
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Product Interest</label>
-            <textarea 
-              rows={3}
-              value={newLead.productInterest}
-              onChange={(e) => setNewLead({ ...newLead, productInterest: e.target.value })}
-              className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all resize-none"
-              placeholder="e.g. Interested in 5MT Black Pepper and 2MT Cardamom..."
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Product Categories</label>
+              <textarea 
+                rows={2}
+                value={(newLead as any).productCategories}
+                onChange={(e) => setNewLead({ ...newLead, productCategories: e.target.value } as any)}
+                className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all resize-none"
+                placeholder="e.g. Commodities, Coconut Products, Textiles"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Product Interest</label>
+              <textarea 
+                rows={2}
+                value={newLead.productInterest}
+                onChange={(e) => setNewLead({ ...newLead, productInterest: e.target.value })}
+                className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all resize-none"
+                placeholder="e.g. Interested in 5MT Black Pepper..."
+              />
+            </div>
           </div>
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-zinc-100">
             <button 
@@ -797,40 +835,41 @@ export default function LeadList() {
             </tbody>
           </table>
         </div>
+      </div>
 
-        {/* Source ROI Sidebar */}
-        <div className="space-y-6">
-          <div className="bg-white p-6 rounded-[2rem] border border-zinc-200 shadow-sm">
-            <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400 mb-6 flex items-center gap-2">
-              <Target size={14} />
-              Source Performance
-            </h3>
-            <div className="space-y-4">
-              {getSourceStats().map(([source, count]) => (
-                <div key={source} className="space-y-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-zinc-600 capitalize">{source}</span>
-                    <span className="text-zinc-400 font-medium">{count} Leads</span>
-                  </div>
-                  <div className="h-1.5 w-full bg-zinc-100 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-emerald-600 rounded-full" 
-                      style={{ width: `${(count / leads.length) * 100}%` }}
-                    />
-                  </div>
+      {/* Source ROI Sidebar */}
+      <div className="space-y-6">
+        <div className="bg-white p-6 rounded-[2rem] border border-zinc-200 shadow-sm">
+          <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400 mb-6 flex items-center gap-2">
+            <Target size={14} />
+            Source Performance
+          </h3>
+          <div className="space-y-4">
+            {getSourceStats().map(([source, count]) => (
+              <div key={source} className="space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-zinc-600 capitalize">{source}</span>
+                  <span className="text-zinc-400 font-medium">{count} Leads</span>
                 </div>
-              ))}
-            </div>
+                <div className="h-1.5 w-full bg-zinc-100 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-emerald-600 rounded-full" 
+                    style={{ width: `${(count / leads.length) * 100}%` }}
+                  />
+                </div>
+              </div>
+            ))}
           </div>
+        </div>
 
-          <div className="bg-[#064e3b] p-6 rounded-[2rem] text-white shadow-xl shadow-emerald-900/20">
-            <h3 className="text-xs font-black uppercase tracking-widest text-emerald-200/70 mb-4">AI Insight</h3>
-            <p className="text-sm font-serif italic leading-relaxed">
-              "Your highest quality leads are coming from <b>Trade Shows</b>. Consider reallocating 15% of your digital ad spend to upcoming spice expos in Dubai and Germany."
-            </p>
-          </div>
+        <div className="bg-[#064e3b] p-6 rounded-[2rem] text-white shadow-xl shadow-emerald-900/20">
+          <h3 className="text-xs font-black uppercase tracking-widest text-emerald-200/70 mb-4">AI Insight</h3>
+          <p className="text-sm font-serif italic leading-relaxed">
+            "Your highest quality leads are coming from <b>Trade Shows</b>. Consider reallocating 15% of your digital ad spend to upcoming trade expos in Dubai and Germany."
+          </p>
         </div>
       </div>
     </div>
-  );
+  </div>
+);
 }

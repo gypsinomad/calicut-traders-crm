@@ -28,6 +28,7 @@ import {
   FileCheck,
   LayoutGrid,
   Navigation,
+  Mail,
   X
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
@@ -58,6 +59,7 @@ const navItems = [
   { icon: FileCheck, label: 'Export Docs', path: '/documents-manager' },
   { icon: LayoutGrid, label: 'Buyer Pipeline', path: '/buyer-pipeline' },
   { icon: Navigation, label: 'Shipment Tracker', path: '/shipment-tracker' },
+  { icon: Mail, label: 'Communications', path: '/communications' },
   { icon: Calendar, label: 'Calendar', path: '/calendar' },
   { icon: MessageSquare, label: 'Collaboration', path: '/collaboration' },
   { icon: UserCircle, label: 'Customer Portal', path: '/portal' },
@@ -84,9 +86,9 @@ export default function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose
         <div>
           <h1 className="text-2xl font-serif font-bold text-white flex items-center gap-2">
             <Ship className="text-[#d97706]" />
-            <TranslatedText>Calicut Spices</TranslatedText>
+            <TranslatedText>Calicut Traders</TranslatedText>
           </h1>
-          <TranslatedText as="p" className="text-[10px] font-medium text-emerald-300/50 uppercase tracking-[0.2em] mt-1">Export Management</TranslatedText>
+          <TranslatedText as="p" className="text-[10px] font-medium text-emerald-300/50 uppercase tracking-[0.2em] mt-1">Trade Management</TranslatedText>
         </div>
         <button 
           onClick={onClose}
@@ -117,7 +119,12 @@ export default function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose
               "transition-colors",
               "group-hover:text-[#d97706]"
             )} />
-            <TranslatedText as="span" className="text-sm font-medium tracking-tight">{item.label}</TranslatedText>
+            <TranslatedText as="span" className="text-sm font-medium tracking-tight flex-1">{item.label}</TranslatedText>
+            {item.path === '/communications' && (
+              <span className="px-1.5 py-0.5 rounded-full bg-[#d97706] text-white text-[10px] font-bold">
+                3
+              </span>
+            )}
           </NavLink>
         ))}
       </nav>

@@ -1,9 +1,9 @@
 import { ExportOrder, DocType } from './types';
 
 const COMPANY_DETAILS = {
-  name: 'Calicut Spice Traders',
+  name: 'Calicut Traders',
   address: '12/456, Beach Road, Kozhikode, Kerala - 673001, India',
-  email: 'exports@calicutspices.com',
+  email: 'exports@calicuttraders.com',
   phone: '+91 495 2345678',
   gstin: '32AAAAA0000A1Z5',
   iec: '0512345678',
@@ -31,7 +31,7 @@ const getFooter = () => `
     <div style="margin-top: 50px; display: flex; justify-content: space-between; align-items: flex-end;">
       <div style="font-size: 10px; color: #a1a1aa;">
         <p style="margin: 0;">This is a computer-generated document.</p>
-        <p style="margin: 0;">Calicut Spice Traders - Excellence in Spices since 1995</p>
+        <p style="margin: 0;">Global Trade Connect - Excellence in Global Trade since 1995</p>
       </div>
       <div style="text-align: center; width: 200px;">
         <div style="height: 60px; border-bottom: 1px solid #e4e4e7; margin-bottom: 10px;"></div>
@@ -56,7 +56,7 @@ const getTable = (items: any[]) => `
     <tbody>
       ${items.map(item => `
         <tr style="border-bottom: 1px solid #f1f5f9;">
-          <td style="padding: 12px; font-size: 13px; color: #1e293b;">${item.productName || item.description || 'Spice Product'}</td>
+          <td style="padding: 12px; font-size: 13px; color: #1e293b;">${item.productName || item.description || 'Commodity Product'}</td>
           <td style="padding: 12px; text-align: center; font-size: 13px; color: #475569;">${item.hsCode || '0904'}</td>
           <td style="padding: 12px; text-align: right; font-size: 13px; color: #1e293b;">${item.quantity} ${item.unit}</td>
           <td style="padding: 12px; text-align: right; font-size: 13px; color: #1e293b;">${item.unitPrice || '0.00'}</td>
@@ -89,7 +89,7 @@ export const generateDocument = (type: DocType, order: ExportOrder): string => {
             <p style="margin: 2px 0 0; font-size: 12px;">Payment Terms: <strong>${order.paymentTerms || 'T/T 30% Advance, 70% against Docs'}</strong></p>
           </div>
         </div>
-        ${getTable(order.items || [{ description: order.commodity || 'Premium Spices', quantity: order.quantity || 1, unit: order.unit || 'MT', unitPrice: (order.totalAmount || 4500) / (order.quantity || 1), hsCode: order.hsCode || '' }])}
+        ${getTable(order.items || [{ description: order.commodity || 'Premium Commodities', quantity: order.quantity || 1, unit: order.unit || 'MT', unitPrice: (order.totalAmount || 4500) / (order.quantity || 1), hsCode: order.hsCode || '' }])}
         <div style="text-align: right; margin-top: 20px;">
           <p style="font-size: 16px; font-weight: 800; color: #065f46;">Total Amount: ${order.currency || 'USD'} ${(order.totalAmount || 0).toLocaleString()}</p>
         </div>
@@ -187,7 +187,7 @@ export const generateDocument = (type: DocType, order: ExportOrder): string => {
           <div style="padding: 20px; font-size: 12px; line-height: 1.6;">
             <p><strong>Container No:</strong> ${order.containerNumber || 'TCNU1234567'}</p>
             <p><strong>Seal No:</strong> CST987654</p>
-            <p><strong>Goods:</strong> ${order.quantity || 1} ${order.unit || 'MT'} OF ${(order.commodity || 'Premium Spices').toUpperCase()}</p>
+            <p><strong>Goods:</strong> ${order.quantity || 1} ${order.unit || 'MT'} OF ${(order.commodity || 'Premium Commodities').toUpperCase()}</p>
             <p><strong>HS CODE:</strong> ${order.hsCode || '0904'}</p>
           </div>
         </div>
@@ -211,7 +211,7 @@ export const generateDocument = (type: DocType, order: ExportOrder): string => {
           </div>
         </div>
         <div style="border: 1px solid #e4e4e7; padding: 20px; border-radius: 8px;">
-          <p style="margin: 0; font-size: 12px;"><strong>Description:</strong> ${order.commodity || 'Premium Spices'}</p>
+          <p style="margin: 0; font-size: 12px;"><strong>Description:</strong> ${order.commodity || 'Premium Commodities'}</p>
           <p style="margin: 5px 0 0; font-size: 12px;"><strong>Quantity:</strong> ${order.quantity || 1} ${order.unit || 'MT'}</p>
           <p style="margin: 5px 0 0; font-size: 12px;"><strong>Country of Origin:</strong> INDIA</p>
         </div>
@@ -228,7 +228,7 @@ export const generateDocument = (type: DocType, order: ExportOrder): string => {
         <div style="font-size: 12px; line-height: 1.6; color: #1e293b;">
           <p>This is to certify that the plants, plant products or other regulated articles described herein have been inspected and/or tested according to appropriate official procedures and are considered to be free from the quarantine pests specified by the importing contracting party.</p>
           <div style="margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-            <p><strong>Botanical Name:</strong> ${order.commodity || 'Premium Spices'}</p>
+            <p><strong>Botanical Name:</strong> ${order.commodity || 'Premium Commodities'}</p>
             <p><strong>Quantity:</strong> ${order.quantity || 1} ${order.unit || 'MT'}</p>
             <p><strong>Treatment:</strong> Methyl Bromide Fumigation</p>
             <p><strong>Dosage:</strong> 32g/m3 for 24 hours</p>
@@ -247,7 +247,7 @@ export const generateDocument = (type: DocType, order: ExportOrder): string => {
             <li>The products comply with the standards prescribed under the Food Safety and Standards Act, 2006.</li>
             <li>The manufacturing facility follows Good Manufacturing Practices (GMP) and Good Hygienic Practices (GHP).</li>
           </ol>
-          <p style="margin-top: 30px;"><strong>Product:</strong> ${order.commodity || 'Premium Spices'}</p>
+          <p style="margin-top: 30px;"><strong>Product:</strong> ${order.commodity || 'Premium Commodities'}</p>
           <p><strong>Batch No:</strong> CST/2026/${order.orderNumber}</p>
         </div>
         ${getFooter()}

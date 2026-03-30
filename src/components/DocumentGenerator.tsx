@@ -17,6 +17,7 @@ import {
 import { ExportOrder, DocType, GeneratedDocument } from '../lib/types';
 import { generateDocument } from '../lib/documentGenerator';
 import { createDocument, subscribeToCollection, updateDocument } from '../services/db';
+import { orderService } from '../services/orderService';
 import { useAuth } from './Auth';
 import { Timestamp } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
@@ -34,7 +35,7 @@ const DOCUMENT_TYPES: { type: DocType; name: string; description: string }[] = [
   { type: 'billOfLading', name: 'Bill of Lading (B/L)', description: 'Ocean carrier receipt and title document' },
   { type: 'certificateOfOrigin', name: 'Certificate of Origin', description: 'Official declaration of Indian origin' },
   { type: 'phytosanitaryCertificate', name: 'Phytosanitary Certificate', description: 'Plant health and safety declaration' },
-  { type: 'fssaiDeclaration', name: 'FSSAI Declaration', description: 'Food safety compliance for spices' },
+  { type: 'fssaiDeclaration', name: 'FSSAI Declaration', description: 'Food safety compliance for export products' },
   { type: 'shippingBill', name: 'Shipping Bill', description: 'Indian customs export declaration' },
   { type: 'gstInvoice', name: 'GST / Tax Invoice', description: 'GST compliant invoice for Indian tax' },
   { type: 'lcUtilization', name: 'L/C Utilization', description: 'Letter of Credit documents checklist' },
@@ -91,7 +92,7 @@ export default function DocumentGenerator({ order, onClose }: DocumentGeneratorP
       // Update order document checklist if needed
       if (order.id) {
         const newChecklist = { ...(order.documentChecklist || {}), [type]: true };
-        await updateDocument('orders', order.id, { 
+        await orderService.updateOrder(order.id, order, { 
           documentChecklist: newChecklist,
           docsCompleted: Object.values(newChecklist).filter(Boolean).length
         });

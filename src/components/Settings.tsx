@@ -123,7 +123,7 @@ export default function Settings() {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `calicut_spice_traders_export_${new Date().toISOString().split('T')[0]}.json`;
+      link.download = `calicut_traders_export_${new Date().toISOString().split('T')[0]}.json`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -250,7 +250,7 @@ export default function Settings() {
               <section className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
                 <div className="p-6 border-b border-zinc-100">
                   <h3 className="text-lg font-bold text-zinc-900">Organization Profile</h3>
-                  <p className="text-sm text-zinc-500 mt-1">Public information about Calicut Spice Traders LLP</p>
+                  <p className="text-sm text-zinc-500 mt-1">Public information about Global Trade Connect LLP</p>
                 </div>
                 <div className="p-6 space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -258,7 +258,7 @@ export default function Settings() {
                       <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Company Name</label>
                       <input 
                         type="text" 
-                        defaultValue="Calicut Spice Traders LLP"
+                        defaultValue="Global Trade Connect LLP"
                         className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
                       />
                     </div>
@@ -330,7 +330,7 @@ export default function Settings() {
                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={16} />
                         <input 
                           type="email" 
-                          defaultValue="exports@calicutspices.com"
+                          defaultValue="exports@calicuttraders.com"
                           className="w-full pl-10 pr-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
                         />
                       </div>

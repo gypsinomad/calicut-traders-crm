@@ -28,7 +28,8 @@ import {
   X
 } from 'lucide-react';
 import { ExportOrder } from '../lib/types';
-import { subscribeToCollection, updateDocument } from '../services/db';
+import { subscribeToCollection } from '../services/db';
+import { orderService } from '../services/orderService';
 import { formatDate } from '../lib/utils';
 import { clsx } from 'clsx';
 import { motion, AnimatePresence } from 'motion/react';
@@ -77,7 +78,12 @@ export default function ShipmentExecution() {
 
   const updateShipmentStatus = async (orderId: string, status: string) => {
     try {
-      await updateDocument('orders', orderId, { shipmentStatus: status });
+      const order = orders.find(o => o.id === orderId);
+      if (order) {
+        await orderService.updateOrder(orderId, order, { shipmentStatus: status });
+      } else {
+        await orderService.updateOrder(orderId, {} as ExportOrder, { shipmentStatus: status });
+      }
       if (selectedOrder && selectedOrder.id === orderId) {
         setSelectedOrder({ ...selectedOrder, shipmentStatus: status });
       }
@@ -102,7 +108,7 @@ export default function ShipmentExecution() {
   const saveLogistics = async () => {
     if (!selectedOrder) return;
     try {
-      await updateDocument('orders', selectedOrder.id, editData);
+      await orderService.updateOrder(selectedOrder.id, selectedOrder, editData);
       setIsEditing(false);
       setSelectedOrder({ ...selectedOrder, ...editData });
     } catch (error) {
@@ -122,12 +128,12 @@ export default function ShipmentExecution() {
         tips: [
           "Consolidate with existing LCL shipments to reduce costs.",
           "Ensure all APEDA certifications are pre-cleared to avoid port delays.",
-          "Use moisture-proof double-layered bags for spice preservation."
+          "Use moisture-proof double-layered bags for product preservation."
         ],
         lastOptimized: serverTimestamp() as any
       };
 
-      await updateDocument('orders', order.id, { logisticsAI: optimization });
+      await orderService.updateOrder(order.id, order, { logisticsAI: optimization });
       if (selectedOrder?.id === order.id) {
         setSelectedOrder({ ...selectedOrder, logisticsAI: optimization });
       }
@@ -144,7 +150,7 @@ export default function ShipmentExecution() {
       Destination: ${order.destinationPort || 'Dubai, UAE'}
       Quantity: ${order.quantity} ${order.unit}
       
-      Consider current global shipping delays, port congestion, and cost-effective routes for spices.
+      Consider current global shipping delays, port congestion, and cost-effective routes for general exports.
       Return a JSON object with: recommendedRoute (string), estimatedTransitDays (number), riskLevel ('low', 'medium', 'high'), and optimizationTips (array of strings).`;
 
       const response = await generateAIContent('Logistics Optimization', {
@@ -154,7 +160,7 @@ export default function ShipmentExecution() {
       });
 
       const optimization = JSON.parse(response.text || '{}');
-      await updateDocument('orders', order.id, { logisticsAI: optimization });
+      await orderService.updateOrder(order.id, order, { logisticsAI: optimization });
       if (selectedOrder?.id === order.id) {
         setSelectedOrder({ ...selectedOrder, logisticsAI: optimization });
       }
@@ -485,7 +491,7 @@ export default function ShipmentExecution() {
                             key={docItem.id}
                             onClick={async () => {
                               const newChecklist = { ...(selectedOrder.documentChecklist || {}), [docItem.id]: !isChecked };
-                              await updateDocument('orders', selectedOrder.id, { documentChecklist: newChecklist });
+                              await orderService.updateOrder(selectedOrder.id, selectedOrder, { documentChecklist: newChecklist });
                               setSelectedOrder({ ...selectedOrder, documentChecklist: newChecklist });
                             }}
                             className={clsx(

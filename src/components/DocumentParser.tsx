@@ -37,7 +37,7 @@ export default function DocumentParser() {
           date: new Date().toISOString().split('T')[0],
           totalAmount: 0,
           currency: 'USD',
-          exporter: 'Calicut Spice Traders LLP',
+          exporter: 'Global Trade Connect LLP',
           importer: 'Unknown',
           items: []
         });

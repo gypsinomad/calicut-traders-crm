@@ -30,7 +30,8 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { ExportOrder, OrderStage, PaymentTerm } from '../lib/types.ts';
-import { subscribeToCollection, updateDocument } from '../services/db';
+import { subscribeToCollection } from '../services/db';
+import { orderService } from '../services/orderService';
 import { useAuth } from './Auth.tsx';
 import { Timestamp } from 'firebase/firestore';
 import { cn, formatDate } from '../lib/utils';
@@ -131,7 +132,7 @@ export default function ShipmentTracker() {
     };
 
     try {
-      await updateDocument('orders', selectedOrder.id, {
+      await orderService.updateOrder(selectedOrder.id, selectedOrder, {
         financials: updatedFinancials
       });
       setIsFinancialModalOpen(false);

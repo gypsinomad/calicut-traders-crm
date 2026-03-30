@@ -36,11 +36,13 @@ import CollaborationSpace from './components/CollaborationSpace.tsx';
 import ExportDocumentManager from './components/ExportDocumentManager.tsx';
 import BuyerPipeline from './components/BuyerPipeline.tsx';
 import ShipmentTracker from './components/ShipmentTracker.tsx';
+import CommunicationsHub from './components/communications/CommunicationsHub.tsx';
 import { AuthProvider, useAuth, LoginScreen, PendingApprovalScreen } from './components/Auth.tsx';
 import { Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { db } from './firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { automationService } from './services/automationService';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, profile, loading } = useAuth();
@@ -124,6 +126,18 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 import { LanguageProvider } from './contexts/LanguageContext.tsx';
 
 function AppContent() {
+  useEffect(() => {
+    // Run periodic checks every 5 minutes
+    const interval = setInterval(() => {
+      automationService.runPeriodicChecks().catch(console.error);
+    }, 5 * 60 * 1000);
+
+    // Run once on mount
+    automationService.runPeriodicChecks().catch(console.error);
+
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <LanguageProvider>
       <Router>
@@ -142,6 +156,7 @@ function AppContent() {
             <Route path="documents-manager" element={<ExportDocumentManager />} />
             <Route path="buyer-pipeline" element={<BuyerPipeline />} />
             <Route path="shipment-tracker" element={<ShipmentTracker />} />
+            <Route path="communications" element={<CommunicationsHub />} />
             <Route path="calendar" element={<CalendarView />} />
             <Route path="collaboration" element={<CollaborationSpace />} />
             <Route path="inventory" element={<InventoryManager />} />

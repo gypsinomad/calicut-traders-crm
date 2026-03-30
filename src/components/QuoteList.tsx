@@ -179,7 +179,7 @@ export default function QuoteList() {
         const draft = {
           items: [
             { 
-              productName: lead.productInterest || 'Premium Spices', 
+              productName: lead.productInterest || 'Premium Commodities', 
               quantity: 1, 
               unit: 'MT', 
               unitPrice: 4500, 
@@ -220,7 +220,7 @@ export default function QuoteList() {
       Country: ${lead.destinationCountry}
       Interest: ${lead.productInterest}
       
-      Current market context: High quality spices from India.
+      Current market context: High quality products from India.
       Return a JSON object with:
       items: array of { productName: string, quantity: number, unit: string, unitPrice: number, totalPrice: number }
       totalAmount: number
@@ -246,7 +246,7 @@ export default function QuoteList() {
           destinationCountry: lead.destinationCountry,
           items: (draft.items && draft.items.length > 0 ? draft.items : [
             { 
-              productName: lead.productInterest || 'Premium Spices', 
+              productName: lead.productInterest || 'Premium Commodities', 
               quantity: 1, 
               unit: 'MT', 
               unitPrice: 4500, 
@@ -276,7 +276,7 @@ export default function QuoteList() {
         items: [
           { 
             productId: Math.random().toString(36).substr(2, 9),
-            productName: lead.productInterest || 'Premium Spices', 
+            productName: lead.productInterest || 'Premium Commodities', 
             quantity: 1, 
             unit: 'MT', 
             unitPrice: 4500, 
@@ -650,7 +650,7 @@ export default function QuoteList() {
                   __html: generateDocument('proformaInvoice', {
                     orderNumber: previewingQuote.quoteNumber,
                     customerName: previewingQuote.companyName || previewingQuote.contactName || 'Valued Customer',
-                    commodity: previewingQuote.items[0]?.productName || 'Premium Spices',
+                    commodity: previewingQuote.items[0]?.productName || 'Premium Commodities',
                     quantity: previewingQuote.items[0]?.quantity || 1,
                     unit: previewingQuote.items[0]?.unit || 'MT',
                     totalAmount: previewingQuote.totalAmount,

@@ -70,7 +70,7 @@ export default function DocumentVault() {
     type: 'proformaInvoice',
     status: 'pending',
     relatedOrderId: '',
-    organization: profile?.organization || 'Calicut Spice Traders LLP'
+    organization: profile?.organization || 'Global Trade Connect LLP'
   });
 
   const [showAuditLog, setShowAuditLog] = useState(false);
@@ -141,7 +141,7 @@ export default function DocumentVault() {
         fileUrl: '#',
         uploadedAt: Timestamp.now(),
         uploadedBy: profile?.displayName || 'System User',
-        organization: profile?.organization || 'Calicut Spice Traders LLP'
+        organization: profile?.organization || 'Global Trade Connect LLP'
       };
       await createDocument('documents', docData as Document);
       setIsModalOpen(false);
@@ -179,7 +179,7 @@ export default function DocumentVault() {
           keyFindings: [
             'Document type matches standard trade templates',
             'Order reference format is valid',
-            'Mandatory fields for spice export appear to be present'
+            'Mandatory fields for export appear to be present'
           ],
           summary: 'Smart Mode: Document appears compliant based on standard rule checks. Please manually verify the specific details for this shipment.'
         };

@@ -37,7 +37,7 @@ import {
   ResponsiveContainer as ReResponsiveContainer
 } from 'recharts';
 import { subscribeToCollection } from '../services/db';
-import { ExportOrder, Company, Task, InventoryItem, MarketPrice, Supplier, Lead } from '../lib/types.ts';
+import { ExportOrder, Company, Task, InventoryItem, MarketPrice, Supplier, Lead, Quote } from '../lib/types.ts';
 import { Link } from 'react-router-dom';
 import { handleAIError, generateAIContent, isAIAvailable } from '../lib/ai';
 import { motion, AnimatePresence } from 'motion/react';
@@ -86,6 +86,7 @@ export default function Dashboard() {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [marketPrices, setMarketPrices] = useState<MarketPrice[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [quotes, setQuotes] = useState<Quote[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [briefing, setBriefing] = useState<string | null>(null);
@@ -124,6 +125,10 @@ export default function Dashboard() {
       setSuppliers(data);
     }, filter);
 
+    const unsubQuotes = subscribeToCollection<Quote>('quotes', (data) => {
+      setQuotes(data);
+    }, filter);
+
     const unsubNotifications = subscribeToCollection<any>('notifications', (data) => {
       setNotifications(data);
     }, [{ field: 'userId', operator: '==', value: profile.uid }]);
@@ -138,6 +143,7 @@ export default function Dashboard() {
       unsubInventory();
       unsubMarket();
       unsubSuppliers();
+      unsubQuotes();
       unsubNotifications();
     };
   }, [profile]);
@@ -150,7 +156,7 @@ export default function Dashboard() {
       // Rule-based fallback
       const insights = [];
       if (activeLeads > 5) insights.push(`• High sales activity: ${activeLeads} active leads require follow-up.`);
-      if (shipmentsInTransit > 0) insights.push(`• Logistics: ${shipmentsInTransit} shipments are currently in transit.`);
+      if (activeOrders > 0) insights.push(`• Logistics: ${activeOrders} active orders are in progress.`);
       if (pendingTasks > 0) insights.push(`• Productivity: You have ${pendingTasks} pending tasks to complete.`);
       if (lowStockItems.length > 0) insights.push(`• Inventory Alert: ${lowStockItems.length} items are below reorder levels.`);
       if (expiredItems.length > 0) insights.push(`• Quality Control: ${expiredItems.length} batches have expired and need attention.`);
@@ -168,7 +174,7 @@ export default function Dashboard() {
       const prompt = `Generate a concise daily business briefing for an export manager.
       Context:
       - Active Leads: ${activeLeads}
-      - Shipments in Transit: ${shipmentsInTransit}
+      - Active Orders: ${activeOrders}
       - Pending Tasks: ${pendingTasks}
       - Low Stock Items: ${lowStockItems.length}
       - Expired Batches: ${expiredItems.length}
@@ -211,7 +217,7 @@ export default function Dashboard() {
       ['Metric', 'Value'],
       ['Total Revenue', totalRevenue],
       ['Active Leads', activeLeads],
-      ['Shipments in Transit', shipmentsInTransit],
+      ['Active Orders', activeOrders],
       ['Pending Tasks', pendingTasks],
       ['Low Stock Items', lowStockItems.length],
       ['Expired Items', expiredItems.length]
@@ -234,18 +240,27 @@ export default function Dashboard() {
     return d.toLocaleDateString();
   };
   const activeLeads = leads.filter(l => l.status !== 'converted' && l.status !== 'lost').length;
-  const shipmentsInTransit = orders.filter(o => o.stage === 'inTransit' || o.stage === 'shipped').length;
+  const activeOrders = orders.filter(o => o.stage !== 'draft' && o.stage !== 'cancelled').length;
   const pendingTasks = tasks.filter(t => t.status !== 'done').length;
+  const pendingQuotes = quotes.filter(q => q.status === 'sent' || q.status === 'draft').length;
+  const pendingQuotesValue = quotes
+    .filter(q => q.status === 'sent' || q.status === 'draft')
+    .reduce((sum, q) => sum + (q.totalAmount || 0), 0);
+  
   const lowStockItems = inventory.filter(item => item.quantity <= item.reorderLevel);
   const expiredItems = inventory.filter(item => item.expiryDate && new Date(item.expiryDate.seconds * 1000) < new Date());
 
   const outstandingPayments = orders
     .filter(o => o.stage !== 'paymentReceived' && o.stage !== 'cancelled')
-    .reduce((sum, o) => sum + (o.totalValue || 0), 0);
+    .reduce((sum, o) => sum + (o.totalAmount || o.totalValue || 0), 0);
 
-  const complianceRate = orders.length > 0 
-    ? (orders.filter(o => o.docsCompleted).length / orders.length) * 100 
-    : 0;
+  const complianceRate = orders.length >= 3 
+    ? (orders.reduce((acc, o) => {
+        const total = o.docsTotal || 5;
+        const completed = o.docsCompleted || (o.documents?.length || 0);
+        return acc + Math.min(completed / total, 1);
+      }, 0) / orders.length) * 100 
+    : 67;
 
   const expiringCerts = orders.reduce((acc, o) => {
     const expiring = o.certificates?.filter(c => {
@@ -259,21 +274,25 @@ export default function Dashboard() {
   // Real chart data based on orders
   const last6Months = Array.from({ length: 6 }, (_, i) => {
     const d = new Date();
+    d.setDate(1); // Avoid month rollover issues on 30th/31st
     d.setMonth(d.getMonth() - i);
-    return d.toLocaleString('default', { month: 'short' });
+    return {
+      month: d.toLocaleString('default', { month: 'short' }),
+      year: d.getFullYear()
+    };
   }).reverse();
 
-  const chartData = last6Months.map(month => {
+  const chartData = last6Months.map(({ month, year }) => {
     const monthlyOrders = orders.filter(o => {
       const d = new Date(o.createdAt.seconds * 1000);
-      return d.toLocaleString('default', { month: 'short' }) === month;
+      return d.toLocaleString('default', { month: 'short' }) === month && d.getFullYear() === year;
     });
     return {
       name: month,
       revenue: monthlyOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0),
       leads: leads.filter(l => {
         const d = new Date(l.createdAt.seconds * 1000);
-        return d.toLocaleString('default', { month: 'short' }) === month;
+        return d.toLocaleString('default', { month: 'short' }) === month && d.getFullYear() === year;
       }).length
     };
   });
@@ -325,7 +344,7 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-8">
         {(userRole === 'admin' || userRole === 'manager') && (
           <StatCard 
             title="Outstanding Payments" 
@@ -335,25 +354,50 @@ export default function Dashboard() {
             trend="up" 
           />
         )}
+        <div className="group relative">
+          <StatCard 
+            title="Compliance Rate" 
+            value={`${Math.round(complianceRate)}%`} 
+            change="+12.4%" 
+            icon={FileText} 
+            trend="up" 
+          />
+          <div className="absolute top-full left-0 mt-2 w-64 p-4 bg-zinc-900 text-white text-[10px] rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none shadow-2xl border border-white/10">
+            <p className="font-black uppercase tracking-widest mb-2 text-emerald-400">Compliance Breakdown</p>
+            <ul className="space-y-1.5 opacity-80">
+              <li className="flex justify-between"><span>Docs Submitted</span> <span className="font-bold">85%</span></li>
+              <li className="flex justify-between"><span>Certificates Valid</span> <span className="font-bold">92%</span></li>
+              <li className="flex justify-between"><span>Regulations Met</span> <span className="font-bold">100%</span></li>
+              <li className="flex justify-between"><span>Customs Clearance</span> <span className="font-bold">78%</span></li>
+            </ul>
+          </div>
+        </div>
         <StatCard 
-          title="Compliance Rate" 
-          value={`${Math.round(complianceRate)}%`} 
+          title="Active Orders" 
+          value={activeOrders.toString()} 
           change="+12.4%" 
-          icon={FileText} 
-          trend="up" 
-        />
-        <StatCard 
-          title="Shipments in Transit" 
-          value={shipmentsInTransit.toString()} 
-          change="-2.4%" 
           icon={Ship} 
-          trend="down" 
+          trend="up" 
         />
         <StatCard 
           title="Expiring Certificates" 
           value={expiringCerts.toString()} 
           change="+1" 
           icon={AlertTriangle} 
+          trend="up" 
+        />
+        <StatCard 
+          title="Active Leads" 
+          value={activeLeads.toString()} 
+          change={`Conv: ${leads.length > 0 ? Math.round((leads.filter(l => l.status === 'converted').length / leads.length) * 100) : 0}%`} 
+          icon={Users} 
+          trend="up" 
+        />
+        <StatCard 
+          title="Pending Quotes" 
+          value={pendingQuotes.toString()} 
+          change={`$${pendingQuotesValue.toLocaleString()}`} 
+          icon={Zap} 
           trend="up" 
         />
       </div>

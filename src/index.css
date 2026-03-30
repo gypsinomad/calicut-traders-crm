@@ -39,7 +39,7 @@
     @apply bg-zinc-900/40 backdrop-blur-lg border border-zinc-800/30 shadow-lg hover:shadow-xl transition-all duration-300;
   }
 
-  .spice-gradient {
+  .trade-gradient {
     background: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
   }
 

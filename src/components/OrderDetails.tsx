@@ -21,9 +21,9 @@ import {
   TrendingUp,
   PieChart
 } from 'lucide-react';
-import { ExportOrder } from '../lib/types.ts';
+import { ExportOrder, OrderStage } from '../lib/types.ts';
 import { getStatusColor, formatDate, formatCurrency } from '../lib/utils';
-import { updateDocument } from '../services/db';
+import { orderService } from '../services/orderService';
 import Modal from './Modal.tsx';
 import DocumentGenerator from './DocumentGenerator.tsx';
 import { AnimatePresence, motion } from 'motion/react';
@@ -44,6 +44,7 @@ export default function OrderDetails({ order, onBack }: { order: ExportOrder, on
     oceanFreight: 0,
     insurance: 0,
     bankCharges: 0,
+    customsCharges: 0,
     otherCosts: 0,
     totalCost: 0,
     netProfit: 0,
@@ -59,6 +60,7 @@ export default function OrderDetails({ order, onBack }: { order: ExportOrder, on
       (Number(data.oceanFreight) || 0) + 
       (Number(data.insurance) || 0) + 
       (Number(data.bankCharges) || 0) + 
+      (Number(data.customsCharges) || 0) + 
       (Number(data.otherCosts) || 0);
     
     const netProfit = (order.totalAmount || 0) - totalCost;
@@ -72,7 +74,7 @@ export default function OrderDetails({ order, onBack }: { order: ExportOrder, on
     setUpdating(true);
     try {
       const updatedFinancials = calculateFinancials(financials);
-      await updateDocument('orders', order.id, { financials: updatedFinancials });
+      await orderService.updateOrder(order.id, order, { financials: updatedFinancials });
       setIsFinancialsOpen(false);
     } catch (error) {
       console.error('Error updating financials:', error);
@@ -85,7 +87,7 @@ export default function OrderDetails({ order, onBack }: { order: ExportOrder, on
     e.preventDefault();
     setUpdating(true);
     try {
-      await updateDocument('orders', order.id, editedOrder);
+      await orderService.updateOrder(order.id, order, editedOrder);
       setIsEditModalOpen(false);
     } catch (error) {
       console.error('Error updating order:', error);
@@ -94,10 +96,10 @@ export default function OrderDetails({ order, onBack }: { order: ExportOrder, on
     }
   };
 
-  const handleStatusChange = async (newStatus: ExportOrder['status']) => {
+  const handleStatusChange = async (newStatus: OrderStage) => {
     setUpdating(true);
     try {
-      await updateDocument('orders', order.id, { status: newStatus });
+      await orderService.updateOrder(order.id, order, { stage: newStatus });
     } catch (error) {
       console.error('Error updating order status:', error);
     } finally {
@@ -105,15 +107,15 @@ export default function OrderDetails({ order, onBack }: { order: ExportOrder, on
     }
   };
 
-  const stages = [
-    { id: 'draft', label: 'Draft' },
-    { id: 'confirmed', label: 'Confirmed' },
-    { id: 'processing', label: 'Processing' },
+  const stages: { id: OrderStage; label: string }[] = [
+    { id: 'inquiry', label: 'Inquiry' },
+    { id: 'orderConfirmed', label: 'Confirmed' },
+    { id: 'production', label: 'Production' },
     { id: 'shipped', label: 'Shipped' },
     { id: 'delivered', label: 'Delivered' },
   ];
 
-  const currentStageIndex = stages.findIndex(s => s.id === order.status);
+  const currentStageIndex = stages.findIndex(s => s.id === order.stage);
 
   const triggerComplianceAI = (message: string) => {
     const event = new CustomEvent('trigger-compliance-ai', { detail: { message } });
@@ -134,19 +136,19 @@ export default function OrderDetails({ order, onBack }: { order: ExportOrder, on
             <div className="flex items-center gap-3">
               <h2 className="text-3xl font-bold text-zinc-900">{order.orderNumber}</h2>
               <div className="relative group">
-                <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider border cursor-pointer ${getStatusColor(order.status)}`}>
-                  {order.status}
+                <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider border cursor-pointer ${getStatusColor(order.stage)}`}>
+                  {order.stage}
                 </span>
                 <div className="absolute top-full left-0 mt-2 w-48 bg-white border border-zinc-200 rounded-xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 p-2">
                   {stages.map((stage) => (
                     <button
                       key={stage.id}
-                      onClick={() => handleStatusChange(stage.id as ExportOrder['status'])}
+                      onClick={() => handleStatusChange(stage.id)}
                       disabled={updating}
                       className="w-full text-left px-3 py-2 text-xs font-bold uppercase tracking-wider text-zinc-600 hover:bg-zinc-50 rounded-lg transition-colors flex items-center justify-between"
                     >
                       {stage.label}
-                      {updating && stage.id === order.status && <RefreshCw size={12} className="animate-spin" />}
+                      {updating && stage.id === order.stage && <RefreshCw size={12} className="animate-spin" />}
                     </button>
                   ))}
                 </div>
@@ -416,7 +418,7 @@ export default function OrderDetails({ order, onBack }: { order: ExportOrder, on
                   GS
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-zinc-900">Global Spices Ltd</p>
+                  <p className="text-sm font-bold text-zinc-900">Global Products Ltd</p>
                   <p className="text-xs text-zinc-500">London, United Kingdom</p>
                 </div>
               </div>

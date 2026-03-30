@@ -45,7 +45,7 @@ export default function CompanyList() {
       pinCode: '',
       postalCode: ''
     },
-    organization: profile?.organization || 'Calicut Spice Traders LLP'
+    organization: profile?.organization || 'Global Trade Connect LLP'
   });
 
   useEffect(() => {
@@ -67,7 +67,7 @@ export default function CompanyList() {
         ...newCompany,
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
-        organization: profile?.organization || 'Calicut Spice Traders LLP'
+        organization: profile?.organization || 'Global Trade Connect LLP'
       };
       await createDocument('companies', companyData as Company);
       setIsModalOpen(false);
@@ -137,7 +137,7 @@ export default function CompanyList() {
                 value={newCompany.displayName}
                 onChange={(e) => setNewCompany({ ...newCompany, displayName: e.target.value })}
                 className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
-                placeholder="e.g. Spice Route Imports"
+                placeholder="e.g. Global Trade Connect Imports"
               />
             </div>
             <div className="space-y-1.5">
@@ -147,7 +147,7 @@ export default function CompanyList() {
                 value={newCompany.legalName}
                 onChange={(e) => setNewCompany({ ...newCompany, legalName: e.target.value })}
                 className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
-                placeholder="e.g. Spice Route Imports GmbH"
+                placeholder="e.g. Global Trade Connect Imports GmbH"
               />
             </div>
             <div className="space-y-1.5">

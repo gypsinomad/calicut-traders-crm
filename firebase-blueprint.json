@@ -63,7 +63,7 @@
     },
     "InventoryItem": {
       "title": "Inventory Item",
-      "description": "Spice stock management",
+      "description": "Product stock management",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
@@ -80,11 +80,11 @@
     },
     "MarketPrice": {
       "title": "Market Price",
-      "description": "Real-time spice prices by region",
+      "description": "Real-time product prices by region",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
-        "spice": { "type": "string" },
+        "product": { "type": "string" },
         "commodity": { "type": "string" },
         "region": { "type": "string" },
         "price": { "type": "number" },
@@ -93,7 +93,7 @@
         "trend": { "type": "string", "enum": ["up", "down", "stable"] },
         "timestamp": { "type": "string", "format": "date-time" }
       },
-      "required": ["spice", "commodity", "region", "price", "currency", "unit", "trend", "timestamp"]
+      "required": ["product", "commodity", "region", "price", "currency", "unit", "trend", "timestamp"]
     },
     "Supplier": {
       "title": "Supplier",
@@ -424,7 +424,7 @@
     "/tasks/{taskId}": { "schema": "Task", "description": "System tasks" },
     "/documents/{documentId}": { "schema": "Document", "description": "Export documents" },
     "/inventory/{itemId}": { "schema": "InventoryItem", "description": "Stock items" },
-    "/market_prices/{priceId}": { "schema": "MarketPrice", "description": "Spice prices" },
+    "/market_prices/{priceId}": { "schema": "MarketPrice", "description": "Product prices" },
     "/suppliers/{supplierId}": { "schema": "Supplier", "description": "Vendor data" },
     "/quotes/{quoteId}": { "schema": "Quote", "description": "Export price quotes" },
     "/payments/{paymentId}": { "schema": "Payment", "description": "Financial transaction records" },

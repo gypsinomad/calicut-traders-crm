@@ -102,7 +102,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             // Ensure organization exists
             if (!data.organization) {
-              updatedData.organization = 'Calicut Spice Traders LLP';
+              updatedData.organization = 'Calicut Traders';
               needsUpdate = true;
             }
 
@@ -122,7 +122,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               isApproved: isAdmin, // Default admin is approved, others are not
               isActive: true,
               createdAt: Timestamp.now(),
-              organization: 'Calicut Spice Traders LLP',
+              organization: 'Calicut Traders',
               avatarUrl: currentUser.photoURL || undefined
             };
             await setDoc(profileRef, newProfile);
@@ -190,7 +190,7 @@ export function PendingApprovalScreen() {
           <div className="flex items-start gap-3">
             <ShieldAlert className="text-zinc-400 shrink-0 mt-0.5" size={18} />
             <p className="text-xs text-zinc-500 leading-relaxed">
-              We take security seriously. Once an admin verifies your identity, you'll receive access to the Calicut Spice Traders platform.
+              We take security seriously. Once an admin verifies your identity, you'll receive access to the Calicut Traders platform.
             </p>
           </div>
         </div>
@@ -218,7 +218,7 @@ export function LoginScreen() {
         </div>
         <h1 className="text-3xl font-black text-zinc-900 mb-2 tracking-tight">Export CRM</h1>
         <p className="text-zinc-500 mb-10 font-medium">
-          Calicut Spice Traders LLP
+          Calicut Traders - Export Management CRM
         </p>
         
         <button

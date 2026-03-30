@@ -28,7 +28,7 @@ interface CommandItem {
 const COMMANDS: CommandItem[] = [
   { id: 'dash', title: 'Dashboard', description: 'Go to main overview', icon: LayoutDashboard, path: '/', category: 'Navigation' },
   { id: 'pipeline', title: 'Pipeline', description: 'View shipment Kanban board', icon: Ship, path: '/pipeline', category: 'Navigation' },
-  { id: 'inventory', title: 'Inventory', description: 'Manage spice stocks', icon: Package, path: '/inventory', category: 'Navigation' },
+  { id: 'inventory', title: 'Inventory', description: 'Manage product stocks', icon: Package, path: '/inventory', category: 'Navigation' },
   { id: 'leads', title: 'Leads', description: 'View potential customers', icon: Users, path: '/leads', category: 'Navigation' },
   { id: 'analytics', title: 'Analytics', description: 'View predictive insights', icon: BarChart3, path: '/analytics', category: 'Navigation' },
   { id: 'docs', title: 'Documents', description: 'Manage export documentation', icon: FileText, path: '/documents', category: 'Navigation' },

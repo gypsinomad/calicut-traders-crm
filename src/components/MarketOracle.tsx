@@ -45,16 +45,16 @@ export default function MarketOracle() {
       async (data) => {
         if (data.length === 0 && !loading) {
           // Seed initial data if empty
-          const initialSpices = [
-            { spice: 'Black Pepper', commodity: 'Spice', region: 'Kochi, India', price: 625, currency: 'INR', unit: 'kg', trend: 'up' },
-            { spice: 'Cardamom', commodity: 'Spice', region: 'Idukki, India', price: 2150, currency: 'INR', unit: 'kg', trend: 'down' },
-            { spice: 'Ginger', commodity: 'Spice', region: 'Wayanad, India', price: 180, currency: 'INR', unit: 'kg', trend: 'up' },
-            { spice: 'Turmeric', commodity: 'Spice', region: 'Erode, India', price: 145, currency: 'INR', unit: 'kg', trend: 'up' },
-            { spice: 'Clove', commodity: 'Spice', region: 'Zanzibar', price: 12.5, currency: 'USD', unit: 'kg', trend: 'down' },
-            { spice: 'Nutmeg', commodity: 'Spice', region: 'Grenada', price: 9.2, currency: 'USD', unit: 'kg', trend: 'stable' },
+          const initialProducts = [
+            { product: 'Black Pepper', commodity: 'Product', region: 'Kochi, India', price: 625, currency: 'INR', unit: 'kg', trend: 'up' },
+            { product: 'Cardamom', commodity: 'Product', region: 'Idukki, India', price: 2150, currency: 'INR', unit: 'kg', trend: 'down' },
+            { product: 'Ginger', commodity: 'Product', region: 'Wayanad, India', price: 180, currency: 'INR', unit: 'kg', trend: 'up' },
+            { product: 'Turmeric', commodity: 'Product', region: 'Erode, India', price: 145, currency: 'INR', unit: 'kg', trend: 'up' },
+            { product: 'Clove', commodity: 'Product', region: 'Zanzibar', price: 12.5, currency: 'USD', unit: 'kg', trend: 'down' },
+            { product: 'Nutmeg', commodity: 'Product', region: 'Grenada', price: 9.2, currency: 'USD', unit: 'kg', trend: 'stable' },
           ];
           
-          for (const s of initialSpices) {
+          for (const s of initialProducts) {
             await createDocument('market_prices', {
               ...s,
               timestamp: Timestamp.now()
@@ -87,7 +87,7 @@ export default function MarketOracle() {
       } else if (randomTrend === 'down') {
         reasoning = `Upcoming harvest season in major production hubs is expected to increase market arrivals, potentially putting downward pressure on prices.`;
       } else {
-        reasoning = `Current market equilibrium between domestic supply and international demand indicates price stability for ${price.spice} in the short term.`;
+        reasoning = `Current market equilibrium between domestic supply and international demand indicates price stability for ${price.product} in the short term.`;
       }
 
       const prediction = {
@@ -106,9 +106,9 @@ export default function MarketOracle() {
 
     try {
       const model = 'gemini-3-flash-preview';
-      const prompt = `As a commodity market analyst, predict the price trend for ${price.spice} in ${price.region}. 
+      const prompt = `As a commodity market analyst, predict the price trend for ${price.product} in ${price.region}. 
       Current price: ${price.price} ${price.currency}. 
-      Consider global spice trade dynamics, harvest cycles in Kerala and Vietnam, and demand in Europe/Middle East.
+      Consider global trade dynamics, harvest cycles, and demand in Europe/Middle East.
       Return a JSON object with: trend ('up', 'down', 'stable'), confidence (0-100), and reasoning (max 100 words).`;
 
       const response = await generateAIContent('Price Prediction', {
@@ -145,7 +145,7 @@ export default function MarketOracle() {
   };
 
   const filteredPrices = prices.filter(p => 
-    p.spice.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    p.product.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.region.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -166,7 +166,7 @@ export default function MarketOracle() {
       <header className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold text-zinc-900">Market Price Oracle</h2>
-          <p className="text-zinc-500 mt-1">Real-time global spice indices and AI predictions</p>
+          <p className="text-zinc-500 mt-1">Real-time global product indices and AI predictions</p>
         </div>
         <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-full text-xs font-bold uppercase tracking-wider border border-emerald-100">
           <Globe size={14} />
@@ -181,7 +181,7 @@ export default function MarketOracle() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
               <input 
                 type="text" 
-                placeholder="Search spice or region..." 
+                placeholder="Search product or region..." 
                 className="w-full pl-10 pr-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -195,7 +195,7 @@ export default function MarketOracle() {
                 <div>
                   <h3 className="text-lg font-black text-zinc-900 flex items-center gap-2">
                     <ChartIcon size={20} className="text-emerald-600" />
-                    {selectedPrice.spice} Price Analysis & Forecast
+                    {selectedPrice.product} Price Analysis & Forecast
                   </h3>
                   <p className="text-xs text-zinc-500 font-bold uppercase tracking-widest mt-1">{selectedPrice.region}</p>
                 </div>
@@ -283,7 +283,7 @@ export default function MarketOracle() {
                   <div className="p-6">
                     <div className="flex items-start justify-between mb-6">
                       <div>
-                        <h3 className="text-xl font-black text-zinc-900 tracking-tight">{price.spice}</h3>
+                        <h3 className="text-xl font-black text-zinc-900 tracking-tight">{price.product}</h3>
                         <div className="flex items-center gap-2 text-zinc-500 mt-1">
                           <Globe size={14} />
                           <span className="text-sm font-medium">{price.region}</span>

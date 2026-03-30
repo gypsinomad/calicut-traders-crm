@@ -260,7 +260,7 @@ export default function QuoteBuilder({ isOpen, onClose, quote, lead, onSaved }: 
                       value={companyName}
                       onChange={(e) => setCompanyName(e.target.value)}
                       className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all font-medium"
-                      placeholder="e.g. Spice Global Traders"
+                      placeholder="e.g. Global Trade Connect"
                     />
                   </div>
                   <div>

@@ -40,11 +40,11 @@ import { clsx } from 'clsx';
 import { handleAIError, generateAIContent, isAIAvailable } from '../lib/ai';
 
 const CATEGORIES = [
-  'Spices',
-  'Grains',
-  'Pulses',
-  'Oils',
-  'Packaging',
+  'Commodities & Goods',
+  'Coconut Products',
+  'Cashew & Nuts',
+  'Textiles',
+  'Seafood',
   'Other'
 ];
 
@@ -68,7 +68,7 @@ export default function InventoryManager() {
     unit: 'kg',
     reorderLevel: 10,
     batchNumber: '',
-    category: 'Spices',
+    category: 'Commodities',
     organization: profile?.organization || ''
   });
 
@@ -160,7 +160,7 @@ export default function InventoryManager() {
       unit: 'kg',
       reorderLevel: 10,
       batchNumber: '',
-      category: 'Spices',
+      category: 'Commodities',
       organization: profile?.organization || ''
     });
     setExpiryDateStr(new Date().toISOString().split('T')[0]);
@@ -235,7 +235,7 @@ export default function InventoryManager() {
       Reorder Level: ${item.reorderLevel} ${item.unit}
       Category: ${item.category}
       
-      Consider typical spice demand cycles (e.g., peak demand during festive seasons in India/Middle East).
+      Consider typical product demand cycles (e.g., peak demand during festive seasons in India/Middle East).
       Return a JSON object with: predictedDays (number), confidence (0-100), and recommendation (max 50 words).`;
 
       const response = await generateAIContent('Stock Prediction', {

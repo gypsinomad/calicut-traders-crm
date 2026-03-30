@@ -1,5 +1,5 @@
 {
-  "name": "Calicut Spice Traders CRM",
-  "description": "Comprehensive export management platform for Kerala spices and honey, handling leads, orders, and compliance for international trade.",
+  "name": "Calicut Traders CRM",
+  "description": "Comprehensive export management platform for Kerala products and honey, handling leads, orders, and compliance for international trade.",
   "requestFramePermissions": ["geolocation"]
 }

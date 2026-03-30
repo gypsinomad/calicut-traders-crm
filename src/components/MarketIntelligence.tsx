@@ -60,7 +60,7 @@ export default function MarketIntelligence() {
 
     try {
       const model = "gemini-3-flash-preview";
-      const prompt = `Analyze the current global spice market (specifically Black Pepper, Cardamom, Ginger, Turmeric, and Cloves) for March 2026. 
+      const prompt = `Analyze the current global export market (specifically Black Pepper, Cardamom, Ginger, Turmeric, and Cloves) for March 2026. 
       Provide a JSON array of insights with the following structure:
       {
         "commodity": string,
@@ -114,7 +114,7 @@ export default function MarketIntelligence() {
             <h3 className="font-bold text-zinc-900">
               {isAIAvailable() ? 'AI Market Intelligence' : 'Smart Market Intelligence'}
             </h3>
-            <p className="text-xs text-zinc-500">Real-time global spice market analysis</p>
+            <p className="text-xs text-zinc-500">Real-time global market analysis</p>
           </div>
         </div>
         <button 

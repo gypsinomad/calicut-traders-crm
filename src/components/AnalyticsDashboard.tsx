@@ -82,7 +82,7 @@ export default function AnalyticsDashboard() {
         status: o.status
       }));
 
-      const prompt = `Analyze this export order data for Calicut Spice Traders LLP: ${JSON.stringify(orderSummary)}. 
+      const prompt = `Analyze this export order data for Global Trade Connect LLP: ${JSON.stringify(orderSummary)}. 
       Provide 3 strategic insights for demand forecasting, optimal shipment sizes, and carbon footprint reduction.
       Format as a concise markdown list.`;
 

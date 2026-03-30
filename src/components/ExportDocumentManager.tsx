@@ -19,7 +19,8 @@ import {
   Trash2
 } from 'lucide-react';
 import { ExportOrder } from '../lib/types.ts';
-import { subscribeToCollection, updateDocument } from '../services/db';
+import { subscribeToCollection } from '../services/db';
+import { orderService } from '../services/orderService';
 import { generateComplianceInsights } from '../services/aiService';
 import { useAuth } from './Auth.tsx';
 import { Timestamp } from 'firebase/firestore';
@@ -78,7 +79,7 @@ export default function ExportDocumentManager() {
     const docsCompleted = Object.values(newChecklist).filter(Boolean).length;
     
     try {
-      await updateDocument('orders', order.id, {
+      await orderService.updateOrder(order.id, order, {
         documentChecklist: newChecklist,
         docsCompleted
       });
@@ -109,7 +110,7 @@ export default function ExportDocumentManager() {
 
     const currentCerts = selectedOrder.certificates || [];
     try {
-      await updateDocument('orders', selectedOrder.id, {
+      await orderService.updateOrder(selectedOrder.id, selectedOrder, {
         certificates: [...currentCerts, certificate]
       });
       setIsCertModalOpen(false);
@@ -123,7 +124,7 @@ export default function ExportDocumentManager() {
     if (!selectedOrder) return;
     const currentCerts = selectedOrder.certificates || [];
     try {
-      await updateDocument('orders', selectedOrder.id, {
+      await orderService.updateOrder(selectedOrder.id, selectedOrder, {
         certificates: currentCerts.filter(c => c.id !== certId)
       });
     } catch (error) {

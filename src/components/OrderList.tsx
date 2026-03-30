@@ -26,7 +26,8 @@ import {
 import { ExportOrder, OrderStage } from '../lib/types.ts';
 import OrderDetails from './OrderDetails.tsx';
 import Modal from './Modal.tsx';
-import { subscribeToCollection, createDocument, updateDocument, deleteDocument } from '../services/db';
+import { subscribeToCollection, deleteDocument } from '../services/db';
+import { orderService } from '../services/orderService';
 import { getStatusColor, formatDate, formatCurrency, cn } from '../lib/utils';
 import { useAuth } from './Auth.tsx';
 import { Timestamp } from 'firebase/firestore';
@@ -59,6 +60,7 @@ export default function OrderList() {
     customerName: '',
     customerPhone: '',
     commodity: '',
+    hsCode: '',
     quantity: 0,
     unit: 'MT',
     title: '',
@@ -108,7 +110,7 @@ export default function OrderList() {
         assignedUserId: profile?.uid || '',
         organization: profile?.organization || ''
       };
-      const orderId = await createDocument('orders', orderData as ExportOrder);
+      const orderId = await orderService.createOrder(orderData as ExportOrder);
       
       if (orderId) {
         const createdOrder: ExportOrder = { id: orderId, ...orderData } as ExportOrder;
@@ -131,7 +133,7 @@ export default function OrderList() {
     setIsSubmitting(true);
     try {
       const { id, ...data } = editingOrder;
-      await updateDocument('orders', id, data);
+      await orderService.updateOrder(id, editingOrder, data);
       setEditingOrder(null);
     } catch (error) {
       console.error('Error updating order:', error);
@@ -155,6 +157,7 @@ export default function OrderList() {
       customerName: '',
       customerPhone: '',
       commodity: '',
+      hsCode: '',
       quantity: 0,
       unit: 'MT',
       title: '',
@@ -207,7 +210,13 @@ export default function OrderList() {
 
   const handleBulkStageUpdate = async (stage: OrderStage) => {
     try {
-      await Promise.all(selectedOrderIds.map(id => updateDocument('orders', id, { stage })));
+      await Promise.all(selectedOrderIds.map(id => {
+        const order = orders.find(o => o.id === id);
+        if (order) {
+          return orderService.updateOrder(id, order, { stage });
+        }
+        return Promise.resolve();
+      }));
       setSelectedOrderIds([]);
     } catch (error) {
       console.error("Error in bulk stage update:", error);
@@ -221,7 +230,7 @@ export default function OrderList() {
         // Rule-based fallback
         const missingDocs = [];
         if (order.commodity.toLowerCase().includes('pepper') || order.commodity.toLowerCase().includes('cardamom')) {
-          missingDocs.push('Phytosanitary Certificate', 'Spices Board RCMC');
+          missingDocs.push('Phytosanitary Certificate', 'Export Board RCMC');
         }
         if (order.destinationCountry.toLowerCase().includes('uk') || order.destinationCountry.toLowerCase().includes('europe')) {
           missingDocs.push('Ethylene Oxide (EtO) Test Report');
@@ -232,10 +241,10 @@ export default function OrderList() {
           status: missingDocs.length > 5 ? 'critical' : 'warning',
           score: Math.max(30, 100 - (missingDocs.length * 10)),
           missingDocs,
-          recommendation: `Smart Mode: Based on destination ${order.destinationCountry}, ensure all mandatory spice export documents are ready. Pesticide residue testing is highly recommended for this region.`
+          recommendation: `Smart Mode: Based on destination ${order.destinationCountry}, ensure all mandatory export documents are ready. Quality testing is highly recommended for this region.`
         };
 
-        await updateDocument('orders', order.id, { complianceAI: compliance });
+        await orderService.updateOrder(order.id, order, { complianceAI: compliance });
         return;
       }
 
@@ -246,7 +255,7 @@ export default function OrderList() {
       Destination: ${order.destinationCountry}
       Quantity: ${order.quantity} ${order.unit}
       
-      Consider typical export regulations for spices from India to ${order.destinationCountry}.
+      Consider typical export regulations for products from India to ${order.destinationCountry}.
       Return a JSON object with: status ('compliant', 'warning', 'critical'), score (0-100), and missingDocs (array of strings), and recommendation (max 50 words).`;
 
       const response = await generateAIContent('Compliance Check', {
@@ -256,7 +265,7 @@ export default function OrderList() {
       });
 
       const compliance = JSON.parse(response.text || '{}');
-      await updateDocument('orders', order.id, { complianceAI: compliance });
+      await orderService.updateOrder(order.id, order, { complianceAI: compliance });
     } catch (error: any) {
       alert(handleAIError(error));
     } finally {
@@ -318,7 +327,7 @@ export default function OrderList() {
           value={data.customerName}
           onChange={(e) => setData({ ...data, customerName: e.target.value })}
           className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
-          placeholder="e.g. Global Spices Ltd"
+          placeholder="e.g. Global Products Ltd"
         />
       </div>
       <div className="space-y-1.5">
@@ -341,6 +350,19 @@ export default function OrderList() {
           className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
           placeholder="e.g. Black Pepper"
         />
+      </div>
+      <div className="space-y-1.5">
+        <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">HS Code (6 Digits)</label>
+        <input 
+          type="text" 
+          maxLength={6}
+          pattern="\d{6}"
+          value={data.hsCode || ''}
+          onChange={(e) => setData({ ...data, hsCode: e.target.value.replace(/\D/g, '').slice(0, 6) })}
+          className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+          placeholder="e.g. 090411"
+        />
+        <p className="text-[10px] text-zinc-400">Enter the 6-digit Harmonized System code for international shipping.</p>
       </div>
       <div className="space-y-1.5">
         <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Quantity</label>
@@ -439,7 +461,7 @@ export default function OrderList() {
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
           <h2 className="text-5xl font-serif font-bold text-zinc-900 tracking-tight">Export Orders</h2>
-          <p className="text-zinc-500 mt-2 text-lg font-serif italic">Track and manage your global spice shipments.</p>
+          <p className="text-zinc-500 mt-2 text-lg font-serif italic">Track and manage your global export shipments.</p>
         </div>
         <div className="flex items-center gap-4">
           <button 

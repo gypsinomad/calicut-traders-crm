@@ -90,7 +90,7 @@ export default function SupplierPortal() {
     organization: profile?.organization || '',
     rating: 5,
     riskScore: 0,
-    category: 'Spices',
+    category: 'Commodities',
     location: ''
   });
 
@@ -145,7 +145,7 @@ export default function SupplierPortal() {
         completedSteps: [],
         rating: 5,
         riskScore: 0,
-        category: 'Spices',
+        category: 'Commodities',
         location: ''
       });
     } catch (error) {
@@ -192,7 +192,7 @@ export default function SupplierPortal() {
       const riskLevel = riskScore < 30 ? 'Low' : riskScore < 70 ? 'Medium' : 'High';
       const keyRisks = [
         "Geopolitical stability in region",
-        "Climate impact on spice yields",
+        "Climate impact on product yields",
         "Regulatory compliance history"
       ];
 
@@ -207,14 +207,14 @@ export default function SupplierPortal() {
 
     try {
       const model = 'gemini-3-flash-preview';
-      const prompt = `Analyze the supply chain risk for this spice supplier:
+      const prompt = `Analyze the supply chain risk for this product supplier:
       Name: ${supplier.name}
       Location: ${supplier.location}
       Certificates: ${supplier.certificates.join(', ')}
       Compliance: ${supplier.compliance.join(', ')}
       Onboarding Step: ${supplier.onboardingStep}
       
-      Consider geopolitical stability, climate impact on spice yields in their region, and regulatory compliance history.
+      Consider geopolitical stability, climate impact on product yields in their region, and regulatory compliance history.
       Return a JSON object with: riskScore (0-100), riskLevel ('Low', 'Medium', 'High'), and keyRisks (array of strings, max 3).`;
 
       const response = await generateAIContent('Supplier Risk Score', {
@@ -374,7 +374,7 @@ export default function SupplierPortal() {
                 completedSteps: [],
                 rating: 5,
                 riskScore: 0,
-                category: 'Spices',
+                category: 'Commodities',
                 location: ''
               });
               setIsModalOpen(true);
@@ -648,7 +648,7 @@ export default function SupplierPortal() {
               value={newSupplier.name}
               onChange={(e) => setNewSupplier({ ...newSupplier, name: e.target.value })}
               className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium"
-              placeholder="e.g. Kerala Spice Farms Co."
+              placeholder="e.g. Kerala Trading Farms Co."
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -671,7 +671,7 @@ export default function SupplierPortal() {
                 value={newSupplier.email}
                 onChange={(e) => setNewSupplier({ ...newSupplier, email: e.target.value })}
                 className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium"
-                placeholder="e.g. rajesh@keralaspice.in"
+                placeholder="e.g. rajesh@keralaproducts.in"
               />
             </div>
           </div>
@@ -842,7 +842,7 @@ export default function SupplierPortal() {
                       </span>
                     </div>
                     <p className="text-sm text-zinc-600 leading-relaxed font-serif italic">
-                      "The supplier has demonstrated exceptional adherence to global spice safety standards. Processing facilities in Idukki show 100% compliance with traceability protocols. Recommended for high-volume saffron and cardamom contracts."
+                      "The supplier has demonstrated exceptional adherence to global product safety standards. Processing facilities in Idukki show 100% compliance with traceability protocols. Recommended for high-volume export contracts."
                     </p>
                     <button className="w-full py-4 bg-white border border-emerald-100 rounded-2xl text-xs font-black text-[#064e3b] hover:bg-[#064e3b] hover:text-white transition-all shadow-sm uppercase tracking-widest">
                       Download Full Audit PDF

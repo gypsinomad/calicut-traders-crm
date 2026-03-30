@@ -12,7 +12,8 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { ExportOrder, OrderStage } from '../lib/types';
-import { subscribeToCollection, updateDocument } from '../services/db';
+import { subscribeToCollection } from '../services/db';
+import { orderService } from '../services/orderService';
 import { clsx } from 'clsx';
 import { useAuth } from './Auth';
 
@@ -46,9 +47,13 @@ export default function ShipmentKanban() {
 
   const moveOrder = async (orderId: string, newStage: OrderStage) => {
     try {
-      await updateDocument('orders', orderId, { stage: newStage });
-      
       const order = orders.find(o => o.id === orderId);
+      if (order) {
+        await orderService.updateOrder(orderId, order, { stage: newStage });
+      } else {
+        await orderService.updateOrder(orderId, {} as ExportOrder, { stage: newStage });
+      }
+      
       if (order) {
         if (newStage === 'orderConfirmed') {
           await WhatsAppService.sendOrderConfirmation(order);
@@ -126,7 +131,7 @@ export default function ShipmentKanban() {
                       <div className="flex flex-col">
                         <span className="text-[10px] text-zinc-400 uppercase">Value</span>
                         <span className="text-xs font-bold text-zinc-900 dark:text-white">
-                          {order.currency} {order.totalValue.toLocaleString()}
+                          {order.currency} {(order.totalAmount || order.totalValue || 0).toLocaleString()}
                         </span>
                       </div>
                       <div className="flex items-center gap-1">

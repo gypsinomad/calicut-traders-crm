@@ -50,7 +50,7 @@ export default function DocumentList() {
     name: '',
     type: 'proformaInvoice',
     status: 'pending',
-    organization: profile?.organization || 'Calicut Spice Traders LLP'
+    organization: profile?.organization || 'Global Trade Connect LLP'
   });
 
   useEffect(() => {
@@ -74,7 +74,7 @@ export default function DocumentList() {
         fileUrl: '#',
         uploadedAt: Timestamp.now(),
         uploadedBy: profile?.displayName || 'System User',
-        organization: profile?.organization || 'Calicut Spice Traders LLP'
+        organization: profile?.organization || 'Global Trade Connect LLP'
       };
       await createDocument('documents', docData as Document);
       setIsModalOpen(false);

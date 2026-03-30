@@ -39,7 +39,8 @@ import {
   AreaChart,
   Area
 } from 'recharts';
-import { subscribeToCollection, updateDocument } from '../services/db';
+import { subscribeToCollection } from '../services/db';
+import { orderService } from '../services/orderService';
 import { ExportOrder, Lead, Payment } from '../lib/types';
 import { useAuth } from './Auth';
 import { formatCurrency } from '../lib/utils';
@@ -109,7 +110,7 @@ export default function Analytics() {
         confidence: 82,
         recommendations: [
           `Focus on expanding in ${ordersByCountry[1]?.name || 'secondary'} markets where conversion is increasing.`,
-          "Optimize supply chain for top-performing spices to maintain 95%+ delivery speed.",
+          "Optimize supply chain for top-performing products to maintain 95%+ delivery speed.",
           "Implement a loyalty program for high-value customers to increase repeat orders."
         ]
       };
@@ -185,7 +186,12 @@ export default function Analytics() {
 
   const handleStatusChange = async (orderId: string, newStatus: ExportOrder['status']) => {
     try {
-      await updateDocument('orders', orderId, { status: newStatus });
+      const order = orders.find(o => o.id === orderId);
+      if (order) {
+        await orderService.updateOrder(orderId, order, { status: newStatus });
+      } else {
+        await orderService.updateOrder(orderId, {} as ExportOrder, { status: newStatus });
+      }
     } catch (error) {
       console.error('Error updating order status:', error);
     }
@@ -237,10 +243,10 @@ export default function Analytics() {
 
   const renderSuppliers = () => {
     const suppliers = [
-      { name: 'Spice Valley Farms', rating: 4.8, speed: 95, accuracy: 98, quality: 92, status: 'active' },
+      { name: 'Valley Farms', rating: 4.8, speed: 95, accuracy: 98, quality: 92, status: 'active' },
       { name: 'Malabar Exports Co.', rating: 4.5, speed: 88, accuracy: 92, quality: 96, status: 'active' },
-      { name: 'Green Gold Spices', rating: 3.9, speed: 72, accuracy: 85, quality: 88, status: 'review' },
-      { name: 'Global Spice Hub', rating: 4.2, speed: 82, accuracy: 90, quality: 90, status: 'active' },
+      { name: 'Green Gold Trading', rating: 3.9, speed: 72, accuracy: 85, quality: 88, status: 'review' },
+      { name: 'Global Trade Hub', rating: 4.2, speed: 82, accuracy: 90, quality: 90, status: 'active' },
     ];
 
     return (

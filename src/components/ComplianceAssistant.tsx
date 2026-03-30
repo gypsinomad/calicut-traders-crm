@@ -4,13 +4,13 @@ import { handleAIError, generateAIContent, isAIAvailable } from '../lib/ai';
 import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
 
-const SYSTEM_INSTRUCTION = `You are the Compliance Assistant for Calicut Spice Traders LLP. 
-Your goal is to help Akhil Venugopal and his team manage spice exports (Black Pepper, Cardamom, Honey, Turmeric, Ginger, etc.) from Kerala to Africa, UK, and Middle East.
+const SYSTEM_INSTRUCTION = `You are the Compliance Assistant for Calicut Traders. 
+Your goal is to help Akhil Venugopal and his team manage export products (Black Pepper, Cardamom, Honey, Turmeric, Ginger, etc.) from Kerala to Africa, UK, and Middle East.
 You have expertise in:
 1. APEDA (Agricultural and Processed Food Products Export Development Authority) regulations.
 2. FSSAI (Food Safety and Standards Authority of India) requirements.
 3. ICEGATE and Indian Customs procedures.
-4. HS Codes for spices (e.g., 0904 for Pepper, 0908 for Cardamom).
+4. HS Codes for export products (e.g., 0904 for Pepper, 0908 for Cardamom).
 5. Phyto-sanitary certificates and Certificate of Origin.
 6. Market-specific requirements for UK (FSA), UAE (MOIAT), and various African nations.
 
@@ -32,7 +32,7 @@ export default function ComplianceAssistant() {
   const [isOpen, setIsOpen] = useState(false);
   const [isVoiceMode, setIsVoiceMode] = useState(false);
   const [messages, setMessages] = useState<{ role: 'user' | 'model', content: string }[]>([
-    { role: 'model', content: 'Hello! I am your Compliance Assistant. How can I help you with your spice exports today?' }
+    { role: 'model', content: 'Hello! I am your Compliance Assistant. How can I help you with your exports today?' }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -72,14 +72,14 @@ export default function ComplianceAssistant() {
         
         const lowerText = messageToSend.toLowerCase();
         if (lowerText.includes('apeda')) {
-          assistantMessage = `### APEDA Compliance Checklist for Spices
+          assistantMessage = `### APEDA Compliance Checklist
 - **Registration**: Ensure your RCMC (Registration Cum Membership Certificate) is active.
-- **Quality Standards**: Spices must meet Agmark or FSSAI standards as per the destination country requirements.
+- **Quality Standards**: Products must meet Agmark or FSSAI standards as per the destination country requirements.
 - **Packaging**: Use food-grade packaging with proper labeling (HS Code, Batch No, Date of Packing).
 - **Testing**: Mandatory testing for pesticide residues (e.g., Ethylene Oxide for EU/UK).`;
         } else if (lowerText.includes('phytosanitary')) {
           assistantMessage = `### Draft Phytosanitary Certificate Information
-To obtain a Phytosanitary Certificate for **Cardamom** or other spices:
+To obtain a Phytosanitary Certificate for your products:
 1. **Application**: Apply via the Plant Quarantine Information Management System (PQIS).
 2. **Inspection**: Arrange for physical inspection of the consignment by a Plant Quarantine Officer.
 3. **Treatment**: Fumigation may be required (e.g., Methyl Bromide) depending on the destination.
@@ -87,7 +87,7 @@ To obtain a Phytosanitary Certificate for **Cardamom** or other spices:
         } else if (lowerText.includes('origin')) {
           assistantMessage = `### Certificate of Origin (CoO) Guide
 For exports from Kerala:
-- **Issuing Authority**: Spices Board of India or Chamber of Commerce.
+- **Issuing Authority**: Export Board of India or Chamber of Commerce.
 - **Type**: Preferential (for countries with FTA like UAE) or Non-Preferential.
 - **Requirement**: Necessary to prove the goods were produced in India to avail duty benefits.`;
         } else if (lowerText.includes('invoice')) {
@@ -236,14 +236,14 @@ Your commercial invoice should include:
                     Check APEDA Regulations
                   </button>
                   <button 
-                    onClick={() => handleSend("Generate a draft Certificate of Origin for a spice shipment")}
+                    onClick={() => handleSend("Generate a draft Certificate of Origin for an export shipment")}
                     className="text-left p-3 bg-white border border-zinc-200 rounded-xl text-xs font-medium text-zinc-600 hover:border-emerald-500 hover:text-emerald-600 transition-all flex items-center gap-2 group"
                   >
                     <FileText size={14} className="text-amber-500" />
                     Draft Certificate of Origin
                   </button>
                   <button 
-                    onClick={() => handleSend("Generate a draft Phytosanitary Certificate for Cardamom")}
+                    onClick={() => handleSend("Generate a draft Phytosanitary Certificate for the products")}
                     className="text-left p-3 bg-white border border-zinc-200 rounded-xl text-xs font-medium text-zinc-600 hover:border-emerald-500 hover:text-emerald-600 transition-all flex items-center gap-2 group"
                   >
                     <Sparkles size={14} className="text-blue-500" />

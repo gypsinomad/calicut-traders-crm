@@ -41,14 +41,14 @@ export default function SendToBuyerDialog({
   // In a real app, we'd generate this or fetch it
   const htmlContent = quote ? `<h1>Quote ${quote.quoteNumber}</h1>` : (document?.htmlContent || '');
   const plainTextSummary = quote 
-    ? `Quote for ${quote.items[0]?.productName || 'Spices'}: ${quote.totalAmount} ${quote.currency}`
+    ? `Quote for ${quote.items[0]?.productName || 'Commodities'}: ${quote.totalAmount} ${quote.currency}`
     : `Document ${documentRef} for ${buyerName}`;
 
-  const [emailSubject, setEmailSubject] = useState(`${documentName} ${documentRef} - Calicut Spice Traders`);
+  const [emailSubject, setEmailSubject] = useState(`${documentName} ${documentRef} - Global Trade Connect`);
   const [emailBody, setEmailBody] = useState(`
 Hello ${buyerName},
 
-Please find attached our ${documentName} ${documentRef} from Calicut Spice Traders.
+Please find attached our ${documentName} ${documentRef} from Global Trade Connect.
 
 Details:
 ${plainTextSummary}
@@ -56,15 +56,15 @@ ${plainTextSummary}
 Kindly confirm your acceptance at the earliest.
 
 Best regards,
-${profile?.displayName || 'Calicut Spice Traders LLP'}
-Calicut Spice Traders LLP
+${profile?.displayName || 'Global Trade Connect LLP'}
+Global Trade Connect LLP
 Kozhikode, Kerala
   `.trim());
 
   const [whatsappMessage, setWhatsappMessage] = useState(`
 Hello ${buyerName},
 
-Please find attached our ${documentName} ${documentRef} from Calicut Spice Traders.
+Please find attached our ${documentName} ${documentRef} from Global Trade Connect.
 
 Details:
 ${plainTextSummary}
@@ -72,7 +72,7 @@ ${plainTextSummary}
 Kindly confirm your acceptance at the earliest.
 
 Best regards,
-Calicut Spice Traders LLP
+Global Trade Connect LLP
 Kozhikode, Kerala
   `.trim());
 
