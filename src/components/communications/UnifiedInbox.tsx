@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Inbox, 
   Search, 
@@ -22,59 +22,115 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UnifiedMessage } from '../../lib/types';
-import { Timestamp } from 'firebase/firestore';
+import { 
+  collection, 
+  query, 
+  where, 
+  orderBy, 
+  onSnapshot, 
+  doc, 
+  updateDoc, 
+  addDoc, 
+  serverTimestamp,
+  Timestamp,
+  getDocs
+} from 'firebase/firestore';
+import { db } from '../../firebase';
+import { useAuth } from '../Auth';
 import { TranslatedText } from '../TranslatedText';
 
-// Mock Unified Inbox Data
-const mockMessages: UnifiedMessage[] = [
-  {
-    id: 'm1',
-    channel: 'whatsapp',
-    sender: { id: 's1', name: 'Al-Futtaim Group (UAE)', avatar: 'https://i.pravatar.cc/150?u=alfuttaim' },
-    content: 'When is the next shipment of Black Pepper expected in Dubai?',
-    timestamp: Timestamp.now(),
-    status: 'unread',
-    relatedEntityType: 'order',
-    relatedEntityId: 'ORD-2024-001',
-    organization: 'calicut_traders'
-  },
-  {
-    id: 'm2',
-    channel: 'email',
-    sender: { id: 's2', name: 'Global Trading House', email: 'procurement@globaltrading.co.uk' },
-    content: 'Please find the signed contract for the upcoming turmeric order.',
-    timestamp: Timestamp.now(),
-    status: 'pending',
-    relatedEntityType: 'lead',
-    relatedEntityId: 'LEAD-102',
-    organization: 'calicut_traders'
-  },
-  {
-    id: 'm3',
-    channel: 'facebook',
-    sender: { id: 's3', name: 'Nigeria Trade Importers', avatar: 'https://i.pravatar.cc/150?u=nigeria' },
-    content: 'Interested in your ginger export prices for Lagos.',
-    timestamp: Timestamp.now(),
-    status: 'unread',
-    organization: 'calicut_traders'
-  },
-  {
-    id: 'm4',
-    channel: 'instagram',
-    sender: { id: 's4', name: 'FoodieDubai', avatar: 'https://i.pravatar.cc/150?u=foodie' },
-    content: 'Your cardamom quality is amazing! Do you ship to individuals?',
-    timestamp: Timestamp.now(),
-    status: 'resolved',
-    organization: 'calicut_traders'
-  }
-];
-
 export function UnifiedInbox() {
-  const [selectedMessage, setSelectedMessage] = useState<UnifiedMessage | null>(mockMessages[0]);
+  const { profile } = useAuth();
+  const [messages, setMessages] = useState<UnifiedMessage[]>([]);
+  const [selectedMessage, setSelectedMessage] = useState<UnifiedMessage | null>(null);
   const [filter, setFilter] = useState<'all' | 'unread' | 'pending' | 'resolved'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(true);
 
-  const filteredMessages = mockMessages.filter(m => {
+  useEffect(() => {
+    if (!profile?.organization) return;
+
+    const q = query(
+      collection(db, 'messages'),
+      where('organization', '==', profile.organization),
+      orderBy('timestamp', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const msgs = snapshot.docs.map(doc => ({
+        ...doc.data(),
+        id: doc.id
+      })) as UnifiedMessage[];
+      
+      setMessages(msgs);
+      setLoading(false);
+
+      // Seed initial data if empty
+      if (msgs.length === 0 && loading) {
+        seedInitialMessages();
+      }
+    }, (error) => {
+      console.error("Error fetching messages:", error);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [profile?.organization]);
+
+  const seedInitialMessages = async () => {
+    if (!profile?.organization) return;
+    
+    const initialMessages = [
+      {
+        channel: 'whatsapp',
+        sender: { id: 's1', name: 'Al-Futtaim Group (UAE)', avatar: 'https://i.pravatar.cc/150?u=alfuttaim' },
+        content: 'When is the next shipment of Black Pepper expected in Dubai?',
+        timestamp: serverTimestamp(),
+        status: 'unread',
+        relatedEntityType: 'order',
+        relatedEntityId: 'ORD-2024-001',
+        organization: profile.organization
+      },
+      {
+        channel: 'email',
+        sender: { id: 's2', name: 'Global Trading House', email: 'procurement@globaltrading.co.uk' },
+        content: 'Please find the signed contract for the upcoming turmeric order.',
+        timestamp: serverTimestamp(),
+        status: 'pending',
+        relatedEntityType: 'lead',
+        relatedEntityId: 'LEAD-102',
+        organization: profile.organization
+      },
+      {
+        channel: 'facebook',
+        sender: { id: 's3', name: 'Nigeria Trade Importers', avatar: 'https://i.pravatar.cc/150?u=nigeria' },
+        content: 'Interested in your ginger export prices for Lagos.',
+        timestamp: serverTimestamp(),
+        status: 'unread',
+        organization: profile.organization
+      }
+    ];
+
+    for (const msg of initialMessages) {
+      await addDoc(collection(db, 'messages'), msg);
+    }
+  };
+
+  const handleSelectMessage = async (message: UnifiedMessage) => {
+    setSelectedMessage(message);
+    if (message.status === 'unread') {
+      try {
+        await updateDoc(doc(db, 'messages', message.id), {
+          status: 'read'
+        });
+        setSelectedMessage({ ...message, status: 'read' });
+      } catch (error) {
+        console.error("Error marking message as read:", error);
+      }
+    }
+  };
+
+  const filteredMessages = messages.filter(m => {
     if (filter !== 'all' && m.status !== filter) return false;
     if (searchQuery && !m.sender.name.toLowerCase().includes(searchQuery.toLowerCase()) && !m.content.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
@@ -128,7 +184,7 @@ export function UnifiedInbox() {
           {filteredMessages.map((message) => (
             <button
               key={message.id}
-              onClick={() => setSelectedMessage(message)}
+              onClick={() => handleSelectMessage(message)}
               className={`w-full p-4 flex items-start gap-3 transition-all border-b border-white/5 text-left ${
                 selectedMessage?.id === message.id 
                   ? "bg-emerald-600/10 border-l-4 border-l-emerald-500" 
@@ -151,7 +207,7 @@ export function UnifiedInbox() {
                 <div className="flex items-center justify-between gap-2">
                   <h4 className="text-sm font-bold text-white truncate">{message.sender.name}</h4>
                   <span className="text-[10px] text-emerald-400/40 font-medium whitespace-nowrap">
-                    {message.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {message.timestamp instanceof Timestamp ? message.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now'}
                   </span>
                 </div>
                 <p className="text-xs text-emerald-300/60 line-clamp-2 mt-1">{message.content}</p>
@@ -230,7 +286,7 @@ export function UnifiedInbox() {
                     <p className="text-sm text-emerald-50">{selectedMessage.content}</p>
                   </div>
                   <span className="text-[10px] text-emerald-400/40 font-medium">
-                    {selectedMessage.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {selectedMessage.timestamp instanceof Timestamp ? selectedMessage.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now'}
                   </span>
                 </div>
               </div>

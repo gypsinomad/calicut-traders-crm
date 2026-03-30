@@ -25,12 +25,14 @@ import { useAuth } from './Auth';
 import { formatDate } from '../lib/utils';
 
 export default function SystemHealth() {
-  const { user } = useAuth();
+  const { profile } = useAuth();
   const [services, setServices] = useState<HealthType[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
   useEffect(() => {
+    if (!profile?.organization) return;
+
     // In a real app, this would be populated by a backend monitoring service
     // For this demo, we'll subscribe to a collection or mock it if empty
     const unsub = subscribeToCollection<HealthType>(
@@ -51,11 +53,12 @@ export default function SystemHealth() {
         }
         setLoading(false);
         setLastUpdated(new Date());
-      }
+      },
+      [{ field: 'organization', operator: '==', value: profile.organization }]
     );
 
     return () => unsub();
-  }, []);
+  }, [profile?.organization]);
 
   const getStatusColor = (status: HealthType['status']) => {
     switch (status) {

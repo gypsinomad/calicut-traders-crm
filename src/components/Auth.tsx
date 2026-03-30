@@ -6,9 +6,10 @@ import {
   User 
 } from 'firebase/auth';
 import { auth, db, googleProvider } from '../firebase';
-import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
-import { UserProfile } from '../lib/types';
-import { LogIn, LogOut, Loader2, ShieldAlert, Clock } from 'lucide-react';
+import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, serverTimestamp, addDoc } from 'firebase/firestore';
+import { UserProfile, Notification } from '../lib/types';
+import { LogIn, LogOut, Loader2, ShieldAlert, Clock, RefreshCw } from 'lucide-react';
+import { toast } from 'sonner';
 
 enum OperationType {
   CREATE = 'create',
@@ -93,9 +94,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             // Check if this is the default admin and needs a role upgrade or approval
             if (currentUser.email === 'akhilvenugopal@gmail.com') {
-              if (data.role !== 'admin' || !data.isApproved) {
+              if (data.role !== 'admin' || data.status !== 'active') {
                 updatedData.role = 'admin';
-                updatedData.isApproved = true;
+                updatedData.status = 'active';
                 needsUpdate = true;
               }
             }
@@ -118,15 +119,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               uid: currentUser.uid,
               email: currentUser.email || '',
               displayName: currentUser.displayName || 'User',
-              role: isAdmin ? 'admin' : 'staff',
-              isApproved: isAdmin, // Default admin is approved, others are not
-              isActive: true,
+              photoURL: currentUser.photoURL || undefined,
+              role: isAdmin ? 'admin' : 'user',
+              status: isAdmin ? 'active' : 'pending',
               createdAt: Timestamp.now(),
+              lastSeen: Timestamp.now(),
               organization: 'Calicut Traders',
-              avatarUrl: currentUser.photoURL || undefined
+              avatarUrl: currentUser.photoURL || undefined,
+              isOnline: false,
+              presenceStatus: 'offline'
             };
             await setDoc(profileRef, newProfile);
             setProfile(newProfile);
+
+            // Notify admins about new user
+            if (!isAdmin) {
+              const adminsQuery = query(collection(db, 'users'), where('role', '==', 'admin'));
+              const adminSnaps = await getDocs(adminsQuery);
+              
+              const notificationPromises = adminSnaps.docs.map(adminDoc => {
+                const notification: Omit<Notification, 'id'> = {
+                  title: 'New User Pending Approval',
+                  message: `${newProfile.displayName} (${newProfile.email}) has signed in and is awaiting approval`,
+                  type: 'warning',
+                  timestamp: Timestamp.now(),
+                  read: false,
+                  userId: adminDoc.id,
+                  organization: 'Calicut Traders',
+                  relatedEntityId: newProfile.uid,
+                  relatedEntityType: 'user'
+                };
+                return addDoc(collection(db, 'notifications'), notification);
+              });
+              await Promise.all(notificationPromises);
+            }
           }
         } catch (error) {
           handleFirestoreError(error, OperationType.GET, path);
@@ -173,7 +199,66 @@ export function useAuth() {
 }
 
 export function PendingApprovalScreen() {
-  const { logout } = useAuth();
+  const { logout, user, profile } = useAuth();
+  const [checking, setChecking] = useState(false);
+  const [lastNotified, setLastNotified] = useState(() => {
+    const saved = localStorage.getItem(`last_notified_${user?.uid}`);
+    return saved ? parseInt(saved, 10) : 0;
+  });
+
+  const checkStatus = async () => {
+    if (!user) return;
+    setChecking(true);
+    try {
+      const profileRef = doc(db, 'users', user.uid);
+      const profileSnap = await getDoc(profileRef);
+      if (profileSnap.exists()) {
+        const data = profileSnap.data() as UserProfile;
+        if (data.status === 'active') {
+          window.location.reload();
+          return;
+        }
+      }
+
+      // If still pending, notify admins (with 5-minute cooldown)
+      const now = Date.now();
+      if (now - lastNotified > 300000) { // 5 minutes
+        const adminsQuery = query(collection(db, 'users'), where('role', '==', 'admin'));
+        const adminSnaps = await getDocs(adminsQuery);
+        
+        const notificationPromises = adminSnaps.docs.map(adminDoc => {
+          const notification = {
+            title: 'Approval Requested',
+            message: `${profile?.displayName || user.email} is waiting for approval and checked their status.`,
+            type: 'warning',
+            timestamp: serverTimestamp(),
+            read: false,
+            userId: adminDoc.id,
+            organization: profile?.organization || 'Calicut Traders',
+            relatedEntityId: user.uid,
+            relatedEntityType: 'user'
+          };
+          return addDoc(collection(db, 'notifications'), notification);
+        });
+        await Promise.all(notificationPromises);
+        setLastNotified(now);
+        localStorage.setItem(`last_notified_${user.uid}`, now.toString());
+        toast.info('Admin has been notified of your status check.');
+      } else {
+        const minutesLeft = Math.ceil((300000 - (now - lastNotified)) / 60000);
+        toast.info(`Status checked. Admin can be re-notified in ${minutesLeft} minute${minutesLeft !== 1 ? 's' : ''}.`);
+      }
+    } catch (error) {
+      console.error('Error checking status:', error);
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  useEffect(() => {
+    const interval = setInterval(checkStatus, 30000);
+    return () => clearInterval(interval);
+  }, [user]);
 
   return (
     <div className="min-h-screen bg-zinc-50 flex items-center justify-center p-4">
@@ -183,7 +268,7 @@ export function PendingApprovalScreen() {
         </div>
         <h1 className="text-3xl font-black text-zinc-900 mb-2 tracking-tight">Approval Pending</h1>
         <p className="text-zinc-500 mb-8 font-medium">
-          Your account has been created successfully. An administrator needs to approve your access before you can enter the system.
+          Your account is pending admin approval. You'll be notified once approved.
         </p>
         
         <div className="bg-zinc-50 p-4 rounded-2xl border border-zinc-100 mb-8 text-left">
@@ -195,13 +280,24 @@ export function PendingApprovalScreen() {
           </div>
         </div>
 
-        <button
-          onClick={logout}
-          className="w-full flex items-center justify-center gap-3 px-8 py-4 bg-zinc-100 text-zinc-900 rounded-2xl font-bold hover:bg-zinc-200 transition-all"
-        >
-          <LogOut size={20} />
-          Sign Out
-        </button>
+        <div className="flex flex-col gap-3">
+          <button
+            onClick={checkStatus}
+            disabled={checking}
+            className="w-full flex items-center justify-center gap-3 px-8 py-4 bg-zinc-900 text-white rounded-2xl font-bold hover:bg-zinc-800 transition-all shadow-lg disabled:opacity-50"
+          >
+            {checking ? <Loader2 className="animate-spin" size={20} /> : <RefreshCw size={20} />}
+            Check Status
+          </button>
+
+          <button
+            onClick={logout}
+            className="w-full flex items-center justify-center gap-3 px-8 py-4 bg-zinc-100 text-zinc-900 rounded-2xl font-bold hover:bg-zinc-200 transition-all"
+          >
+            <LogOut size={20} />
+            Sign Out
+          </button>
+        </div>
       </div>
     </div>
   );

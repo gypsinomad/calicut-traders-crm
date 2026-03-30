@@ -63,6 +63,7 @@ const navItems = [
   { icon: Calendar, label: 'Calendar', path: '/calendar' },
   { icon: MessageSquare, label: 'Collaboration', path: '/collaboration' },
   { icon: UserCircle, label: 'Customer Portal', path: '/portal' },
+  { icon: Users, label: 'User Management', path: '/users' },
   { icon: Activity, label: 'Audit Trail', path: '/audit' },
   { icon: Activity, label: 'System Health', path: '/health' },
   { icon: Settings, label: 'Settings', path: '/settings' },
@@ -70,9 +71,57 @@ const navItems = [
 
 import { useTranslation } from '../contexts/LanguageContext.tsx';
 import { TranslatedText } from './TranslatedText.tsx';
+import { useAuth } from './Auth.tsx';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { db } from '../firebase';
 
 export default function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose?: () => void }) {
   const { isRTL } = useTranslation();
+  const { profile } = useAuth();
+  const [unreadMessagesCount, setUnreadMessagesCount] = React.useState(0);
+  const [pendingUsersCount, setPendingUsersCount] = React.useState(0);
+
+  React.useEffect(() => {
+    if (!profile?.organization) return;
+
+    const q = query(
+      collection(db, 'messages'),
+      where('organization', '==', profile.organization),
+      where('status', '==', 'unread')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setUnreadMessagesCount(snapshot.size);
+    }, (error) => {
+      console.error("Error fetching unread messages count:", error);
+    });
+
+    return () => unsubscribe();
+  }, [profile?.organization]);
+
+  React.useEffect(() => {
+    if (profile?.role !== 'admin' || !profile?.organization) return;
+
+    const q = query(
+      collection(db, 'users'),
+      where('organization', '==', profile.organization),
+      where('status', '==', 'pending')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setPendingUsersCount(snapshot.size);
+    }, (error) => {
+      console.error("Error fetching pending users count:", error);
+    });
+
+    return () => unsubscribe();
+  }, [profile?.role, profile?.organization]);
+
+  const filteredNavItems = navItems.filter(item => {
+    if (item.path === '/users') return profile?.role === 'admin';
+    if (item.path === '/audit' || item.path === '/health') return profile?.role === 'admin';
+    return true;
+  });
 
   return (
     <div className={cn(
@@ -99,7 +148,7 @@ export default function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose
       </div>
 
       <nav className="flex-1 px-4 space-y-0.5 overflow-y-auto custom-scrollbar">
-        {navItems.map((item) => (
+        {filteredNavItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
@@ -120,9 +169,14 @@ export default function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose
               "group-hover:text-[#d97706]"
             )} />
             <TranslatedText as="span" className="text-sm font-medium tracking-tight flex-1">{item.label}</TranslatedText>
-            {item.path === '/communications' && (
+            {item.path === '/communications' && unreadMessagesCount > 0 && (
               <span className="px-1.5 py-0.5 rounded-full bg-[#d97706] text-white text-[10px] font-bold">
-                3
+                {unreadMessagesCount}
+              </span>
+            )}
+            {item.path === '/users' && pendingUsersCount > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-bold animate-pulse">
+                {pendingUsersCount}
               </span>
             )}
           </NavLink>

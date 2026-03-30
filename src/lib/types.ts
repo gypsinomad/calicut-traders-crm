@@ -1,19 +1,23 @@
 import { Timestamp } from 'firebase/firestore';
 
-export type UserRole = 'admin' | 'manager' | 'staff';
+export type UserRole = 'admin' | 'manager' | 'staff' | 'user';
+export type UserStatus = 'pending' | 'active' | 'suspended';
+export type UserPresenceStatus = 'online' | 'away' | 'offline' | 'dnd';
 
 export interface UserProfile {
   uid: string;
   email: string;
   displayName: string;
+  photoURL?: string;
   role: UserRole;
-  isActive: boolean;
-  lastActive?: Timestamp;
+  status: UserStatus;
+  lastSeen: Timestamp;
   createdAt: Timestamp;
   avatarUrl?: string;
   organization?: string;
   onboardingCompleted?: boolean;
-  isApproved?: boolean;
+  isOnline: boolean;
+  presenceStatus: UserPresenceStatus;
 }
 
 export type LeadStatus = 'lead' | 'contacted' | 'sampleSent' | 'negotiation' | 'orderConfirmed' | 'repeatBuyer' | 'lost' | 'new' | 'qualified' | 'quoted' | 'converted';
@@ -245,6 +249,7 @@ export interface SystemHealth {
   latency: number;
   lastChecked: Timestamp;
   message?: string;
+  organization?: string;
 }
 
 export interface Quote {

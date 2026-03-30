@@ -69,7 +69,7 @@ export default function CollaborationSpace() {
     );
 
     const unsubActivities = subscribeToCollection<AuditTrail>(
-      'audit_trail',
+      'audit_logs',
       (data) => {
         setActivities(data.sort((a, b) => {
           const t1 = a.timestamp instanceof Timestamp ? a.timestamp.toMillis() : new Date(a.timestamp).getTime();
@@ -80,11 +80,7 @@ export default function CollaborationSpace() {
       [{ field: 'organization', operator: '==', value: profile.organization }]
     );
 
-    // Update own presence
-    if (user) {
-      updateDocument('users', user.uid, { lastActive: Timestamp.now() });
-    }
-
+    // Presence is handled by presenceService
     setLoading(false);
     return () => {
       unsubMessages();
@@ -218,7 +214,8 @@ export default function CollaborationSpace() {
             <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-4 px-2">Team Presence</h3>
             <div className="space-y-1">
               {presence.map(person => {
-                const isOnline = person.lastActive && (Date.now() - (person.lastActive instanceof Timestamp ? person.lastActive.toMillis() : new Date(person.lastActive).getTime()) < 300000);
+                const isOnline = person.isOnline;
+                const status = person.presenceStatus;
                 return (
                   <div 
                     key={person.uid}
@@ -226,7 +223,10 @@ export default function CollaborationSpace() {
                   >
                     <div className={cn(
                       "w-2 h-2 rounded-full",
-                      isOnline ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-zinc-300"
+                      status === 'online' ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : 
+                      status === 'away' ? "bg-amber-500" :
+                      status === 'dnd' ? "bg-rose-500" :
+                      "bg-zinc-300"
                     )} />
                     <span className={isOnline ? "text-zinc-900 font-bold" : ""}>{person.displayName}</span>
                   </div>

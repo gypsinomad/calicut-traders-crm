@@ -36,6 +36,7 @@ import CollaborationSpace from './components/CollaborationSpace.tsx';
 import ExportDocumentManager from './components/ExportDocumentManager.tsx';
 import BuyerPipeline from './components/BuyerPipeline.tsx';
 import ShipmentTracker from './components/ShipmentTracker.tsx';
+import UserManagement from './components/UserManagement.tsx';
 import CommunicationsHub from './components/communications/CommunicationsHub.tsx';
 import { AuthProvider, useAuth, LoginScreen, PendingApprovalScreen } from './components/Auth.tsx';
 import { Loader2 } from 'lucide-react';
@@ -43,6 +44,9 @@ import { useState, useEffect } from 'react';
 import { db } from './firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { automationService } from './services/automationService';
+import { initPresence } from './services/presenceService';
+
+import { Toaster } from 'sonner';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, profile, loading } = useAuth();
@@ -51,7 +55,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     async function checkOnboarding() {
-      if (!user || !profile || !profile.isApproved) {
+      if (!user || !profile || profile.status !== 'active') {
         setCheckingOnboarding(false);
         return;
       }
@@ -106,7 +110,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <LoginScreen />;
   }
 
-  if (profile && !profile.isApproved) {
+  if (profile && profile.status !== 'active') {
     return <PendingApprovalScreen />;
   }
 
@@ -118,6 +122,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
         }} />
       )}
       <CommandPalette />
+      <Toaster position="top-right" />
       {children}
     </>
   );
@@ -126,6 +131,15 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 import { LanguageProvider } from './contexts/LanguageContext.tsx';
 
 function AppContent() {
+  const { user, profile } = useAuth();
+
+  useEffect(() => {
+    if (user && profile && profile.status === 'active') {
+      const cleanup = initPresence(user.uid);
+      return cleanup;
+    }
+  }, [user, profile]);
+
   useEffect(() => {
     // Run periodic checks every 5 minutes
     const interval = setInterval(() => {
@@ -169,6 +183,7 @@ function AppContent() {
             <Route path="health" element={<SystemHealth />} />
             <Route path="analytics" element={<Analytics />} />
             <Route path="scanner" element={<SmartScanner />} />
+            <Route path="users" element={<UserManagement />} />
             <Route path="settings" element={<Settings />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

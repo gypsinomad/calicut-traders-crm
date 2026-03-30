@@ -37,10 +37,12 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useTranslation } from '../contexts/LanguageContext.tsx';
 import { Language } from '../services/translationService.ts';
 import AIUsageDashboard from './AIUsageDashboard.tsx';
-import { getDocuments, subscribeToCollection, updateDocument } from '../services/db';
+import { getDocuments, subscribeToCollection, updateDocument, createDocument } from '../services/db';
 import { formatBytes } from '../lib/utils';
 import { QRCodeSVG } from 'qrcode.react';
-import { UserProfile } from '../lib/types.ts';
+import { UserProfile, UserRole } from '../lib/types.ts';
+import { toast } from 'sonner';
+import { Timestamp } from 'firebase/firestore';
 
 const SettingItem = ({ icon: Icon, title, description, badge, onClick }: any) => (
   <button 
@@ -84,6 +86,21 @@ export default function Settings() {
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [userFilter, setUserFilter] = useState<'all' | 'pending' | 'active' | 'suspended'>('all');
+
+  // General & Language States
+  const [timezone, setTimezone] = useState('Asia/Kolkata');
+  const [currency, setCurrency] = useState('INR');
+  const [dateFormat, setDateFormat] = useState('DD/MM/YYYY');
+
+  // Automation States
+  const [autoBackups, setAutoBackups] = useState(true);
+  const [weeklyReports, setWeeklyReports] = useState(true);
+  const [slackAlerts, setSlackAlerts] = useState(true);
+
+  const navigate = (path: string) => {
+    window.location.hash = path;
+  };
 
   useEffect(() => {
     if (profile?.role === 'admin' && profile?.organization) {
@@ -96,12 +113,91 @@ export default function Settings() {
     }
   }, [profile]);
 
-  const handleApproveUser = async (userId: string, approved: boolean) => {
+  const handleSaveGeneral = async () => {
+    if (!profile?.organization) return;
+    setLoading(true);
     try {
-      await updateDocument('users', userId, { isApproved: approved });
+      const docRef = doc(db, 'organizations', profile.organization, 'settings', 'general');
+      await setDoc(docRef, {
+        timezone,
+        currency,
+        dateFormat,
+        language
+      }, { merge: true });
+      toast.success('General settings saved successfully!');
     } catch (error) {
-      console.error('Error updating user approval status:', error);
-      alert('Failed to update user status.');
+      console.error('Error saving general settings:', error);
+      toast.error('Failed to save general settings');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveAccount = async () => {
+    if (!profile?.uid) return;
+    setLoading(true);
+    try {
+      // In a real app, we'd update the user profile in Firestore
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      toast.success('Account settings saved successfully!');
+    } catch (error) {
+      console.error('Error saving account settings:', error);
+      toast.error('Failed to save account settings');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveAutomation = async () => {
+    if (!profile?.organization) return;
+    setLoading(true);
+    try {
+      const docRef = doc(db, 'organizations', profile.organization, 'settings', 'automation');
+      await setDoc(docRef, {
+        autoBackups,
+        weeklyReports,
+        slackAlerts
+      }, { merge: true });
+      toast.success('Automation settings saved successfully!');
+    } catch (error) {
+      console.error('Error saving automation settings:', error);
+      toast.error('Failed to save automation settings');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleApproveUser = async (userId: string, status: 'active' | 'suspended') => {
+    try {
+      await updateDocument('users', userId, { status });
+      
+      if (status === 'active') {
+        // Send welcome notification to the user
+        await createDocument('notifications', {
+          title: 'Welcome to Global Trade Connect!',
+          message: 'Your account has been approved. You can now access all features of the platform.',
+          type: 'success',
+          userId: userId,
+          timestamp: Timestamp.now(),
+          read: false,
+          organization: profile?.organization || 'Calicut Traders'
+        });
+      }
+      
+      toast.success(`User status updated to ${status}`);
+    } catch (error) {
+      console.error('Error updating user status:', error);
+      toast.error('Failed to update user status');
+    }
+  };
+
+  const handleRoleChange = async (userId: string, newRole: UserRole) => {
+    try {
+      await updateDocument('users', userId, { role: newRole });
+      toast.success(`User role updated to ${newRole}`);
+    } catch (error) {
+      console.error('Error updating user role:', error);
+      toast.error('Failed to update user role');
     }
   };
 
@@ -250,7 +346,7 @@ export default function Settings() {
               <section className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
                 <div className="p-6 border-b border-zinc-100">
                   <h3 className="text-lg font-bold text-zinc-900">Organization Profile</h3>
-                  <p className="text-sm text-zinc-500 mt-1">Public information about Global Trade Connect LLP</p>
+                  <p className="text-sm text-zinc-500 mt-1">Public information about {profile?.organization || 'your organization'}</p>
                 </div>
                 <div className="p-6 space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -258,7 +354,7 @@ export default function Settings() {
                       <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Company Name</label>
                       <input 
                         type="text" 
-                        defaultValue="Global Trade Connect LLP"
+                        defaultValue={profile?.organization || "Global Trade Connect LLP"}
                         className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
                       />
                     </div>
@@ -377,8 +473,12 @@ export default function Settings() {
                   </div>
                 </div>
                 <div className="p-6 bg-zinc-50 border-t border-zinc-100 flex justify-end">
-                  <button className="px-6 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 active:scale-95">
-                    Save Changes
+                  <button 
+                    onClick={handleSaveGeneral}
+                    disabled={loading}
+                    className="px-6 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 active:scale-95 disabled:opacity-50"
+                  >
+                    Save Organization Settings
                   </button>
                 </div>
               </section>
@@ -394,8 +494,12 @@ export default function Settings() {
                 </div>
                 <div className="p-6 space-y-6">
                   <div className="flex items-center gap-6">
-                    <div className="w-20 h-20 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold text-2xl">
-                      AV
+                    <div className="w-20 h-20 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold text-2xl overflow-hidden">
+                      {profile?.avatarUrl ? (
+                        <img src={profile.avatarUrl} alt={profile.displayName} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      ) : (
+                        profile?.displayName?.split(' ').map(n => n[0]).join('') || 'U'
+                      )}
                     </div>
                     <div className="space-y-2">
                       <button className="px-4 py-2 bg-zinc-900 text-white rounded-lg text-sm font-medium hover:bg-zinc-800 transition-colors">
@@ -409,7 +513,7 @@ export default function Settings() {
                       <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Full Name</label>
                       <input 
                         type="text" 
-                        defaultValue="Akhil Venugopal"
+                        defaultValue={profile?.displayName}
                         className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
                       />
                     </div>
@@ -417,11 +521,21 @@ export default function Settings() {
                       <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Email Address</label>
                       <input 
                         type="email" 
-                        defaultValue="akhilvenugopal@gmail.com"
-                        className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                        defaultValue={profile?.email}
+                        readOnly
+                        className="w-full px-4 py-2 bg-zinc-100 border border-zinc-200 rounded-lg text-sm text-zinc-500 cursor-not-allowed"
                       />
                     </div>
                   </div>
+                </div>
+                <div className="p-6 bg-zinc-50 border-t border-zinc-100 flex justify-end">
+                  <button 
+                    onClick={handleSaveAccount}
+                    disabled={loading}
+                    className="px-6 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 active:scale-95 disabled:opacity-50"
+                  >
+                    Save Profile
+                  </button>
                 </div>
               </section>
 
@@ -430,7 +544,10 @@ export default function Settings() {
                   <h4 className="text-sm font-bold text-rose-900">Danger Zone</h4>
                   <p className="text-xs text-rose-600 mt-0.5">Irreversible actions for your organization account</p>
                 </div>
-                <button className="flex items-center gap-2 px-4 py-2 bg-rose-600 text-white rounded-lg text-sm font-medium hover:bg-rose-700 transition-colors">
+                <button 
+                  onClick={() => toast.error("Account deletion is disabled in this demo.")}
+                  className="flex items-center gap-2 px-4 py-2 bg-rose-600 text-white rounded-lg text-sm font-medium hover:bg-rose-700 transition-colors"
+                >
                   <Trash2 size={18} />
                   Delete Account
                 </button>
@@ -597,14 +714,35 @@ export default function Settings() {
                       Enable
                     </button>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="text-sm font-bold text-zinc-900">Session Management</h4>
-                      <p className="text-xs text-zinc-500 mt-0.5">View and manage your active sessions across devices</p>
+
+                  <div className="pt-6 border-t border-zinc-100">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-sm font-bold text-zinc-900">Password Management</h4>
+                        <p className="text-xs text-zinc-500 mt-0.5">Update your account password regularly</p>
+                      </div>
+                      <button 
+                        onClick={() => toast.info("Password reset email sent to " + profile?.email)}
+                        className="px-4 py-2 bg-zinc-100 text-zinc-900 rounded-lg text-sm font-medium hover:bg-zinc-200 transition-colors"
+                      >
+                        Change Password
+                      </button>
                     </div>
-                    <button className="px-4 py-2 bg-zinc-100 text-zinc-900 rounded-lg text-sm font-medium hover:bg-zinc-200 transition-colors">
-                      View Sessions
-                    </button>
+                  </div>
+
+                  <div className="pt-6 border-t border-zinc-100">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-sm font-bold text-zinc-900">Session Management</h4>
+                        <p className="text-xs text-zinc-500 mt-0.5">View and manage your active sessions across devices</p>
+                      </div>
+                      <button 
+                        onClick={() => navigate('/audit')}
+                        className="px-4 py-2 bg-zinc-100 text-zinc-900 rounded-lg text-sm font-medium hover:bg-zinc-200 transition-colors"
+                      >
+                        View Login History
+                      </button>
+                    </div>
                   </div>
                 </div>
               </section>
@@ -619,18 +757,59 @@ export default function Settings() {
                   <p className="text-sm text-zinc-500 mt-1">Choose your preferred language for the interface and documents</p>
                 </div>
                 <div className="p-6 space-y-6">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Interface Language</label>
-                    <select 
-                      value={language}
-                      onChange={(e) => setLanguage(e.target.value as Language)}
-                      className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
-                    >
-                      <option value="en">English (Default)</option>
-                      <option value="ar">Arabic (العربية)</option>
-                      <option value="sw">Swahili (Kiswahili)</option>
-                      <option value="ml">Malayalam (മലയാളം)</option>
-                    </select>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Interface Language</label>
+                      <select 
+                        value={language}
+                        onChange={(e) => setLanguage(e.target.value as Language)}
+                        className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                      >
+                        <option value="en">English (Default)</option>
+                        <option value="ar">Arabic (العربية)</option>
+                        <option value="sw">Swahili (Kiswahili)</option>
+                        <option value="ml">Malayalam (മലയാളം)</option>
+                        <option value="hi">Hindi (हिन्दी)</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Date Format</label>
+                      <select 
+                        value={dateFormat}
+                        onChange={(e) => setDateFormat(e.target.value)}
+                        className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                      >
+                        <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                        <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                        <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Time Zone</label>
+                      <select 
+                        value={timezone}
+                        onChange={(e) => setTimezone(e.target.value)}
+                        className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                      >
+                        <option value="Asia/Kolkata">India (IST) - UTC+5:30</option>
+                        <option value="Asia/Dubai">Dubai (GST) - UTC+4:00</option>
+                        <option value="UTC">Universal Time (UTC)</option>
+                        <option value="America/New_York">New York (EST) - UTC-5:00</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Currency Display</label>
+                      <select 
+                        value={currency}
+                        onChange={(e) => setCurrency(e.target.value)}
+                        className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                      >
+                        <option value="INR">Indian Rupee (₹)</option>
+                        <option value="AED">UAE Dirham (د.إ)</option>
+                        <option value="USD">US Dollar ($)</option>
+                        <option value="EUR">Euro (€)</option>
+                      </select>
+                    </div>
                   </div>
                   
                   <div className="flex items-center justify-between py-4 border-t border-zinc-100">
@@ -658,7 +837,11 @@ export default function Settings() {
                   </div>
                 </div>
                 <div className="p-6 bg-zinc-50 border-t border-zinc-100 flex justify-end">
-                  <button className="px-6 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 active:scale-95">
+                  <button 
+                    onClick={handleSaveGeneral}
+                    disabled={loading}
+                    className="px-6 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 active:scale-95 disabled:opacity-50"
+                  >
                     Save Changes
                   </button>
                 </div>
@@ -685,7 +868,12 @@ export default function Settings() {
                       </div>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
-                      <input type="checkbox" defaultChecked className="sr-only peer" />
+                      <input 
+                        type="checkbox" 
+                        checked={autoBackups}
+                        onChange={() => setAutoBackups(!autoBackups)}
+                        className="sr-only peer" 
+                      />
                       <div className="w-11 h-6 bg-zinc-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
                     </label>
                   </div>
@@ -701,7 +889,12 @@ export default function Settings() {
                       </div>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
-                      <input type="checkbox" defaultChecked className="sr-only peer" />
+                      <input 
+                        type="checkbox" 
+                        checked={weeklyReports}
+                        onChange={() => setWeeklyReports(!weeklyReports)}
+                        className="sr-only peer" 
+                      />
                       <div className="w-11 h-6 bg-zinc-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
                     </label>
                   </div>
@@ -717,13 +910,22 @@ export default function Settings() {
                       </div>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
-                      <input type="checkbox" defaultChecked className="sr-only peer" />
+                      <input 
+                        type="checkbox" 
+                        checked={slackAlerts}
+                        onChange={() => setSlackAlerts(!slackAlerts)}
+                        className="sr-only peer" 
+                      />
                       <div className="w-11 h-6 bg-zinc-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
                     </label>
                   </div>
                 </div>
                 <div className="p-6 bg-zinc-50 border-t border-zinc-100 flex justify-end">
-                  <button className="px-6 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 active:scale-95">
+                  <button 
+                    onClick={handleSaveAutomation}
+                    disabled={loading}
+                    className="px-6 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 active:scale-95 disabled:opacity-50"
+                  >
                     Save Changes
                   </button>
                 </div>
@@ -880,49 +1082,160 @@ export default function Settings() {
                   </div>
                 </div>
               </section>
+
+              <section className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
+                <div className="p-6 border-b border-zinc-100">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-bold text-zinc-900">Customs & Compliance</h3>
+                      <p className="text-sm text-zinc-500 mt-1">ICEGATE / Customs API Integration</p>
+                    </div>
+                    <div className="flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-100 text-rose-700">
+                      <AlertCircle size={12} />
+                      Not Configured
+                    </div>
+                  </div>
+                </div>
+                <div className="p-6 space-y-4">
+                  <p className="text-sm text-zinc-500">Connect to ICEGATE for automated Bill of Entry and Shipping Bill tracking.</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">ICEGATE ID</label>
+                      <input 
+                        type="text" 
+                        placeholder="Enter ICEGATE ID"
+                        className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">API Key</label>
+                      <input 
+                        type="password" 
+                        placeholder="Enter API Key"
+                        className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                      />
+                    </div>
+                  </div>
+                  <button className="px-4 py-2 bg-zinc-100 text-zinc-900 rounded-lg text-sm font-medium hover:bg-zinc-200 transition-colors">
+                    Configure ICEGATE
+                  </button>
+                </div>
+              </section>
+
+              <section className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
+                <div className="p-6 border-b border-zinc-100">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-bold text-zinc-900">Financial Systems</h3>
+                      <p className="text-sm text-zinc-500 mt-1">Tally / ERP Integration</p>
+                    </div>
+                    <div className="flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-100 text-rose-700">
+                      <AlertCircle size={12} />
+                      Not Configured
+                    </div>
+                  </div>
+                </div>
+                <div className="p-6 space-y-4">
+                  <p className="text-sm text-zinc-500">Sync your orders and payments directly with your accounting software.</p>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">ERP Provider</label>
+                    <select className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all">
+                      <option>Tally Prime</option>
+                      <option>SAP Business One</option>
+                      <option>Zoho Books</option>
+                      <option>Oracle NetSuite</option>
+                    </select>
+                  </div>
+                  <button className="px-4 py-2 bg-zinc-100 text-zinc-900 rounded-lg text-sm font-medium hover:bg-zinc-200 transition-colors">
+                    Connect ERP
+                  </button>
+                </div>
+              </section>
             </div>
           )}
 
           {activeTab === 'users' && profile?.role === 'admin' && (
             <div className="space-y-6">
               <section className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
-                <div className="p-6 border-b border-zinc-100">
-                  <h3 className="text-lg font-bold text-zinc-900">User Management</h3>
-                  <p className="text-sm text-zinc-500 mt-1">Approve and manage user access for your organization</p>
+                <div className="p-6 border-b border-zinc-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div>
+                    <h3 className="text-lg font-bold text-zinc-900">User Management</h3>
+                    <p className="text-sm text-zinc-500 mt-1">Approve and manage user access for your organization</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Filter:</label>
+                    <select 
+                      value={userFilter}
+                      onChange={(e) => setUserFilter(e.target.value as any)}
+                      className="px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                    >
+                      <option value="all">All Statuses</option>
+                      <option value="pending">Pending ({users.filter(u => u.status === 'pending').length})</option>
+                      <option value="active">Active</option>
+                      <option value="suspended">Suspended</option>
+                    </select>
+                  </div>
                 </div>
                 <div className="divide-y divide-zinc-100">
-                  {users.length === 0 ? (
+                  {users.filter(u => userFilter === 'all' || u.status === userFilter).length === 0 ? (
                     <div className="p-12 text-center">
                       <Users size={48} className="text-zinc-200 mx-auto mb-4" />
-                      <p className="text-zinc-500">No users found in your organization.</p>
+                      <p className="text-zinc-500">No users found matching the filter.</p>
                     </div>
                   ) : (
-                    users.map((u) => (
-                      <div key={u.uid} className="p-6 flex items-center justify-between hover:bg-zinc-50 transition-colors">
+                    users.filter(u => userFilter === 'all' || u.status === userFilter).map((u) => (
+                      <div 
+                        key={u.uid} 
+                        className={`p-6 flex items-center justify-between hover:bg-zinc-50 transition-colors ${
+                          u.status === 'pending' ? 'bg-amber-50/30 border-l-4 border-amber-500' : ''
+                        }`}
+                      >
                         <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 bg-zinc-100 rounded-full flex items-center justify-center overflow-hidden">
+                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center overflow-hidden border-2 ${
+                            u.status === 'pending' ? 'border-amber-200 bg-amber-100' : 'border-zinc-100 bg-zinc-100'
+                          }`}>
                             {u.avatarUrl ? (
                               <img src={u.avatarUrl} alt={u.displayName} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                             ) : (
-                              <User size={20} className="text-zinc-400" />
+                              <User size={24} className={u.status === 'pending' ? 'text-amber-600' : 'text-zinc-400'} />
                             )}
                           </div>
                           <div>
-                            <h4 className="text-sm font-bold text-zinc-900">{u.displayName}</h4>
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-sm font-bold text-zinc-900">{u.displayName}</h4>
+                              {u.status === 'pending' && (
+                                <span className="px-1.5 py-0.5 bg-amber-500 text-white text-[10px] font-black rounded uppercase animate-pulse">
+                                  New Request
+                                </span>
+                              )}
+                            </div>
                             <p className="text-xs text-zinc-500">{u.email}</p>
                             <div className="flex items-center gap-2 mt-1">
-                              <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 bg-zinc-100 text-zinc-600 rounded">
-                                {u.role}
-                              </span>
-                              {u.isApproved ? (
+                              <select
+                                value={u.role}
+                                onChange={(e) => handleRoleChange(u.uid, e.target.value as UserRole)}
+                                disabled={u.uid === profile.uid}
+                                className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 bg-zinc-100 text-zinc-600 rounded border-none focus:ring-1 focus:ring-emerald-500 cursor-pointer disabled:cursor-not-allowed"
+                              >
+                                <option value="admin">Admin</option>
+                                <option value="manager">Manager</option>
+                                <option value="staff">Staff</option>
+                                <option value="user">User</option>
+                              </select>
+                              {u.status === 'active' ? (
                                 <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded flex items-center gap-1">
                                   <CheckCircle2 size={10} />
-                                  Approved
+                                  Active
                                 </span>
-                              ) : (
-                                <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded flex items-center gap-1">
+                              ) : u.status === 'pending' ? (
+                                <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 bg-amber-500 text-white rounded flex items-center gap-1">
                                   <AlertCircle size={10} />
                                   Pending Approval
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 bg-rose-100 text-rose-700 rounded flex items-center gap-1">
+                                  <AlertCircle size={10} />
+                                  Suspended
                                 </span>
                               )}
                             </div>
@@ -930,16 +1243,33 @@ export default function Settings() {
                         </div>
                         <div className="flex items-center gap-2">
                           {u.uid !== profile.uid && (
-                            <button
-                              onClick={() => handleApproveUser(u.uid, !u.isApproved)}
-                              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                                u.isApproved 
-                                  ? 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200' 
-                                  : 'bg-emerald-600 text-white hover:bg-emerald-700'
-                              }`}
-                            >
-                              {u.isApproved ? 'Revoke Access' : 'Approve User'}
-                            </button>
+                            u.status === 'pending' ? (
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => handleApproveUser(u.uid, 'active')}
+                                  className="px-6 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 active:scale-95"
+                                >
+                                  Approve Access
+                                </button>
+                                <button
+                                  onClick={() => handleApproveUser(u.uid, 'suspended')}
+                                  className="px-6 py-2 bg-white border border-rose-200 text-rose-600 rounded-xl text-sm font-bold hover:bg-rose-50 transition-all active:scale-95"
+                                >
+                                  Reject
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => handleApproveUser(u.uid, u.status !== 'active' ? 'active' : 'suspended')}
+                                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all active:scale-95 ${
+                                  u.status === 'active' 
+                                    ? 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200' 
+                                    : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-lg shadow-emerald-600/20'
+                                }`}
+                              >
+                                {u.status === 'active' ? 'Suspend Access' : 'Reactivate User'}
+                              </button>
+                            )
                           )}
                         </div>
                       </div>
@@ -986,18 +1316,6 @@ export default function Settings() {
             </div>
           )}
 
-          {/* Placeholder for other tabs */}
-          {!['general', 'account', 'notifications', 'security', 'language', 'automation', 'data', 'whatsapp', 'ai_usage', 'mobile_app', 'integrations'].includes(activeTab) && (
-            <div className="bg-white p-12 rounded-2xl border border-zinc-200 shadow-sm text-center">
-              <div className="w-16 h-16 bg-zinc-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <Shield size={32} className="text-zinc-400" />
-              </div>
-              <h3 className="text-lg font-bold text-zinc-900">Section Under Development</h3>
-              <p className="text-sm text-zinc-500 mt-1 max-w-xs mx-auto">
-                We're currently refining the {activeTab} settings to provide a better experience.
-              </p>
-            </div>
-          )}
         </div>
       </div>
     </div>

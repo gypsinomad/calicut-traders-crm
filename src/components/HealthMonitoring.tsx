@@ -1,18 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { SystemHealth } from '../lib/types';
 import { format } from 'date-fns';
 import { Activity, CheckCircle2, AlertCircle, XCircle, Clock, RefreshCw, Server, Database, Globe, Shield } from 'lucide-react';
 import { TranslatedText } from './TranslatedText';
 
+import { useAuth } from './Auth';
+
 export default function HealthMonitoring() {
+  const { profile } = useAuth();
   const [healthData, setHealthData] = useState<SystemHealth[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!profile?.organization) return;
+
     const q = query(
       collection(db, 'system_health'),
+      where('organization', '==', profile.organization),
       orderBy('lastChecked', 'desc')
     );
 

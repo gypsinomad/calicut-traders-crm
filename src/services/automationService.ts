@@ -275,7 +275,7 @@ export const automationService = {
       timestamp: Timestamp.now(),
       relatedEntityId: relatedId,
       relatedEntityType: relatedType,
-      organization: organization || 'Global Trade Connect LLP' // Fallback
+      organization: organization || 'Calicut Traders' // Fallback
     };
     await createDocument('notifications', notification);
   }

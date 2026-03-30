@@ -9,13 +9,16 @@
         "displayName": { "type": "string", "description": "The user's full name" },
         "email": { "type": "string", "format": "email", "description": "The user's email address" },
         "photoURL": { "type": "string", "description": "The user's profile photo URL" },
-        "role": { "type": "string", "enum": ["admin", "manager", "staff"], "description": "The user's role in the organization" },
-        "isActive": { "type": "boolean" },
+        "role": { "type": "string", "enum": ["admin", "manager", "staff", "user"], "description": "The user's role in the organization" },
+        "status": { "type": "string", "enum": ["pending", "active", "suspended"], "description": "The user's approval status" },
         "organization": { "type": "string", "description": "The organization the user belongs to" },
         "onboardingCompleted": { "type": "boolean", "description": "Whether the user has completed onboarding" },
-        "createdAt": { "type": "string", "format": "date-time", "description": "When the profile was created" }
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the profile was created" },
+        "lastSeen": { "type": "string", "format": "date-time", "description": "Last time the user was active" },
+        "isOnline": { "type": "boolean", "description": "Whether the user is currently online" },
+        "presenceStatus": { "type": "string", "enum": ["online", "away", "offline", "dnd"], "description": "Detailed presence status" }
       },
-      "required": ["uid", "displayName", "email", "role", "isActive", "organization"]
+      "required": ["uid", "displayName", "email", "role", "status", "organization", "createdAt", "lastSeen", "isOnline", "presenceStatus"]
     },
     "Lead": {
       "title": "Lead",
@@ -392,6 +395,21 @@
       },
       "required": ["userId", "userName", "date", "objectives", "organization"]
     },
+    "SystemHealth": {
+      "title": "System Health",
+      "description": "Real-time status of system components",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "serviceName": { "type": "string" },
+        "status": { "type": "string", "enum": ["healthy", "degraded", "down"] },
+        "latency": { "type": "number" },
+        "lastChecked": { "type": "string", "format": "date-time" },
+        "message": { "type": "string" },
+        "organization": { "type": "string" }
+      },
+      "required": ["serviceName", "status", "latency", "lastChecked", "organization"]
+    },
     "IntegrationSettings": {
       "title": "Integration Settings",
       "description": "External API integration credentials",
@@ -438,6 +456,7 @@
     "/send_history/{historyId}": { "schema": "SendHistory", "description": "Document and quote send history" },
     "/calendar_events/{eventId}": { "schema": "CalendarEvent", "description": "Calendar events" },
     "/chat_messages/{messageId}": { "schema": "ChatMessage", "description": "Collaborative chat messages" },
-    "/daily_objectives/{objectiveId}": { "schema": "DailyObjective", "description": "Daily team objectives" }
+    "/daily_objectives/{objectiveId}": { "schema": "DailyObjective", "description": "Daily team objectives" },
+    "/system_health/{healthId}": { "schema": "SystemHealth", "description": "System health monitoring" }
   }
 }

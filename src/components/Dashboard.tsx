@@ -88,6 +88,7 @@ export default function Dashboard() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [pendingUsers, setPendingUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [briefing, setBriefing] = useState<string | null>(null);
   const [loadingBriefing, setLoadingBriefing] = useState(false);
@@ -131,7 +132,17 @@ export default function Dashboard() {
 
     const unsubNotifications = subscribeToCollection<any>('notifications', (data) => {
       setNotifications(data);
-    }, [{ field: 'userId', operator: '==', value: profile.uid }]);
+    }, [
+      { field: 'userId', operator: '==', value: profile.uid },
+      { field: 'organization', operator: '==', value: profile.organization }
+    ]);
+
+    let unsubPendingUsers = () => {};
+    if (profile.role === 'admin') {
+      unsubPendingUsers = subscribeToCollection<any>('users', (data) => {
+        setPendingUsers(data.filter(u => u.status === 'pending'));
+      }, filter);
+    }
 
     setLoading(false);
 
@@ -145,6 +156,7 @@ export default function Dashboard() {
       unsubSuppliers();
       unsubQuotes();
       unsubNotifications();
+      unsubPendingUsers();
     };
   }, [profile]);
 
@@ -343,6 +355,31 @@ export default function Dashboard() {
           </Link>
         </div>
       </header>
+
+      {profile?.role === 'admin' && pendingUsers.length > 0 && (
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-amber-50 border border-amber-200 p-6 rounded-[2.5rem] flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm"
+        >
+          <div className="flex items-center gap-6">
+            <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-3xl flex items-center justify-center shrink-0 shadow-inner">
+              <AlertTriangle size={32} />
+            </div>
+            <div>
+              <h3 className="text-xl font-serif font-bold text-amber-900">{pendingUsers.length} Users Pending Approval</h3>
+              <p className="text-amber-700/80 font-medium">New team members are waiting for your verification to access the platform.</p>
+            </div>
+          </div>
+          <Link 
+            to="/users"
+            className="px-8 py-4 bg-amber-600 text-white rounded-2xl font-bold text-sm hover:bg-amber-700 transition-all shadow-lg hover:shadow-amber-900/20 whitespace-nowrap flex items-center gap-2"
+          >
+            Review Applications
+            <ChevronRight size={18} />
+          </Link>
+        </motion.div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-8">
         {(userRole === 'admin' || userRole === 'manager') && (

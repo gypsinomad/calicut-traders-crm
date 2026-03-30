@@ -13,6 +13,8 @@ import { useTranslation } from '../contexts/LanguageContext.tsx';
 import { TranslatedText } from './TranslatedText.tsx';
 import AICostBadge from './AICostBadge.tsx';
 import AIStatusBanner from './AIStatusBanner.tsx';
+import { updatePresence } from '../services/presenceService';
+import { UserPresenceStatus } from '../lib/types';
 
 export default function Layout() {
   const { profile, logout } = useAuth();
@@ -24,6 +26,22 @@ export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
   const searchRef = useRef<HTMLDivElement>(null);
+
+  const handlePresenceChange = async (status: UserPresenceStatus) => {
+    if (profile) {
+      await updatePresence(profile.uid, status, status !== 'offline');
+    }
+  };
+
+  const getPresenceColor = (status: UserPresenceStatus) => {
+    switch (status) {
+      case 'online': return 'bg-emerald-500';
+      case 'away': return 'bg-amber-500';
+      case 'dnd': return 'bg-rose-500';
+      case 'offline': return 'bg-zinc-300';
+      default: return 'bg-zinc-300';
+    }
+  };
 
   useEffect(() => {
     if (darkMode) {
@@ -215,30 +233,57 @@ export default function Layout() {
             <NotificationCenter />
             <AICostBadge />
             <div className="h-8 w-[1px] bg-zinc-200 mx-1 md:mx-2" />
-            <div className="flex items-center gap-2 md:gap-3 pl-2 group relative">
-              <div className={`${isRTL ? 'text-left' : 'text-right'} hidden sm:block`}>
-                <p className="text-sm font-bold text-zinc-900">{profile?.displayName || 'User'}</p>
-                <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">{profile?.role || 'Member'}</p>
+              <div className="flex items-center gap-2 md:gap-3 pl-2 group relative">
+                <div className={`${isRTL ? 'text-left' : 'text-right'} hidden sm:block`}>
+                  <p className="text-sm font-bold text-zinc-900">{profile?.displayName || 'User'}</p>
+                  <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">{profile?.role || 'Member'}</p>
+                </div>
+                <div className="relative">
+                  <div className="w-10 h-10 rounded-full bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-600 overflow-hidden">
+                    {profile?.photoURL || profile?.avatarUrl ? (
+                      <img src={profile.photoURL || profile.avatarUrl} alt={profile.displayName} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    ) : (
+                      <User size={20} />
+                    )}
+                  </div>
+                  <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white ${getPresenceColor(profile?.presenceStatus || 'offline')}`} />
+                </div>
+                
+                {/* Dropdown for profile and status */}
+                <div className={`absolute top-full ${isRTL ? 'left-0' : 'right-0'} mt-2 w-56 bg-white rounded-2xl shadow-2xl border border-zinc-200 py-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50`}>
+                  <div className="px-4 py-2 border-b border-zinc-100 mb-2">
+                    <p className="text-xs font-black text-zinc-400 uppercase tracking-widest mb-3">Set Status</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { id: 'online', label: 'Online', color: 'bg-emerald-500' },
+                        { id: 'away', label: 'Away', color: 'bg-amber-500' },
+                        { id: 'dnd', label: 'DND', color: 'bg-rose-500' },
+                        { id: 'offline', label: 'Offline', color: 'bg-zinc-300' }
+                      ].map((s) => (
+                        <button
+                          key={s.id}
+                          onClick={() => handlePresenceChange(s.id as UserPresenceStatus)}
+                          className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-[10px] font-bold transition-colors ${
+                            profile?.presenceStatus === s.id 
+                              ? 'bg-zinc-100 text-zinc-900' 
+                              : 'text-zinc-500 hover:bg-zinc-50'
+                          }`}
+                        >
+                          <div className={`w-2 h-2 rounded-full ${s.color}`} />
+                          {s.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <button 
+                    onClick={logout}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-rose-600 hover:bg-rose-50 transition-colors font-bold"
+                  >
+                    <LogOut size={16} />
+                    <TranslatedText>Sign Out</TranslatedText>
+                  </button>
+                </div>
               </div>
-              <div className="w-10 h-10 rounded-full bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-600 overflow-hidden">
-                {profile?.avatarUrl ? (
-                  <img src={profile.avatarUrl} alt={profile.displayName} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                ) : (
-                  <User size={20} />
-                )}
-              </div>
-              
-              {/* Dropdown for logout */}
-              <div className={`absolute top-full ${isRTL ? 'left-0' : 'right-0'} mt-2 w-48 bg-white rounded-xl shadow-xl border border-zinc-200 py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50`}>
-                <button 
-                  onClick={logout}
-                  className="w-full flex items-center gap-3 px-4 py-2 text-sm text-rose-600 hover:bg-rose-50 transition-colors"
-                >
-                  <LogOut size={16} />
-                  <TranslatedText>Sign Out</TranslatedText>
-                </button>
-              </div>
-            </div>
           </div>
         </header>
         <main className="flex-1 overflow-y-auto">

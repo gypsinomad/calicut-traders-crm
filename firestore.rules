@@ -112,15 +112,20 @@ service cloud.firestore {
     // ===============================================================
 
     function isValidUser(data) {
-      return hasRequiredFields(['uid', 'displayName', 'email', 'role', 'isActive', 'organization']) &&
+      return hasRequiredFields(['uid', 'displayName', 'email', 'role', 'status', 'organization', 'createdAt', 'lastSeen', 'isOnline', 'presenceStatus']) &&
              data.uid is string && data.uid.size() > 0 &&
              data.displayName is string && data.displayName.size() > 0 && data.displayName.size() < 100 &&
              isValidEmail(data.email) &&
-             data.role in ['admin', 'manager', 'staff'] &&
-             data.isActive is bool &&
+             data.role in ['admin', 'manager', 'staff', 'user'] &&
+             data.status in ['pending', 'active', 'suspended'] &&
              data.organization is string && data.organization.size() > 0 &&
-             (!('onboardingCompleted' in data) || data.onboardingCompleted is bool) &&
-             (!('isApproved' in data) || data.isApproved is bool);
+             data.createdAt is timestamp &&
+             data.lastSeen is timestamp &&
+             data.isOnline is bool &&
+             data.presenceStatus in ['online', 'away', 'offline', 'dnd'] &&
+             (!('photoURL' in data) || data.photoURL == null || isValidUrl(data.photoURL)) &&
+             (!('avatarUrl' in data) || data.avatarUrl == null || isValidUrl(data.avatarUrl)) &&
+             (!('onboardingCompleted' in data) || data.onboardingCompleted is bool);
     }
 
     function isValidOrganization(data) {
@@ -333,11 +338,18 @@ service cloud.firestore {
     // ===============================================================
 
     match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && isValidUser(request.resource.data) && (isOwner(userId) || isAdmin());
-      allow update: if isAuthenticated() && (isOwner(userId) || isAdmin()) && 
-                    (request.resource.data.role == resource.data.role || isAdmin()) &&
-                    (request.resource.data.get('isApproved', false) == resource.data.get('isApproved', false) || isAdmin());
+      allow read: if isOwner(userId) || belongsToOrg(resource.data.organization) || isAdmin();
+      allow create: if isAuthenticated() && isValidUser(request.resource.data) && isOwner(userId);
+      allow update: if isAuthenticated() && (
+        isAdmin() || 
+        (isOwner(userId) && 
+         isValidUser(request.resource.data) &&
+         request.resource.data.role == resource.data.role &&
+         request.resource.data.status == resource.data.status &&
+         request.resource.data.organization == resource.data.organization &&
+         request.resource.data.createdAt == resource.data.createdAt
+        )
+      );
       allow delete: if isAdmin();
     }
 
@@ -418,6 +430,13 @@ service cloud.firestore {
       allow delete: if belongsToOrg(resource.data.organization) && (resource.data.userId == request.auth.uid || isAdmin() || isManager());
     }
 
+    match /messages/{messageId} {
+      allow read: if belongsToOrg(resource.data.organization);
+      allow create: if belongsToOrg(request.resource.data.organization);
+      allow update: if belongsToOrg(resource.data.organization);
+      allow delete: if isAdmin();
+    }
+
     match /chat_messages/{messageId} {
       allow read: if belongsToOrg(resource.data.organization);
       allow create: if belongsToOrg(request.resource.data.organization) && isValidChatMessage(request.resource.data);
@@ -430,6 +449,13 @@ service cloud.firestore {
       allow create: if belongsToOrg(request.resource.data.organization) && isValidDailyObjective(request.resource.data);
       allow update: if belongsToOrg(resource.data.organization) && isValidDailyObjective(request.resource.data) && (resource.data.userId == request.auth.uid || isAdmin() || isManager());
       allow delete: if isAdmin() || isManager();
+    }
+
+    match /system_health/{healthId} {
+      allow read: if isAuthenticated();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
     }
 
     match /notifications/{notificationId} {
@@ -495,7 +521,7 @@ service cloud.firestore {
     }
 
     match /audit_logs/{logId} {
-      allow read: if isAdmin();
+      allow read: if belongsToOrg(resource.data.organization);
       allow create: if isAuthenticated();
       allow update: if false;
       allow delete: if false;
