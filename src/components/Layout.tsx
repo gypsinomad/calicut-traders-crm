@@ -3,6 +3,7 @@ import { Outlet, useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar.tsx';
 import ComplianceAssistant from './ComplianceAssistant.tsx';
 import NotificationCenter from './NotificationCenter.tsx';
+import CommandPalette from './CommandPalette.tsx';
 import { Search, User, LogOut, Ship, Users, Building2, X, Menu, Sun, Moon } from 'lucide-react';
 import { useAuth } from './Auth.tsx';
 import { subscribeToCollection } from '../services/db';
@@ -16,15 +17,17 @@ import AIStatusBanner from './AIStatusBanner.tsx';
 import { updatePresence } from '../services/presenceService';
 import { UserPresenceStatus } from '../lib/types';
 
+import { useTheme } from '../contexts/ThemeContext.tsx';
+
 export default function Layout() {
   const { profile, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const { isRTL } = useTranslation();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [results, setResults] = useState<{ leads: Lead[], orders: ExportOrder[], suppliers: Supplier[] }>({ leads: [], orders: [], suppliers: [] });
   const [showResults, setShowResults] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
   const searchRef = useRef<HTMLDivElement>(null);
 
   const handlePresenceChange = async (status: UserPresenceStatus) => {
@@ -42,16 +45,6 @@ export default function Layout() {
       default: return 'bg-zinc-300';
     }
   };
-
-  useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
-  }, [darkMode]);
 
   const [allLeads, setAllLeads] = useState<Lead[]>([]);
   const [allOrders, setAllOrders] = useState<ExportOrder[]>([]);
@@ -99,7 +92,7 @@ export default function Layout() {
   }, []);
 
   return (
-    <div className={`flex h-screen bg-[#fcfaf7] overflow-hidden ${isRTL ? 'flex-row-reverse' : 'flex-row'}`}>
+    <div className={`flex h-screen bg-[#fcfaf7] dark:bg-zinc-950 overflow-hidden ${isRTL ? 'flex-row-reverse' : 'flex-row'}`}>
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
       {/* Mobile Overlay */}
@@ -117,23 +110,23 @@ export default function Layout() {
 
       <div className="flex-1 flex flex-col min-w-0 w-full">
         <AIStatusBanner />
-        <header className="h-20 bg-white/80 backdrop-blur-md border-b border-zinc-200/50 flex items-center justify-between px-6 md:px-10 shrink-0 z-10">
+        <header className="h-20 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-b border-zinc-200/50 dark:border-zinc-800/50 flex items-center justify-between px-6 md:px-10 shrink-0 z-10">
           <div className="flex items-center gap-6 flex-1 max-w-2xl">
             <button 
               onClick={() => setSidebarOpen(true)}
-              className="p-2.5 text-zinc-500 hover:bg-zinc-100 rounded-xl md:hidden transition-colors"
+              className="p-2.5 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl md:hidden transition-colors"
             >
               <Menu size={20} />
             </button>
             <div className="hidden sm:block relative w-full group" ref={searchRef}>
-              <Search className={`${isRTL ? 'right-4' : 'left-4'} absolute top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-[#064e3b] transition-colors`} size={18} />
+              <Search className={`${isRTL ? 'right-4' : 'left-4'} absolute top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-[#064e3b] dark:group-focus-within:text-emerald-400 transition-colors`} size={18} />
               <input 
                 type="text" 
-                placeholder="Search leads, orders, or suppliers..." 
+                placeholder="Search leads, orders, or suppliers... (Ctrl+K)" 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onFocus={() => searchTerm.trim() && setShowResults(true)}
-                className={`w-full ${isRTL ? 'pr-12 pl-6' : 'pl-12 pr-6'} py-3 bg-zinc-100/50 border border-transparent rounded-2xl text-sm focus:outline-none focus:bg-white focus:border-emerald-200 focus:ring-4 focus:ring-emerald-500/5 transition-all`}
+                className={`w-full ${isRTL ? 'pr-12 pl-6' : 'pl-12 pr-6'} py-3 bg-zinc-100/50 dark:bg-zinc-800/50 border border-transparent rounded-2xl text-sm dark:text-zinc-100 focus:outline-none focus:bg-white dark:focus:bg-zinc-800 focus:border-emerald-200 dark:focus:border-emerald-800 focus:ring-4 focus:ring-emerald-500/5 transition-all`}
               />
               
               {/* Search Results Dropdown */}
@@ -143,7 +136,7 @@ export default function Layout() {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 10 }}
-                    className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-zinc-200 overflow-hidden z-50"
+                    className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden z-50"
                   >
                     <div className="max-h-[400px] overflow-y-auto p-2">
                       {results.leads.length > 0 && (
@@ -153,14 +146,14 @@ export default function Layout() {
                             <button
                               key={lead.id}
                               onClick={() => { navigate('/leads'); setSearchTerm(''); setShowResults(false); }}
-                              className="w-full flex items-center gap-3 px-3 py-2 hover:bg-zinc-50 rounded-xl transition-colors text-left"
+                              className="w-full flex items-center gap-3 px-3 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-xl transition-colors text-left"
                             >
-                              <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                              <div className="p-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg">
                                 <Users size={14} />
                               </div>
                               <div>
-                                <p className="text-sm font-bold text-zinc-900">{lead.fullName}</p>
-                                <p className="text-[10px] text-zinc-500">{lead.companyName}</p>
+                                <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100">{lead.fullName}</p>
+                                <p className="text-[10px] text-zinc-500 dark:text-zinc-400">{lead.companyName}</p>
                               </div>
                             </button>
                           ))}
@@ -173,14 +166,14 @@ export default function Layout() {
                             <button
                               key={order.id}
                               onClick={() => { navigate('/orders'); setSearchTerm(''); setShowResults(false); }}
-                              className="w-full flex items-center gap-3 px-3 py-2 hover:bg-zinc-50 rounded-xl transition-colors text-left"
+                              className="w-full flex items-center gap-3 px-3 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-xl transition-colors text-left"
                             >
-                              <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
+                              <div className="p-2 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-lg">
                                 <Ship size={14} />
                               </div>
                               <div>
-                                <p className="text-sm font-bold text-zinc-900">{order.orderNumber}</p>
-                                <p className="text-[10px] text-zinc-500">{order.customerName}</p>
+                                <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100">{order.orderNumber}</p>
+                                <p className="text-[10px] text-zinc-500 dark:text-zinc-400">{order.customerName}</p>
                               </div>
                             </button>
                           ))}
@@ -193,14 +186,14 @@ export default function Layout() {
                             <button
                               key={supplier.id}
                               onClick={() => { navigate('/suppliers'); setSearchTerm(''); setShowResults(false); }}
-                              className="w-full flex items-center gap-3 px-3 py-2 hover:bg-zinc-50 rounded-xl transition-colors text-left"
+                              className="w-full flex items-center gap-3 px-3 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-xl transition-colors text-left"
                             >
-                              <div className="p-2 bg-amber-50 text-amber-600 rounded-lg">
+                              <div className="p-2 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 rounded-lg">
                                 <Building2 size={14} />
                               </div>
                               <div>
-                                <p className="text-sm font-bold text-zinc-900">{supplier.name}</p>
-                                <p className="text-[10px] text-zinc-500">{supplier.category}</p>
+                                <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100">{supplier.name}</p>
+                                <p className="text-[10px] text-zinc-500 dark:text-zinc-400">{supplier.category}</p>
                               </div>
                             </button>
                           ))}
@@ -219,39 +212,39 @@ export default function Layout() {
           </div>
           <div className="flex items-center gap-2 md:gap-4">
             <button
-              onClick={() => setDarkMode(!darkMode)}
-              className="p-2 text-zinc-500 hover:bg-zinc-100 rounded-lg transition-colors"
-              title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              onClick={toggleTheme}
+              className="p-2 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+              title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
             >
-              {darkMode ? <Sun size={20} className="text-amber-500" /> : <Moon size={20} />}
+              {theme === 'dark' ? <Sun size={20} className="text-amber-500" /> : <Moon size={20} />}
             </button>
             <div className="sm:hidden">
-              <button className="p-2 text-zinc-500 hover:bg-zinc-100 rounded-lg">
+              <button className="p-2 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg">
                 <Search size={20} />
               </button>
             </div>
             <NotificationCenter />
             <AICostBadge />
-            <div className="h-8 w-[1px] bg-zinc-200 mx-1 md:mx-2" />
+            <div className="h-8 w-[1px] bg-zinc-200 dark:bg-zinc-800 mx-1 md:mx-2" />
               <div className="flex items-center gap-2 md:gap-3 pl-2 group relative">
                 <div className={`${isRTL ? 'text-left' : 'text-right'} hidden sm:block`}>
-                  <p className="text-sm font-bold text-zinc-900">{profile?.displayName || 'User'}</p>
-                  <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">{profile?.role || 'Member'}</p>
+                  <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100">{profile?.displayName || 'User'}</p>
+                  <p className="text-[10px] text-zinc-500 dark:text-zinc-400 uppercase tracking-wider font-medium">{profile?.role || 'Member'}</p>
                 </div>
                 <div className="relative">
-                  <div className="w-10 h-10 rounded-full bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-600 overflow-hidden">
+                  <div className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-zinc-600 dark:text-zinc-400 overflow-hidden">
                     {profile?.photoURL || profile?.avatarUrl ? (
                       <img src={profile.photoURL || profile.avatarUrl} alt={profile.displayName} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     ) : (
                       <User size={20} />
                     )}
                   </div>
-                  <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white ${getPresenceColor(profile?.presenceStatus || 'offline')}`} />
+                  <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-zinc-900 ${getPresenceColor(profile?.presenceStatus || 'offline')}`} />
                 </div>
                 
                 {/* Dropdown for profile and status */}
-                <div className={`absolute top-full ${isRTL ? 'left-0' : 'right-0'} mt-2 w-56 bg-white rounded-2xl shadow-2xl border border-zinc-200 py-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50`}>
-                  <div className="px-4 py-2 border-b border-zinc-100 mb-2">
+                <div className={`absolute top-full ${isRTL ? 'left-0' : 'right-0'} mt-2 w-56 bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-zinc-200 dark:border-zinc-800 py-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50`}>
+                  <div className="px-4 py-2 border-b border-zinc-100 dark:border-zinc-800 mb-2">
                     <p className="text-xs font-black text-zinc-400 uppercase tracking-widest mb-3">Set Status</p>
                     <div className="grid grid-cols-2 gap-2">
                       {[
@@ -265,8 +258,8 @@ export default function Layout() {
                           onClick={() => handlePresenceChange(s.id as UserPresenceStatus)}
                           className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-[10px] font-bold transition-colors ${
                             profile?.presenceStatus === s.id 
-                              ? 'bg-zinc-100 text-zinc-900' 
-                              : 'text-zinc-500 hover:bg-zinc-50'
+                              ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100' 
+                              : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'
                           }`}
                         >
                           <div className={`w-2 h-2 rounded-full ${s.color}`} />
@@ -277,7 +270,7 @@ export default function Layout() {
                   </div>
                   <button 
                     onClick={logout}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-rose-600 hover:bg-rose-50 transition-colors font-bold"
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors font-bold"
                   >
                     <LogOut size={16} />
                     <TranslatedText>Sign Out</TranslatedText>
@@ -293,6 +286,7 @@ export default function Layout() {
         </main>
       </div>
       <ComplianceAssistant />
+      <CommandPalette />
     </div>
   );
 }

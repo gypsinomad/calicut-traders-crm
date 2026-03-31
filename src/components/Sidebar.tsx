@@ -125,7 +125,7 @@ export default function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose
 
   return (
     <div className={cn(
-      "flex flex-col h-full bg-[#064e3b] text-emerald-100/70 w-64 border-emerald-900/50 transition-transform duration-300 z-50",
+      "flex flex-col h-full bg-[#064e3b] dark:bg-zinc-950 text-emerald-100/70 dark:text-zinc-400 w-64 border-emerald-900/50 dark:border-zinc-800 transition-transform duration-300 z-50",
       isRTL ? 'border-l' : 'border-r',
       "fixed md:static inset-y-0",
       isRTL ? (isOpen ? "translate-x-0" : "translate-x-full") : (isOpen ? "translate-x-0" : "-translate-x-full"),
@@ -133,15 +133,15 @@ export default function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose
     )}>
       <div className="p-8 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-serif font-bold text-white flex items-center gap-2">
-            <Ship className="text-[#d97706]" />
+          <h1 className="text-2xl font-serif font-bold text-white dark:text-zinc-100 flex items-center gap-2">
+            <Ship className="text-[#d97706] dark:text-amber-500" />
             <TranslatedText>Calicut Traders</TranslatedText>
           </h1>
-          <TranslatedText as="p" className="text-[10px] font-medium text-emerald-300/50 uppercase tracking-[0.2em] mt-1">Trade Management</TranslatedText>
+          <TranslatedText as="p" className="text-[10px] font-medium text-emerald-300/50 dark:text-zinc-500 uppercase tracking-[0.2em] mt-1">Trade Management</TranslatedText>
         </div>
         <button 
           onClick={onClose}
-          className="p-2 text-emerald-300/50 hover:bg-emerald-900 rounded-lg md:hidden"
+          className="p-2 text-emerald-300/50 dark:text-zinc-500 hover:bg-emerald-900 dark:hover:bg-zinc-900 rounded-lg md:hidden"
         >
           <X size={20} />
         </button>
@@ -160,22 +160,22 @@ export default function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose
             className={({ isActive }) => cn(
               "flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 group",
               isActive 
-                ? "bg-white/10 text-white shadow-sm" 
-                : "hover:bg-white/5 hover:text-white"
+                ? "bg-white/10 dark:bg-zinc-800 text-white dark:text-zinc-100 shadow-sm" 
+                : "hover:bg-white/5 dark:hover:bg-zinc-900 hover:text-white dark:hover:text-zinc-200"
             )}
           >
             <item.icon size={18} className={cn(
               "transition-colors",
-              "group-hover:text-[#d97706]"
+              "group-hover:text-[#d97706] dark:group-hover:text-amber-500"
             )} />
             <TranslatedText as="span" className="text-sm font-medium tracking-tight flex-1">{item.label}</TranslatedText>
             {item.path === '/communications' && unreadMessagesCount > 0 && (
-              <span className="px-1.5 py-0.5 rounded-full bg-[#d97706] text-white text-[10px] font-bold">
+              <span className="px-1.5 py-0.5 rounded-full bg-[#d97706] dark:bg-amber-600 text-white text-[10px] font-bold">
                 {unreadMessagesCount}
               </span>
             )}
             {item.path === '/users' && pendingUsersCount > 0 && (
-              <span className="px-1.5 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-bold animate-pulse">
+              <span className="px-1.5 py-0.5 rounded-full bg-amber-500 dark:bg-amber-600 text-white text-[10px] font-bold animate-pulse">
                 {pendingUsersCount}
               </span>
             )}
@@ -183,9 +183,9 @@ export default function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose
         ))}
       </nav>
 
-      <div className="p-6 border-t border-emerald-900/50 space-y-4">
-        <div className="flex items-center gap-2 px-4 py-3 bg-black/20 rounded-2xl border border-white/5 text-[10px] font-medium text-emerald-300/40">
-          <div className="flex items-center gap-1 px-1.5 py-0.5 rounded border border-white/10 bg-black/40">
+      <div className="p-6 border-t border-emerald-900/50 dark:border-zinc-800 space-y-4">
+        <div className="flex items-center gap-2 px-4 py-3 bg-black/20 dark:bg-zinc-900 rounded-2xl border border-white/5 dark:border-zinc-800 text-[10px] font-medium text-emerald-300/40 dark:text-zinc-500">
+          <div className="flex items-center gap-1 px-1.5 py-0.5 rounded border border-white/10 dark:border-zinc-800 bg-black/40 dark:bg-zinc-950">
             <Command size={10} />
             <span>K</span>
           </div>

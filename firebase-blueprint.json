@@ -14,6 +14,7 @@
         "organization": { "type": "string", "description": "The organization the user belongs to" },
         "onboardingCompleted": { "type": "boolean", "description": "Whether the user has completed onboarding" },
         "createdAt": { "type": "string", "format": "date-time", "description": "When the profile was created" },
+        "approvalRequestedAt": { "type": "string", "format": "date-time", "description": "When the user requested approval" },
         "lastSeen": { "type": "string", "format": "date-time", "description": "Last time the user was active" },
         "isOnline": { "type": "boolean", "description": "Whether the user is currently online" },
         "presenceStatus": { "type": "string", "enum": ["online", "away", "offline", "dnd"], "description": "Detailed presence status" }

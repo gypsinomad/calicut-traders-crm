@@ -100,24 +100,24 @@ export default function CommandPalette() {
             initial={{ opacity: 0, scale: 0.95, y: -20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -20 }}
-            className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-zinc-200 overflow-hidden"
+            className="relative w-full max-w-2xl bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden"
           >
-            <div className="flex items-center gap-3 px-4 py-4 border-b border-zinc-100">
+            <div className="flex items-center gap-3 px-4 py-4 border-b border-zinc-100 dark:border-zinc-800">
               <Search className="text-zinc-400" size={20} />
               <input 
                 autoFocus
                 placeholder="Search commands, pages, or actions... (Ctrl+K)"
-                className="flex-1 bg-transparent border-none outline-none text-zinc-900 placeholder:text-zinc-400"
+                className="flex-1 bg-transparent border-none outline-none text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
-              <div className="flex items-center gap-1 px-1.5 py-0.5 rounded border border-zinc-200 bg-zinc-50 text-[10px] font-bold text-zinc-400">
+              <div className="flex items-center gap-1 px-1.5 py-0.5 rounded border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-[10px] font-bold text-zinc-400">
                 <CommandIcon size={10} />
                 <span>K</span>
               </div>
               <button 
                 onClick={() => setIsOpen(false)}
-                className="p-1 hover:bg-zinc-100 rounded-lg transition-colors"
+                className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
               >
                 <X size={16} className="text-zinc-400" />
               </button>
@@ -149,15 +149,17 @@ export default function CommandPalette() {
                                 }}
                                 onMouseEnter={() => setSelectedIndex(globalIndex)}
                                 className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all text-left ${
-                                  isSelected ? 'bg-emerald-50 text-emerald-900' : 'text-zinc-600 hover:bg-zinc-50'
+                                  isSelected 
+                                    ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-900 dark:text-emerald-100' 
+                                    : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'
                                 }`}
                               >
-                                <div className={`p-2 rounded-lg ${isSelected ? 'bg-emerald-100 text-emerald-600' : 'bg-zinc-100 text-zinc-500'}`}>
+                                <div className={`p-2 rounded-lg ${isSelected ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400'}`}>
                                   <cmd.icon size={18} />
                                 </div>
                                 <div className="flex-1">
                                   <p className="text-sm font-bold">{cmd.title}</p>
-                                  <p className={`text-xs ${isSelected ? 'text-emerald-600/70' : 'text-zinc-400'}`}>
+                                  <p className={`text-xs ${isSelected ? 'text-emerald-600/70 dark:text-emerald-400/70' : 'text-zinc-400'}`}>
                                     {cmd.description}
                                   </p>
                                 </div>
@@ -179,17 +181,17 @@ export default function CommandPalette() {
               )}
             </div>
 
-            <div className="px-4 py-3 bg-zinc-50 border-t border-zinc-100 flex items-center justify-between text-[10px] font-medium text-zinc-400">
+            <div className="px-4 py-3 bg-zinc-50 dark:bg-zinc-800/50 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between text-[10px] font-medium text-zinc-400">
               <div className="flex items-center gap-4">
                 <span className="flex items-center gap-1">
-                  <kbd className="px-1 py-0.5 rounded border border-zinc-200 bg-white">↑↓</kbd> Navigate
+                  <kbd className="px-1 py-0.5 rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">↑↓</kbd> Navigate
                 </span>
                 <span className="flex items-center gap-1">
-                  <kbd className="px-1 py-0.5 rounded border border-zinc-200 bg-white">Enter</kbd> Select
+                  <kbd className="px-1 py-0.5 rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">Enter</kbd> Select
                 </span>
               </div>
               <span className="flex items-center gap-1">
-                <kbd className="px-1 py-0.5 rounded border border-zinc-200 bg-white">Esc</kbd> Close
+                <kbd className="px-1 py-0.5 rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">Esc</kbd> Close
               </span>
             </div>
           </motion.div>

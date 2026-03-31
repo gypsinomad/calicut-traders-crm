@@ -25,13 +25,13 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="relative w-full sm:max-w-2xl bg-white sm:rounded-2xl shadow-2xl border border-zinc-200 overflow-hidden flex flex-col h-full sm:h-auto max-h-screen sm:max-h-[90vh]"
+            className="relative w-full sm:max-w-2xl bg-white dark:bg-zinc-900 sm:rounded-2xl shadow-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden flex flex-col h-full sm:h-auto max-h-screen sm:max-h-[90vh]"
           >
-            <header className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between bg-white sticky top-0 z-10">
-              <h3 className="text-lg font-bold text-zinc-900">{title}</h3>
+            <header className="px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between bg-white dark:bg-zinc-900 sticky top-0 z-10">
+              <h3 className="text-lg font-bold text-zinc-900 dark:text-white">{title}</h3>
               <button 
                 onClick={onClose}
-                className="p-2 hover:bg-zinc-100 rounded-lg text-zinc-400 hover:text-zinc-900 transition-colors"
+                className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
               >
                 <X size={20} />
               </button>

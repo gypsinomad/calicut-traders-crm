@@ -21,7 +21,8 @@ import {
   ChevronDown,
   Sparkles,
   Zap,
-  AlertTriangle
+  AlertTriangle,
+  Inbox
 } from 'lucide-react';
 import { ExportOrder, OrderStage } from '../lib/types.ts';
 import OrderDetails from './OrderDetails.tsx';
@@ -35,6 +36,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { handleAIError, generateAIContent, isAIAvailable } from '../lib/ai';
 import { WhatsAppService } from '../services/whatsapp';
+import { Skeleton } from './ui/Skeleton';
 
 export default function OrderList() {
   const { profile } = useAuth();
@@ -460,20 +462,20 @@ export default function OrderList() {
     <div className="space-y-10 pb-12">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <h2 className="text-5xl font-serif font-bold text-zinc-900 tracking-tight">Export Orders</h2>
-          <p className="text-zinc-500 mt-2 text-lg font-serif italic">Track and manage your global export shipments.</p>
+          <h2 className="text-5xl font-serif font-bold text-zinc-900 dark:text-white tracking-tight text-balance">Export Orders</h2>
+          <p className="text-zinc-500 dark:text-zinc-400 mt-2 text-lg font-serif italic">Track and manage your global export shipments.</p>
         </div>
         <div className="flex items-center gap-4">
           <button 
             onClick={() => setShowCalculator(true)}
-            className="px-6 py-3 bg-white border border-zinc-200 text-zinc-700 rounded-2xl text-sm font-bold hover:bg-zinc-50 transition-all shadow-sm flex items-center gap-2"
+            className="px-6 py-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-2xl text-sm font-bold hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all shadow-sm flex items-center gap-2"
           >
             <Zap size={18} className="text-amber-500" />
             Incoterms Calc
           </button>
           <button 
             onClick={exportToCSV}
-            className="px-6 py-3 bg-white border border-zinc-200 text-zinc-700 rounded-2xl text-sm font-bold hover:bg-zinc-50 transition-all shadow-sm flex items-center gap-2"
+            className="px-6 py-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-2xl text-sm font-bold hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all shadow-sm flex items-center gap-2"
           >
             <Download size={18} />
             Export
@@ -596,15 +598,15 @@ export default function OrderList() {
         </div>
       </Modal>
 
-      <div className="bg-white rounded-[2.5rem] border border-zinc-200/50 shadow-sm overflow-hidden">
-        <div className="p-8 border-b border-zinc-100 bg-[#fcfaf7]/50">
+      <div className="bg-white dark:bg-zinc-900 rounded-[2.5rem] border border-zinc-200/50 dark:border-zinc-800 shadow-sm overflow-hidden">
+        <div className="p-8 border-b border-zinc-100 dark:border-zinc-800 bg-[#fcfaf7]/50 dark:bg-zinc-800/50">
           <div className="flex flex-col md:flex-row gap-6">
             <div className="relative flex-1 group">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-[#064e3b] transition-colors" size={18} />
               <input 
                 type="text" 
                 placeholder="Search orders by number or customer..." 
-                className="w-full pl-12 pr-6 py-3 bg-white border border-zinc-200 rounded-2xl text-sm focus:outline-none focus:border-emerald-200 focus:ring-4 focus:ring-emerald-500/5 transition-all"
+                className="w-full pl-12 pr-6 py-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-sm focus:outline-none focus:border-emerald-200 dark:focus:border-emerald-900 focus:ring-4 focus:ring-emerald-500/5 transition-all dark:text-white"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -614,7 +616,7 @@ export default function OrderList() {
               <select 
                 value={filterStage}
                 onChange={(e) => setFilterStage(e.target.value)}
-                className="bg-white border border-zinc-200 rounded-2xl px-6 py-3 text-sm font-bold focus:outline-none focus:border-emerald-200 transition-all"
+                className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl px-6 py-3 text-sm font-bold focus:outline-none focus:border-emerald-200 dark:focus:border-emerald-900 transition-all dark:text-white"
               >
                 <option value="all">All Stages</option>
                 <option value="leadReceived">Lead Received</option>
@@ -631,20 +633,48 @@ export default function OrderList() {
 
         <div className="p-8 space-y-6">
           {loading ? (
-            <div className="py-20 text-center">
-              <RefreshCw className="animate-spin mx-auto text-zinc-400" size={32} />
+            <div className="space-y-6">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="bg-white dark:bg-zinc-900 p-8 rounded-[2rem] border border-zinc-100 dark:border-zinc-800">
+                  <div className="flex items-start gap-6">
+                    <Skeleton className="w-16 h-16 rounded-2xl" />
+                    <div className="flex-1 space-y-3">
+                      <Skeleton className="h-6 w-1/3" />
+                      <div className="flex gap-4">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-4 w-24" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : filteredOrders.length === 0 ? (
-            <div className="py-20 text-center bg-zinc-50/50 rounded-[2rem] border border-dashed border-zinc-200">
-              <p className="text-zinc-400 font-serif italic text-lg">No orders found matching your criteria.</p>
+            <div className="py-20 text-center bg-zinc-50/50 dark:bg-zinc-800/50 rounded-[2rem] border border-dashed border-zinc-200 dark:border-zinc-800">
+              <div className="flex flex-col items-center gap-4">
+                <div className="p-6 bg-white dark:bg-zinc-900 rounded-full shadow-sm">
+                  <Inbox className="text-zinc-300 dark:text-zinc-600" size={48} />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-zinc-900 dark:text-white font-serif italic text-xl">No orders found</p>
+                  <p className="text-zinc-500 dark:text-zinc-400 text-sm">Start by creating your first export order.</p>
+                </div>
+                <button 
+                  onClick={() => setIsModalOpen(true)}
+                  className="mt-2 px-6 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all"
+                >
+                  Create New Order
+                </button>
+              </div>
             </div>
           ) : (
             filteredOrders.map((order) => (
               <div 
                 key={order.id} 
                 className={cn(
-                  "bg-white p-8 rounded-[2rem] border transition-all group relative",
-                  selectedOrderIds.includes(order.id) ? "border-[#064e3b] ring-4 ring-emerald-500/5" : "border-zinc-100 hover:border-emerald-200 hover:shadow-xl hover:shadow-emerald-900/5"
+                  "bg-white dark:bg-zinc-900 p-8 rounded-[2rem] border transition-all group relative",
+                  selectedOrderIds.includes(order.id) ? "border-[#064e3b] ring-4 ring-emerald-500/5" : "border-zinc-100 dark:border-zinc-800 hover:border-emerald-200 dark:hover:border-emerald-900 hover:shadow-xl hover:shadow-emerald-900/5"
                 )}
               >
                 <div className="absolute top-8 left-8 z-10">
@@ -655,7 +685,7 @@ export default function OrderList() {
                     }}
                     className={cn(
                       "p-1.5 rounded-xl transition-all",
-                      selectedOrderIds.includes(order.id) ? "bg-[#064e3b] text-white" : "bg-white/80 backdrop-blur-sm text-zinc-300 border border-zinc-100 opacity-0 group-hover:opacity-100"
+                      selectedOrderIds.includes(order.id) ? "bg-[#064e3b] text-white" : "bg-white/80 dark:bg-zinc-800/80 backdrop-blur-sm text-zinc-300 dark:text-zinc-600 border border-zinc-100 dark:border-zinc-700 opacity-0 group-hover:opacity-100"
                     )}
                   >
                     {selectedOrderIds.includes(order.id) ? <CheckSquare size={18} /> : <Square size={18} />}
@@ -664,25 +694,25 @@ export default function OrderList() {
 
                 <div className="flex items-start justify-between pl-12" onClick={() => setSelectedOrder(order)}>
                   <div className="flex items-start gap-6 cursor-pointer">
-                    <div className="p-4 bg-[#fcfaf7] rounded-2xl text-[#064e3b] group-hover:bg-[#064e3b] group-hover:text-white transition-all duration-500 shadow-inner">
+                    <div className="p-4 bg-[#fcfaf7] dark:bg-zinc-800 rounded-2xl text-[#064e3b] dark:text-emerald-500 group-hover:bg-[#064e3b] group-hover:text-white transition-all duration-500 shadow-inner">
                       <Ship size={28} />
                     </div>
                     <div>
-                      <h3 className="text-xl font-serif font-bold text-zinc-900 group-hover:text-[#064e3b] transition-colors tracking-tight">
+                      <h3 className="text-xl font-serif font-bold text-zinc-900 dark:text-white group-hover:text-[#064e3b] dark:group-hover:text-emerald-400 transition-colors tracking-tight">
                         {order.orderNumber} · {order.customerName}
                       </h3>
                       <div className="flex items-center gap-6 mt-3">
-                        <div className="flex items-center gap-2 text-zinc-500">
-                          <DollarSign size={16} className="text-emerald-600" />
-                          <span className="text-sm font-bold text-zinc-700">{formatCurrency(order.totalAmount)}</span>
+                        <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
+                          <DollarSign size={16} className="text-emerald-600 dark:text-emerald-500" />
+                          <span className="text-sm font-bold text-zinc-700 dark:text-zinc-300">{formatCurrency(order.totalAmount)}</span>
                         </div>
-                        <div className="flex items-center gap-2 text-zinc-500">
-                          <Ship size={16} className="text-blue-600" />
-                          <span className="text-sm font-bold text-zinc-700">{order.incoterms}</span>
+                        <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
+                          <Ship size={16} className="text-blue-600 dark:text-blue-500" />
+                          <span className="text-sm font-bold text-zinc-700 dark:text-zinc-300">{order.incoterms}</span>
                         </div>
-                        <div className="flex items-center gap-2 text-zinc-500">
-                          <Globe size={16} className="text-indigo-600" />
-                          <span className="text-sm font-bold text-zinc-700">{order.destinationCountry}</span>
+                        <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
+                          <Globe size={16} className="text-indigo-600 dark:text-indigo-500" />
+                          <span className="text-sm font-bold text-zinc-700 dark:text-zinc-300">{order.destinationCountry}</span>
                         </div>
                       </div>
                     </div>
@@ -694,17 +724,17 @@ export default function OrderList() {
                     )}>
                       {order.status}
                     </span>
-                    <div className="flex items-center gap-2 text-zinc-400 mt-3 justify-end">
+                    <div className="flex items-center gap-2 text-zinc-400 dark:text-zinc-500 mt-3 justify-end">
                       <Clock size={14} />
                       <span className="text-[10px] font-black uppercase tracking-widest">{formatDate(order.createdAt)}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="mt-8 flex items-center justify-between pt-8 border-t border-zinc-100 pl-12">
+                <div className="mt-8 flex items-center justify-between pt-8 border-t border-zinc-100 dark:border-zinc-800 pl-12">
                   <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Commodity Profile:</span>
-                    <span className="px-3 py-1 bg-zinc-100 text-zinc-700 rounded-lg text-xs font-bold font-serif italic">
+                    <span className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Commodity Profile:</span>
+                    <span className="px-3 py-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg text-xs font-bold font-serif italic">
                       {order.commodity} ({order.quantity} {order.unit})
                     </span>
                   </div>
@@ -715,7 +745,7 @@ export default function OrderList() {
                         checkCompliance(order);
                       }}
                       disabled={checkingCompliance === order.id}
-                      className="p-3 text-[#064e3b] hover:bg-emerald-50 rounded-2xl transition-all disabled:opacity-50"
+                      className="p-3 text-[#064e3b] dark:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-2xl transition-all disabled:opacity-50"
                       title="Check Compliance"
                     >
                       {checkingCompliance === order.id ? <RefreshCw size={20} className="animate-spin" /> : <Zap size={20} />}
@@ -725,7 +755,7 @@ export default function OrderList() {
                         e.stopPropagation();
                         setEditingOrder(order);
                       }}
-                      className="p-3 text-zinc-400 hover:text-[#064e3b] hover:bg-emerald-50 rounded-2xl transition-all"
+                      className="p-3 text-zinc-400 dark:text-zinc-500 hover:text-[#064e3b] dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-2xl transition-all"
                       title="Edit Order"
                     >
                       <Edit2 size={20} />
@@ -746,7 +776,7 @@ export default function OrderList() {
                             e.stopPropagation();
                             setDeleteConfirmId(null);
                           }}
-                          className="px-3 py-1 bg-zinc-100 text-zinc-600 text-[10px] font-bold uppercase tracking-wider rounded-lg hover:bg-zinc-200 transition-colors"
+                          className="px-3 py-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 text-[10px] font-bold uppercase tracking-wider rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
                         >
                           X
                         </button>
@@ -757,7 +787,7 @@ export default function OrderList() {
                           e.stopPropagation();
                           setDeleteConfirmId(order.id);
                         }}
-                        className="p-3 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-2xl transition-all"
+                        className="p-3 text-zinc-400 dark:text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-2xl transition-all"
                         title="Delete Order"
                       >
                         <Trash2 size={20} />

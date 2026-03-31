@@ -19,7 +19,8 @@ import {
   ShieldCheck,
   ShieldAlert,
   Shield,
-  Target
+  Target,
+  Inbox
 } from 'lucide-react';
 import { Lead, LeadStatus } from '../lib/types.ts';
 import LeadDetails from './LeadDetails.tsx';
@@ -30,6 +31,7 @@ import { useAuth } from './Auth.tsx';
 import { Timestamp } from 'firebase/firestore';
 import { handleAIError, generateAIContent, isAIAvailable } from '../lib/ai';
 import { TranslatedText } from './TranslatedText.tsx';
+import { Skeleton } from './ui/Skeleton';
 
 export default function LeadList() {
   const { profile } = useAuth();
@@ -243,7 +245,6 @@ export default function LeadList() {
     } catch (error: any) {
       console.error('Smart scoring error:', error);
     } finally {
-      setIsSmartScoring(true); // Wait, should be false
       setIsSmartScoring(false);
     }
   };
@@ -339,15 +340,15 @@ export default function LeadList() {
     <div className="space-y-10 pb-12">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <h2 className="text-5xl font-serif font-bold text-zinc-900 tracking-tight">Lead Generation</h2>
-          <p className="text-zinc-500 mt-2 text-lg font-serif italic">Identify and qualify high-potential global export buyers.</p>
+          <h2 className="text-5xl font-serif font-bold text-zinc-900 dark:text-white tracking-tight">Lead Generation</h2>
+          <p className="text-zinc-500 dark:text-zinc-400 mt-2 text-lg font-serif italic">Identify and qualify high-potential global export buyers.</p>
         </div>
         <div className="flex items-center gap-4">
           {selectedLeadIds.length > 0 && (
             <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-2">
               {bulkDeleteConfirm ? (
-                <div className="flex items-center gap-2 bg-rose-50 p-1.5 rounded-2xl border border-rose-100">
-                  <span className="text-[10px] font-bold text-rose-600 uppercase tracking-widest px-2">Delete {selectedLeadIds.length}?</span>
+                <div className="flex items-center gap-2 bg-rose-50 dark:bg-rose-900/20 p-1.5 rounded-2xl border border-rose-100 dark:border-rose-800">
+                  <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-widest px-2">Delete {selectedLeadIds.length}?</span>
                   <button 
                     onClick={handleBulkDelete}
                     className="px-4 py-1.5 bg-rose-600 text-white text-[10px] font-bold uppercase tracking-widest rounded-xl hover:bg-rose-700 transition-all shadow-sm"
@@ -356,7 +357,7 @@ export default function LeadList() {
                   </button>
                   <button 
                     onClick={() => setBulkDeleteConfirm(false)}
-                    className="px-4 py-1.5 bg-white text-zinc-500 text-[10px] font-bold uppercase tracking-widest rounded-xl border border-zinc-200 hover:bg-zinc-50 transition-all"
+                    className="px-4 py-1.5 bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 text-[10px] font-bold uppercase tracking-widest rounded-xl border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all"
                   >
                     Cancel
                   </button>
@@ -364,7 +365,7 @@ export default function LeadList() {
               ) : (
                 <button 
                   onClick={() => setBulkDeleteConfirm(true)}
-                  className="flex items-center gap-2 px-6 py-3 bg-rose-50 text-rose-600 rounded-2xl text-sm font-bold hover:bg-rose-100 transition-all border border-rose-100"
+                  className="flex items-center gap-2 px-6 py-3 bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 rounded-2xl text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-all border border-rose-100 dark:border-rose-800"
                 >
                   Delete Selected ({selectedLeadIds.length})
                 </button>
@@ -373,7 +374,7 @@ export default function LeadList() {
           )}
           <button 
             onClick={handleDownloadCSV}
-            className="flex items-center gap-2 px-6 py-3 bg-white border border-zinc-200 rounded-2xl text-sm font-bold text-zinc-600 hover:bg-zinc-50 transition-all shadow-sm"
+            className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-sm font-bold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all shadow-sm"
           >
             <RefreshCw size={18} />
             Export CSV
@@ -414,63 +415,63 @@ export default function LeadList() {
         <form onSubmit={handleCreateLead} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Full Name</label>
+              <label className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Full Name</label>
               <input 
                 required
                 type="text" 
                 value={newLead.fullName}
                 onChange={(e) => setNewLead({ ...newLead, fullName: e.target.value })}
-                className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                className="w-full px-4 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all dark:text-white"
                 placeholder="e.g. John Doe"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Company Name</label>
+              <label className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Company Name</label>
               <input 
                 type="text" 
                 value={newLead.companyName}
                 onChange={(e) => setNewLead({ ...newLead, companyName: e.target.value })}
-                className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                className="w-full px-4 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all dark:text-white"
                 placeholder="e.g. Global Products Ltd"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Email Address</label>
+              <label className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Email Address</label>
               <input 
                 required
                 type="email" 
                 value={newLead.email}
                 onChange={(e) => setNewLead({ ...newLead, email: e.target.value })}
-                className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                className="w-full px-4 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all dark:text-white"
                 placeholder="e.g. john@example.com"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Phone Number</label>
+              <label className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Phone Number</label>
               <input 
                 type="tel" 
                 value={newLead.phone}
                 onChange={(e) => setNewLead({ ...newLead, phone: e.target.value })}
-                className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                className="w-full px-4 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all dark:text-white"
                 placeholder="e.g. +44 20 1234 5678"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Destination Country</label>
+              <label className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Destination Country</label>
               <input 
                 type="text" 
                 value={newLead.destinationCountry}
                 onChange={(e) => setNewLead({ ...newLead, destinationCountry: e.target.value })}
-                className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                className="w-full px-4 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all dark:text-white"
                 placeholder="e.g. United Kingdom"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Lead Temperature</label>
+              <label className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Lead Temperature</label>
               <select 
                 value={newLead.priority}
                 onChange={(e) => setNewLead({ ...newLead, priority: e.target.value as any })}
-                className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                className="w-full px-4 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all dark:text-white"
               >
                 <option value="cold">Cold</option>
                 <option value="warm">Warm</option>
@@ -478,11 +479,11 @@ export default function LeadList() {
               </select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Lead Source</label>
+              <label className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Lead Source</label>
               <select 
                 value={newLead.source}
                 onChange={(e) => setNewLead({ ...newLead, source: e.target.value as any })}
-                className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                className="w-full px-4 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all dark:text-white"
               >
                 <option value="manual">Manual</option>
                 <option value="website">Website</option>
@@ -496,11 +497,11 @@ export default function LeadList() {
               </select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Incoterms</label>
+              <label className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Incoterms</label>
               <select 
                 value={newLead.incotermsPreference}
                 onChange={(e) => setNewLead({ ...newLead, incotermsPreference: e.target.value })}
-                className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                className="w-full px-4 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all dark:text-white"
               >
                 <option value="FOB">FOB</option>
                 <option value="CIF">CIF</option>
@@ -514,45 +515,45 @@ export default function LeadList() {
               </select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Next Follow-up</label>
+              <label className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Next Follow-up</label>
               <input 
                 type="date" 
                 value={nextFollowUpDate}
                 onChange={(e) => setNextFollowUpDate(e.target.value)}
-                className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                className="w-full px-4 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all dark:text-white"
               />
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Product Categories</label>
+              <label className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Product Categories</label>
               <textarea 
                 rows={2}
                 value={(newLead as any).productCategories}
                 onChange={(e) => setNewLead({ ...newLead, productCategories: e.target.value } as any)}
-                className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all resize-none"
+                className="w-full px-4 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all resize-none dark:text-white"
                 placeholder="e.g. Commodities, Coconut Products, Textiles"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Product Interest</label>
+              <label className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Product Interest</label>
               <textarea 
                 rows={2}
                 value={newLead.productInterest}
                 onChange={(e) => setNewLead({ ...newLead, productInterest: e.target.value })}
-                className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all resize-none"
+                className="w-full px-4 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all resize-none dark:text-white"
                 placeholder="e.g. Interested in 5MT Black Pepper..."
               />
             </div>
           </div>
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-zinc-100">
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-zinc-100 dark:border-zinc-800">
             <button 
               type="button"
               onClick={() => {
                 setIsModalOpen(false);
                 setEditingLead(null);
               }}
-              className="px-4 py-2 text-sm font-medium text-zinc-600 hover:text-zinc-900 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
             >
               Cancel
             </button>
@@ -569,26 +570,26 @@ export default function LeadList() {
       </Modal>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="md:col-span-3 bg-white rounded-[2.5rem] border border-zinc-200/50 shadow-sm overflow-hidden">
-          <div className="p-8 border-b border-zinc-100 bg-[#fcfaf7]/50">
+        <div className="md:col-span-3 bg-white dark:bg-zinc-900 rounded-[2.5rem] border border-zinc-200/50 dark:border-zinc-800 shadow-sm overflow-hidden">
+          <div className="p-8 border-b border-zinc-100 dark:border-zinc-800 bg-[#fcfaf7]/50 dark:bg-zinc-800/50">
           <div className="flex flex-col md:flex-row gap-6">
             <div className="relative flex-1 group">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-[#064e3b] transition-colors" size={18} />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-[#064e3b] dark:group-focus-within:text-emerald-400 transition-colors" size={18} />
               <input 
                 type="text" 
                 placeholder="Search leads, companies, or countries..." 
-                className="w-full pl-12 pr-6 py-3 bg-white border border-zinc-200 rounded-2xl text-sm focus:outline-none focus:border-emerald-200 focus:ring-4 focus:ring-emerald-500/5 transition-all"
+                className="w-full pl-12 pr-6 py-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl text-sm focus:outline-none focus:border-emerald-200 dark:focus:border-emerald-800 focus:ring-4 focus:ring-emerald-500/5 transition-all dark:text-white"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
             <div className="flex items-center gap-3">
               {selectedLeadIds.length > 0 && (
-                <div className="flex items-center gap-3 mr-4 pr-6 border-r border-zinc-200">
+                <div className="flex items-center gap-3 mr-4 pr-6 border-r border-zinc-200 dark:border-zinc-800">
                   <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">{selectedLeadIds.length} Selected</span>
                   <select 
                     onChange={(e) => handleBulkStatusUpdate(e.target.value as LeadStatus)}
-                    className="px-4 py-2 bg-zinc-100 border border-zinc-200 rounded-xl text-xs font-bold text-zinc-600 outline-none"
+                    className="px-4 py-2 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs font-bold text-zinc-600 dark:text-zinc-400 outline-none"
                     defaultValue=""
                   >
                     <option value="" disabled>Update Status</option>
@@ -609,7 +610,7 @@ export default function LeadList() {
                       </button>
                       <button 
                         onClick={() => setBulkDeleteConfirm(false)}
-                        className="px-2 py-1 bg-zinc-100 text-zinc-600 text-[10px] font-bold uppercase rounded-lg hover:bg-zinc-200"
+                        className="px-2 py-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 text-[10px] font-bold uppercase rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-700"
                       >
                         X
                       </button>
@@ -617,7 +618,7 @@ export default function LeadList() {
                   ) : (
                     <button 
                       onClick={() => setBulkDeleteConfirm(true)}
-                      className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-colors"
+                      className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-colors"
                       title="Delete Selected"
                     >
                       <Trash2 size={18} />
@@ -625,12 +626,12 @@ export default function LeadList() {
                   )}
                 </div>
               )}
-              <div className="flex items-center gap-2 px-4 py-2 bg-white border border-zinc-200 rounded-2xl">
+              <div className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl">
                 <Filter size={16} className="text-zinc-400" />
                 <select 
                   value={filterStatus}
                   onChange={(e) => setFilterStatus(e.target.value)}
-                  className="bg-transparent text-sm font-bold text-zinc-600 focus:outline-none appearance-none cursor-pointer"
+                  className="bg-transparent text-sm font-bold text-zinc-600 dark:text-zinc-400 focus:outline-none appearance-none cursor-pointer"
                 >
                   <option value="all">All Status</option>
                   <option value="new">New</option>
@@ -648,11 +649,11 @@ export default function LeadList() {
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
             <thead>
-              <tr className="bg-[#fcfaf7]/30">
+              <tr className="bg-[#fcfaf7]/30 dark:bg-zinc-800/30">
                 <th className="px-8 py-5 text-left">
                   <input 
                     type="checkbox" 
-                    className="rounded-md border-zinc-300 text-[#064e3b] focus:ring-[#064e3b]"
+                    className="rounded-md border-zinc-300 dark:border-zinc-700 text-[#064e3b] dark:text-emerald-500 focus:ring-[#064e3b]"
                     checked={selectedLeadIds.length === filteredLeads.length && filteredLeads.length > 0}
                     onChange={toggleSelectAll}
                   />
@@ -667,20 +668,44 @@ export default function LeadList() {
                 <th className="px-6 py-5 text-right text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-100">
+            <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
               {loading ? (
-                <tr>
-                  <td colSpan={9} className="px-8 py-12 text-center">
-                    <div className="flex flex-col items-center gap-2">
-                      <RefreshCw className="w-6 h-6 text-[#064e3b] animate-spin" />
-                      <p className="text-sm text-zinc-500 font-medium">Loading leads...</p>
-                    </div>
-                  </td>
-                </tr>
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i}>
+                    <td className="px-8 py-6"><Skeleton className="h-4 w-4 rounded" /></td>
+                    <td className="px-6 py-6">
+                      <div className="space-y-2">
+                        <Skeleton className="h-4 w-32" />
+                        <Skeleton className="h-3 w-16" />
+                      </div>
+                    </td>
+                    <td className="px-6 py-6 hidden sm:table-cell"><Skeleton className="h-4 w-24" /></td>
+                    <td className="px-6 py-6 hidden md:table-cell"><Skeleton className="h-4 w-40" /></td>
+                    <td className="px-6 py-6 hidden sm:table-cell"><Skeleton className="h-4 w-20" /></td>
+                    <td className="px-6 py-6 hidden lg:table-cell"><Skeleton className="h-4 w-24" /></td>
+                    <td className="px-6 py-6"><Skeleton className="h-6 w-16 rounded-full" /></td>
+                    <td className="px-6 py-6 hidden lg:table-cell"><Skeleton className="h-4 w-20" /></td>
+                    <td className="px-6 py-6 text-right"><Skeleton className="h-8 w-8 ml-auto rounded-xl" /></td>
+                  </tr>
+                ))
               ) : filteredLeads.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-8 py-12 text-center">
-                    <p className="text-zinc-400 text-sm">No leads found matching your criteria</p>
+                  <td colSpan={9} className="px-8 py-20 text-center">
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="p-6 bg-zinc-50 dark:bg-zinc-800 rounded-full text-zinc-300 dark:text-zinc-600">
+                        <Inbox size={48} />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-zinc-900 dark:text-white font-serif italic text-xl">No leads found</p>
+                        <p className="text-zinc-500 dark:text-zinc-400 text-sm">Start by adding your first potential customer.</p>
+                      </div>
+                      <button 
+                        onClick={() => setIsModalOpen(true)}
+                        className="mt-2 px-6 py-2 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-xl text-sm font-bold hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all"
+                      >
+                        Add Lead
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -688,15 +713,15 @@ export default function LeadList() {
                   <tr 
                     key={lead.id} 
                     className={cn(
-                      "hover:bg-[#fcfaf7] transition-colors group cursor-pointer",
-                      selectedLeadIds.includes(lead.id) && "bg-emerald-50/50"
+                      "hover:bg-[#fcfaf7] dark:hover:bg-zinc-800/50 transition-colors group cursor-pointer",
+                      selectedLeadIds.includes(lead.id) && "bg-emerald-50/50 dark:bg-emerald-900/10"
                     )}
                     onClick={() => setSelectedLead(lead)}
                   >
                     <td className="px-8 py-6" onClick={(e) => e.stopPropagation()}>
                       <input 
                         type="checkbox" 
-                        className="rounded-md border-zinc-300 text-[#064e3b] focus:ring-[#064e3b]"
+                        className="rounded-md border-zinc-300 dark:border-zinc-700 text-[#064e3b] dark:text-emerald-500 focus:ring-[#064e3b]"
                         checked={selectedLeadIds.includes(lead.id)}
                         onChange={() => toggleSelectLead(lead.id)}
                       />
@@ -704,11 +729,11 @@ export default function LeadList() {
                     <td className="px-6 py-6">
                       <div className="flex flex-col">
                         <div className="flex items-center gap-2">
-                          <span className="font-serif font-bold text-zinc-900">{lead.fullName}</span>
+                          <span className="font-serif font-bold text-zinc-900 dark:text-white">{lead.fullName}</span>
                           {lead.smartScore !== undefined ? (
-                            <div className="flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100 group/score relative">
-                              <Zap size={10} className="text-emerald-600 fill-emerald-600" />
-                              <span className="text-[10px] font-black text-emerald-700">{lead.smartScore}</span>
+                            <div className="flex items-center gap-1 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-full border border-emerald-100 dark:border-emerald-800 group/score relative">
+                              <Zap size={10} className="text-emerald-600 dark:text-emerald-500 fill-emerald-600 dark:fill-emerald-500" />
+                              <span className="text-[10px] font-black text-emerald-700 dark:text-emerald-400">{lead.smartScore}</span>
                               <div className="absolute left-full ml-2 top-0 w-48 p-2 bg-zinc-900 text-white text-[10px] rounded-lg opacity-0 group-hover/score:opacity-100 transition-opacity z-50 pointer-events-none shadow-xl">
                                 <p className="font-bold uppercase mb-1 text-emerald-400">Smart Score: {lead.smartScore}/100</p>
                                 {lead.smartScoreExplanation}
@@ -717,7 +742,7 @@ export default function LeadList() {
                           ) : (
                             <button 
                               onClick={(e) => { e.stopPropagation(); calculateSmartScore(lead); }}
-                              className="p-1 text-zinc-300 hover:text-emerald-500 transition-colors"
+                              className="p-1 text-zinc-300 dark:text-zinc-600 hover:text-emerald-500 transition-colors"
                               title="Calculate Smart Score"
                             >
                               <Zap size={12} />
@@ -736,42 +761,42 @@ export default function LeadList() {
                           ) : (
                             <button 
                               onClick={(e) => { e.stopPropagation(); calculateRiskScore(lead); }}
-                              className="p-1 text-zinc-300 hover:text-emerald-500 transition-colors"
+                              className="p-1 text-zinc-300 dark:text-zinc-600 hover:text-emerald-500 transition-colors"
                             >
                               <Zap size={12} />
                             </button>
                           )}
                         </div>
                         <div className="flex items-center gap-3 mt-1">
-                          <a href={`mailto:${lead.email}`} className="text-zinc-400 hover:text-emerald-500 transition-colors" onClick={(e) => e.stopPropagation()}>
+                          <a href={`mailto:${lead.email}`} className="text-zinc-400 dark:text-zinc-500 hover:text-emerald-500 transition-colors" onClick={(e) => e.stopPropagation()}>
                             <Mail size={14} />
                           </a>
-                          <a href={`tel:${lead.phone}`} className="text-zinc-400 hover:text-emerald-500 transition-colors" onClick={(e) => e.stopPropagation()}>
+                          <a href={`tel:${lead.phone}`} className="text-zinc-400 dark:text-zinc-500 hover:text-emerald-500 transition-colors" onClick={(e) => e.stopPropagation()}>
                             <Phone size={14} />
                           </a>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-6 hidden sm:table-cell">
-                      <span className="text-sm font-medium text-zinc-700">{lead.companyName}</span>
+                      <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">{lead.companyName}</span>
                     </td>
                     <td className="px-6 py-6 hidden md:table-cell">
-                      <span className="text-sm text-zinc-500 truncate max-w-[150px] block">{lead.productInterest}</span>
+                      <span className="text-sm text-zinc-500 dark:text-zinc-400 truncate max-w-[150px] block">{lead.productInterest}</span>
                     </td>
                     <td className="px-6 py-6 hidden sm:table-cell">
                       <div className="flex items-center gap-2">
-                        <Globe size={14} className="text-zinc-400" />
-                        <span className="text-sm text-zinc-600">{lead.destinationCountry}</span>
+                        <Globe size={14} className="text-zinc-400 dark:text-zinc-500" />
+                        <span className="text-sm text-zinc-600 dark:text-zinc-400">{lead.destinationCountry}</span>
                       </div>
                     </td>
                     <td className="px-6 py-6 hidden lg:table-cell">
                       {lead.nextFollowUpAt ? (
-                        <div className="flex items-center gap-2 text-amber-600">
+                        <div className="flex items-center gap-2 text-amber-600 dark:text-amber-500">
                           <Calendar size={14} />
                           <span className="text-xs font-bold">{formatDate(lead.nextFollowUpAt)}</span>
                         </div>
                       ) : (
-                        <span className="text-xs text-zinc-400 italic">Not set</span>
+                        <span className="text-xs text-zinc-400 dark:text-zinc-500 italic">Not set</span>
                       )}
                     </td>
                     <td className="px-6 py-6">
@@ -783,7 +808,7 @@ export default function LeadList() {
                       </span>
                     </td>
                     <td className="px-6 py-6 hidden lg:table-cell">
-                      <div className="flex items-center gap-2 text-zinc-400">
+                      <div className="flex items-center gap-2 text-zinc-400 dark:text-zinc-500">
                         <Clock size={14} />
                         <span className="text-xs font-medium">{formatDate(lead.createdAt)}</span>
                       </div>
@@ -792,7 +817,7 @@ export default function LeadList() {
                       <div className="flex items-center justify-end gap-2">
                         <button 
                           onClick={() => handleEditLead(lead)}
-                          className="p-2 text-zinc-400 hover:text-[#064e3b] hover:bg-emerald-50 rounded-xl transition-all"
+                          className="p-2 text-zinc-400 dark:text-zinc-500 hover:text-[#064e3b] dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-xl transition-all"
                           title="Edit Lead"
                         >
                           <RefreshCw size={16} />

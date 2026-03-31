@@ -125,6 +125,7 @@ service cloud.firestore {
              data.presenceStatus in ['online', 'away', 'offline', 'dnd'] &&
              (!('photoURL' in data) || data.photoURL == null || isValidUrl(data.photoURL)) &&
              (!('avatarUrl' in data) || data.avatarUrl == null || isValidUrl(data.avatarUrl)) &&
+             (!('approvalRequestedAt' in data) || data.approvalRequestedAt is timestamp) &&
              (!('onboardingCompleted' in data) || data.onboardingCompleted is bool);
     }
 
@@ -324,7 +325,7 @@ service cloud.firestore {
       return hasRequiredFields(['title', 'message', 'type', 'userId', 'timestamp', 'organization']) &&
              data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
              data.message is string && data.message.size() > 0 && data.message.size() < 1000 &&
-             data.type in ['info', 'success', 'warning', 'error'] &&
+             data.type in ['info', 'success', 'warning', 'error', 'user_approval_request'] &&
              data.userId is string && data.userId.size() > 0 &&
              data.timestamp is timestamp &&
              data.organization is string && data.organization.size() > 0 &&

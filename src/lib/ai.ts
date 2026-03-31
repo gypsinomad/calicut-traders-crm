@@ -1,4 +1,5 @@
-import { GoogleGenAI, GenerateContentParameters, GenerateContentResponse } from '@google/genai';
+import { GoogleGenAI, GenerateContentParameters, GenerateContentResponse, ThinkingLevel } from '@google/genai';
+export { ThinkingLevel };
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import { trackAICall, getAIUsageSummary } from './aiUsageTracker';

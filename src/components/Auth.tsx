@@ -123,6 +123,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               role: isAdmin ? 'admin' : 'user',
               status: isAdmin ? 'active' : 'pending',
               createdAt: Timestamp.now(),
+              approvalRequestedAt: Timestamp.now(),
               lastSeen: Timestamp.now(),
               organization: 'Calicut Traders',
               avatarUrl: currentUser.photoURL || undefined,
@@ -139,9 +140,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               
               const notificationPromises = adminSnaps.docs.map(adminDoc => {
                 const notification: Omit<Notification, 'id'> = {
-                  title: 'New User Pending Approval',
-                  message: `${newProfile.displayName} (${newProfile.email}) has signed in and is awaiting approval`,
-                  type: 'warning',
+                  title: 'New User Registration',
+                  message: `${newProfile.displayName} (${newProfile.email})`,
+                  type: 'user_approval_request',
                   timestamp: Timestamp.now(),
                   read: false,
                   userId: adminDoc.id,

@@ -129,6 +129,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 import { LanguageProvider } from './contexts/LanguageContext.tsx';
+import { ThemeProvider } from './contexts/ThemeContext.tsx';
 
 function AppContent() {
   const { user, profile } = useAuth();
@@ -196,8 +197,10 @@ function AppContent() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

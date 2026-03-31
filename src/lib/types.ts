@@ -13,6 +13,7 @@ export interface UserProfile {
   status: UserStatus;
   lastSeen: Timestamp;
   createdAt: Timestamp;
+  approvalRequestedAt?: Timestamp;
   avatarUrl?: string;
   organization?: string;
   onboardingCompleted?: boolean;
@@ -342,7 +343,7 @@ export interface Notification {
   id: string;
   title: string;
   message: string;
-  type: 'info' | 'success' | 'warning' | 'error';
+  type: 'info' | 'success' | 'warning' | 'error' | 'user_approval_request';
   timestamp: Timestamp;
   read: boolean;
   userId: string;

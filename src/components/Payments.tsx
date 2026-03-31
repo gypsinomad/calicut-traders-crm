@@ -20,7 +20,8 @@ import {
   RefreshCw,
   CheckSquare,
   Square,
-  ChevronDown
+  ChevronDown,
+  Inbox
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { subscribeToCollection, createDocument, updateDocument, deleteDocument } from '../services/db';
@@ -29,6 +30,7 @@ import { useAuth } from './Auth';
 import { formatCurrency, formatDate } from '../lib/utils';
 import { Timestamp, serverTimestamp } from 'firebase/firestore';
 import { handleAIError, generateAIContent, isAIAvailable } from '../lib/ai';
+import { Skeleton } from './ui/Skeleton';
 
 export default function Payments() {
   const { profile } = useAuth();
@@ -220,20 +222,20 @@ export default function Payments() {
     <div className="space-y-8">
       <header className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold text-zinc-900">Collections & Payments</h2>
-          <p className="text-zinc-500 mt-1">Manage invoices, track receivables, and monitor cash flow</p>
+          <h2 className="text-3xl font-bold text-zinc-900 dark:text-white">Collections & Payments</h2>
+          <p className="text-zinc-500 dark:text-zinc-400 mt-1">Manage invoices, track receivables, and monitor cash flow</p>
         </div>
         <div className="flex items-center gap-3">
           <button 
             onClick={handleExportReport}
-            className="px-4 py-2 bg-white border border-zinc-200 rounded-lg text-sm font-medium text-zinc-600 hover:bg-zinc-50 transition-colors flex items-center gap-2"
+            className="px-4 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors flex items-center gap-2"
           >
             <Download size={16} />
             Export Report
           </button>
           <button 
             onClick={() => setShowAddModal(true)}
-            className="px-4 py-2 bg-zinc-900 text-white rounded-lg text-sm font-medium hover:bg-zinc-800 transition-colors flex items-center gap-2"
+            className="px-4 py-2 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-lg text-sm font-medium hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors flex items-center gap-2"
           >
             <Plus size={16} />
             Record Payment
@@ -242,40 +244,40 @@ export default function Payments() {
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm">
+        <div className="bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
           <div className="flex items-center justify-between mb-4">
-            <div className="p-2 bg-amber-50 rounded-lg text-amber-600">
+            <div className="p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-amber-600 dark:text-amber-500">
               <Clock size={20} />
             </div>
-            <span className="text-xs font-bold text-amber-600 uppercase tracking-wider">Outstanding</span>
+            <span className="text-xs font-bold text-amber-600 dark:text-amber-500 uppercase tracking-wider">Outstanding</span>
           </div>
-          <p className="text-2xl font-bold text-zinc-900">{formatCurrency(stats.totalOutstanding)}</p>
-          <p className="text-sm text-zinc-500 mt-1">Total receivables pending</p>
+          <p className="text-2xl font-bold text-zinc-900 dark:text-white">{formatCurrency(stats.totalOutstanding)}</p>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Total receivables pending</p>
         </div>
-        <div className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm">
+        <div className="bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
           <div className="flex items-center justify-between mb-4">
-            <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600">
+            <div className="p-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg text-emerald-600 dark:text-emerald-500">
               <ArrowDownLeft size={20} />
             </div>
-            <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider">Received</span>
+            <span className="text-xs font-bold text-emerald-600 dark:text-emerald-500 uppercase tracking-wider">Received</span>
           </div>
-          <p className="text-2xl font-bold text-zinc-900">{formatCurrency(stats.receivedThisMonth)}</p>
-          <p className="text-sm text-zinc-500 mt-1">Collected in last 30 days</p>
+          <p className="text-2xl font-bold text-zinc-900 dark:text-white">{formatCurrency(stats.receivedThisMonth)}</p>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Collected in last 30 days</p>
         </div>
-        <div className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm">
+        <div className="bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
           <div className="flex items-center justify-between mb-4">
-            <div className="p-2 bg-rose-50 rounded-lg text-rose-600">
+            <div className="p-2 bg-rose-50 dark:bg-rose-900/20 rounded-lg text-rose-600 dark:text-rose-500">
               <AlertCircle size={20} />
             </div>
-            <span className="text-xs font-bold text-rose-600 uppercase tracking-wider">Overdue</span>
+            <span className="text-xs font-bold text-rose-600 dark:text-rose-500 uppercase tracking-wider">Overdue</span>
           </div>
-          <p className="text-2xl font-bold text-zinc-900">{stats.overdueCount}</p>
-          <p className="text-sm text-zinc-500 mt-1">Invoices past due date</p>
+          <p className="text-2xl font-bold text-zinc-900 dark:text-white">{stats.overdueCount}</p>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Invoices past due date</p>
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
-        <div className="p-4 border-b border-zinc-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
+        <div className="p-4 border-b border-zinc-100 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
             <input
@@ -283,14 +285,14 @@ export default function Payments() {
               placeholder="Search by Order ID or Transaction..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/5 transition-all"
+              className="w-full pl-10 pr-4 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/5 transition-all dark:text-white"
             />
           </div>
           <div className="flex items-center gap-2 overflow-x-auto pb-2 sm:pb-0">
             {selectedPaymentIds.length > 0 && (
               <button
                 onClick={handleBulkDelete}
-                className="px-3 py-1.5 bg-rose-50 text-rose-600 border border-rose-200 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-rose-100 transition-all flex items-center gap-2"
+                className="px-3 py-1.5 bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-all flex items-center gap-2"
               >
                 <Plus size={14} className="rotate-45" />
                 Delete ({selectedPaymentIds.length})
@@ -302,8 +304,8 @@ export default function Payments() {
                 onClick={() => setFilterStatus(status)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider border transition-all whitespace-nowrap ${
                   filterStatus === status
-                    ? 'bg-zinc-900 border-zinc-900 text-white shadow-lg shadow-zinc-900/10'
-                    : 'bg-white border-zinc-200 text-zinc-500 hover:border-zinc-300'
+                    ? 'bg-zinc-900 dark:bg-zinc-100 border-zinc-900 dark:border-zinc-100 text-white dark:text-zinc-900 shadow-lg shadow-zinc-900/10'
+                    : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-zinc-700'
                 }`}
               >
                 {status}
@@ -315,7 +317,7 @@ export default function Payments() {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-zinc-50/50">
+              <tr className="bg-zinc-50/50 dark:bg-zinc-800/50">
                 <th className="w-12 px-6 py-4">
                   <input 
                     type="checkbox" 
@@ -324,7 +326,7 @@ export default function Payments() {
                       if (selectedPaymentIds.length === filteredPayments.length) setSelectedPaymentIds([]);
                       else setSelectedPaymentIds(filteredPayments.map(p => p.id));
                     }}
-                    className="rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900"
+                    className="rounded border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 focus:ring-zinc-900"
                   />
                 </th>
                 <th className="px-6 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Order / Invoice</th>
@@ -335,96 +337,131 @@ export default function Payments() {
                 <th className="px-6 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-wider text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-100">
-              {filteredPayments.map((payment) => (
-                <tr 
-                  key={payment.id} 
-                  className="hover:bg-zinc-50/50 transition-colors cursor-pointer group"
-                  onClick={() => setSelectedPayment(payment)}
-                >
-                  <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
-                    <input 
-                      type="checkbox" 
-                      checked={selectedPaymentIds.includes(payment.id)}
-                      onChange={() => {
-                        setSelectedPaymentIds(prev => 
-                          prev.includes(payment.id) ? prev.filter(i => i !== payment.id) : [...prev, payment.id]
-                        );
-                      }}
-                      className="rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900"
-                    />
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-zinc-100 rounded-lg text-zinc-500 group-hover:bg-white transition-colors hidden xs:block">
-                        <DollarSign size={18} />
+            <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i}>
+                    <td className="px-6 py-4"><Skeleton className="h-4 w-4 rounded" /></td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <Skeleton className="h-10 w-10 rounded-lg" />
+                        <div className="space-y-2">
+                          <Skeleton className="h-4 w-24" />
+                          <Skeleton className="h-3 w-16" />
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-bold text-zinc-900">{payment.orderId}</p>
-                        <p className="text-[10px] text-zinc-500 font-medium uppercase tracking-tight">
-                          TXN: {payment.transactionId || 'N/A'}
-                        </p>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="space-y-2">
+                        <Skeleton className="h-4 w-20" />
+                        <Skeleton className="h-3 w-12" />
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <p className="text-sm font-bold text-zinc-900">{formatCurrency(payment.amount)}</p>
-                    <p className="text-[10px] text-zinc-400 font-medium uppercase">{payment.currency}</p>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${getStatusColor(payment.status)}`}>
-                      {payment.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 hidden sm:table-cell">
-                    <div className="flex items-center gap-2">
-                      <CreditCard size={14} className="text-zinc-400" />
-                      <span className="text-xs text-zinc-600 capitalize">{payment.method.replace(/([A-Z])/g, ' $1')}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 hidden md:table-cell">
-                    <div className="flex items-center gap-2">
-                      <Calendar size={14} className="text-zinc-400" />
-                      <span className={`text-xs ${
-                        payment.status === 'pending' && payment.dueDate?.toDate?.() && payment.dueDate.toMillis() < Date.now()
-                          ? 'text-rose-600 font-bold'
-                          : 'text-zinc-600'
-                      }`}>
-                        {payment.dueDate?.toDate?.() ? formatDate(payment.dueDate) : 'N/A'}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          assessPaymentRisk(payment);
-                        }}
-                        disabled={assessingRisk === payment.id}
-                        className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-50"
-                        title={isAIAvailable() ? "Assess Risk with AI" : "Assess Risk with Smart Rules"}
-                      >
-                        {assessingRisk === payment.id ? <RefreshCw size={16} className="animate-spin" /> : (isAIAvailable() ? <Sparkles size={16} /> : <Zap size={16} />)}
-                      </button>
-                      <button className="p-2 hover:bg-white rounded-lg text-zinc-400 hover:text-zinc-900 transition-all">
-                        <MoreVertical size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {filteredPayments.length === 0 && !loading && (
+                    </td>
+                    <td className="px-6 py-4"><Skeleton className="h-6 w-16 rounded-md" /></td>
+                    <td className="px-6 py-4 hidden sm:table-cell"><Skeleton className="h-4 w-24" /></td>
+                    <td className="px-6 py-4 hidden md:table-cell"><Skeleton className="h-4 w-20" /></td>
+                    <td className="px-6 py-4 text-right"><Skeleton className="h-8 w-8 ml-auto rounded-lg" /></td>
+                  </tr>
+                ))
+              ) : filteredPayments.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center">
-                    <div className="flex flex-col items-center gap-3">
-                      <div className="p-4 bg-zinc-50 rounded-full text-zinc-300">
-                        <DollarSign size={32} />
+                  <td colSpan={7} className="px-6 py-20 text-center">
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="p-6 bg-zinc-50 dark:bg-zinc-800 rounded-full text-zinc-300 dark:text-zinc-600">
+                        <Inbox size={48} />
                       </div>
-                      <p className="text-zinc-500 font-medium">No payments found matching your criteria</p>
+                      <div className="space-y-1">
+                        <p className="text-zinc-900 dark:text-white font-serif italic text-xl">No payments found</p>
+                        <p className="text-zinc-500 dark:text-zinc-400 text-sm">Start by recording your first collection.</p>
+                      </div>
+                      <button 
+                        onClick={() => setShowAddModal(true)}
+                        className="mt-2 px-6 py-2 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-xl text-sm font-bold hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all"
+                      >
+                        Record Payment
+                      </button>
                     </div>
                   </td>
                 </tr>
+              ) : (
+                filteredPayments.map((payment) => (
+                  <tr 
+                    key={payment.id} 
+                    className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer group"
+                    onClick={() => setSelectedPayment(payment)}
+                  >
+                    <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                      <input 
+                        type="checkbox" 
+                        checked={selectedPaymentIds.includes(payment.id)}
+                        onChange={() => {
+                          setSelectedPaymentIds(prev => 
+                            prev.includes(payment.id) ? prev.filter(i => i !== payment.id) : [...prev, payment.id]
+                          );
+                        }}
+                        className="rounded border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 focus:ring-zinc-900"
+                      />
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-zinc-100 dark:bg-zinc-800 rounded-lg text-zinc-500 dark:text-zinc-400 group-hover:bg-white dark:group-hover:bg-zinc-700 transition-colors hidden xs:block">
+                          <DollarSign size={18} />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-zinc-900 dark:text-white">{payment.orderId}</p>
+                          <p className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium uppercase tracking-tight">
+                            TXN: {payment.transactionId || 'N/A'}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="text-sm font-bold text-zinc-900 dark:text-white">{formatCurrency(payment.amount)}</p>
+                      <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium uppercase">{payment.currency}</p>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${getStatusColor(payment.status)}`}>
+                        {payment.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 hidden sm:table-cell">
+                      <div className="flex items-center gap-2">
+                        <CreditCard size={14} className="text-zinc-400 dark:text-zinc-500" />
+                        <span className="text-xs text-zinc-600 dark:text-zinc-400 capitalize">{payment.method.replace(/([A-Z])/g, ' $1')}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 hidden md:table-cell">
+                      <div className="flex items-center gap-2">
+                        <Calendar size={14} className="text-zinc-400 dark:text-zinc-500" />
+                        <span className={`text-xs ${
+                          payment.status === 'pending' && payment.dueDate?.toDate?.() && payment.dueDate.toMillis() < Date.now()
+                            ? 'text-rose-600 dark:text-rose-400 font-bold'
+                            : 'text-zinc-600 dark:text-zinc-400'
+                        }`}>
+                          {payment.dueDate?.toDate?.() ? formatDate(payment.dueDate) : 'N/A'}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            assessPaymentRisk(payment);
+                          }}
+                          disabled={assessingRisk === payment.id}
+                          className="p-2 text-emerald-600 dark:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors disabled:opacity-50"
+                          title={isAIAvailable() ? "Assess Risk with AI" : "Assess Risk with Smart Rules"}
+                        >
+                          {assessingRisk === payment.id ? <RefreshCw size={16} className="animate-spin" /> : (isAIAvailable() ? <Sparkles size={16} /> : <Zap size={16} />)}
+                        </button>
+                        <button className="p-2 hover:bg-white dark:hover:bg-zinc-800 rounded-lg text-zinc-400 dark:text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-all">
+                          <MoreVertical size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>

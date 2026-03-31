@@ -19,7 +19,8 @@ import {
   Zap,
   ChevronRight,
   Plus,
-  DollarSign
+  DollarSign,
+  Lightbulb
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -37,21 +38,30 @@ import {
   ResponsiveContainer as ReResponsiveContainer
 } from 'recharts';
 import { subscribeToCollection } from '../services/db';
-import { ExportOrder, Company, Task, InventoryItem, MarketPrice, Supplier, Lead, Quote } from '../lib/types.ts';
+import { ExportOrder, Company, Task, InventoryItem, MarketPrice, Supplier, Lead, Quote, Payment, UserProfile } from '../lib/types.ts';
 import { Link } from 'react-router-dom';
-import { handleAIError, generateAIContent, isAIAvailable } from '../lib/ai';
+import { handleAIError, generateAIContent, isAIAvailable, ThinkingLevel } from '../lib/ai';
 import { motion, AnimatePresence } from 'motion/react';
+import { useAuth } from './Auth.tsx';
+import { UserRole } from '../lib/types.ts';
+import { cn, formatCurrency } from '../lib/utils.ts';
+import { Skeleton } from './ui/Skeleton';
+
+interface BriefingData {
+  insights: string[];
+  motivationalQuote: string;
+}
 
 const StatCard = ({ title, value, change, icon: Icon, trend }: any) => (
-  <div className="bg-white p-8 rounded-[2.5rem] border border-zinc-200/50 shadow-sm hover:shadow-2xl hover:shadow-emerald-900/5 transition-all duration-500 group relative overflow-hidden">
+  <div className="bg-white dark:bg-zinc-900 p-8 rounded-[2.5rem] border border-zinc-200/50 dark:border-zinc-800 shadow-sm hover:shadow-2xl hover:shadow-emerald-900/5 transition-all duration-500 group relative overflow-hidden">
     <div className="relative z-10 flex items-start justify-between">
       <div>
-        <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-2">{title}</p>
-        <h3 className="text-4xl font-serif font-bold text-zinc-900 group-hover:text-[#064e3b] transition-colors tracking-tight">{value}</h3>
+        <p className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em] mb-2">{title}</p>
+        <h3 className="text-4xl font-serif font-bold text-zinc-900 dark:text-white group-hover:text-[#064e3b] dark:group-hover:text-emerald-400 transition-colors tracking-tight">{value}</h3>
         <div className="flex items-center gap-2 mt-4">
           <div className={cn(
             "flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider",
-            trend === 'up' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-rose-50 text-rose-600 border border-rose-100'
+            trend === 'up' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800' : 'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-800'
           )}>
             {trend === 'up' ? (
               <ArrowUpRight size={12} strokeWidth={3} />
@@ -60,20 +70,16 @@ const StatCard = ({ title, value, change, icon: Icon, trend }: any) => (
             )}
             {change}
           </div>
-          <span className="text-zinc-400 text-[10px] font-black uppercase tracking-widest ml-1">vs last month</span>
+          <span className="text-zinc-400 dark:text-zinc-500 text-[10px] font-black uppercase tracking-widest ml-1">vs last month</span>
         </div>
       </div>
-      <div className="p-4 bg-[#fcfaf7] rounded-2xl group-hover:bg-[#064e3b] group-hover:text-white transition-all duration-700 shadow-inner group-hover:shadow-emerald-900/20 group-hover:-translate-y-1">
+      <div className="p-4 bg-[#fcfaf7] dark:bg-zinc-800 rounded-2xl group-hover:bg-[#064e3b] dark:group-hover:bg-emerald-600 group-hover:text-white transition-all duration-700 shadow-inner group-hover:shadow-emerald-900/20 group-hover:-translate-y-1">
         <Icon size={28} className="transition-colors" />
       </div>
     </div>
     <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl group-hover:bg-emerald-500/10 transition-all duration-700" />
   </div>
 );
-
-import { useAuth } from './Auth.tsx';
-import { UserRole } from '../lib/types.ts';
-import { cn } from '../lib/utils.ts';
 
 export default function Dashboard() {
   const { profile } = useAuth();
@@ -182,7 +188,7 @@ export default function Dashboard() {
     }
 
     try {
-      const model = 'gemini-3-flash-preview';
+      const model = 'gemini-3.1-pro-preview';
       const prompt = `Generate a concise daily business briefing for an export manager.
       Context:
       - Active Leads: ${activeLeads}
@@ -192,11 +198,15 @@ export default function Dashboard() {
       - Expired Batches: ${expiredItems.length}
       - Total Revenue: $${totalRevenue}
       
-      Provide 3 actionable bullet points and a motivational closing sentence. Keep it under 100 words.`;
+      Provide 3 actionable bullet points and a motivational closing sentence. Keep it under 100 words.
+      Format the bullet points with "•" and ensure the closing sentence is on a new line.`;
 
       const response = await generateAIContent('Daily Briefing', {
         model,
-        contents: [{ parts: [{ text: prompt }] }]
+        contents: [{ parts: [{ text: prompt }] }],
+        config: {
+          thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH }
+        }
       });
 
       setBriefing(response.text || 'Welcome back. Your business metrics are updated and ready for review.');
@@ -467,10 +477,18 @@ export default function Dashboard() {
                 <div className="h-5 bg-white/10 rounded-full w-2/3" />
               </div>
             ) : (
-              <div className="max-w-2xl">
-                <p className="text-3xl font-serif font-medium leading-snug text-emerald-50">
-                  {briefing || 'Welcome to your dashboard. Your daily business intelligence is being prepared.'}
-                </p>
+              <div className="max-w-3xl">
+                <div className="text-2xl md:text-3xl font-serif font-medium leading-relaxed text-emerald-50 space-y-4">
+                  {briefing ? (
+                    briefing.split('\n').filter(line => line.trim()).map((line, i) => (
+                      <p key={i} className={line.startsWith('•') ? 'pl-6 -indent-6' : 'mt-6 italic text-emerald-200/80 text-xl'}>
+                        {line}
+                      </p>
+                    ))
+                  ) : (
+                    <p>Welcome to your dashboard. Your daily business intelligence is being prepared.</p>
+                  )}
+                </div>
               </div>
             )}
 
