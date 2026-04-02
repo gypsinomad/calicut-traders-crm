@@ -217,6 +217,21 @@ export default function LeadList() {
     if (isSmartScoring) return;
     setIsSmartScoring(true);
 
+    if (!isAIAvailable()) {
+      // Rule-based fallback for smart scoring
+      const baseScore = lead.priority === 'hot' ? 80 : lead.priority === 'warm' ? 60 : 40;
+      const sourceBonus = lead.source === 'referral' ? 15 : lead.source === 'website' ? 10 : 5;
+      const finalScore = Math.min(100, baseScore + sourceBonus);
+      const explanation = `Smart Mode: Score based on priority (${lead.priority}) and source (${lead.source}). Manual review recommended for international trade specifics.`;
+
+      await updateDocument('leads', lead.id, {
+        smartScore: finalScore,
+        smartScoreExplanation: explanation
+      });
+      setIsSmartScoring(false);
+      return;
+    }
+
     try {
       const prompt = `Evaluate this lead for an export business and provide a score from 0 to 100.
       Lead Details:

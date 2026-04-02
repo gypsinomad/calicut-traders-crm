@@ -37,6 +37,7 @@ import DocumentParser from './DocumentParser.tsx';
 import { motion, AnimatePresence } from 'motion/react';
 import { handleAIError, generateAIContent, isAIAvailable } from '../lib/ai';
 import { Printer } from 'lucide-react';
+import { toast } from 'sonner';
 const typeLabels: Record<string, string> = {
   proformaInvoice: 'Proforma Invoice',
   commercialInvoice: 'Commercial Invoice',
@@ -224,12 +225,13 @@ export default function DocumentVault() {
   };
 
   const handleBulkDelete = async () => {
-    if (!confirm(`Are you sure you want to delete ${selectedDocIds.length} documents?`)) return;
     try {
       await Promise.all(selectedDocIds.map(id => deleteDocument('documents', id)));
       setSelectedDocIds([]);
+      toast.success(`${selectedDocIds.length} documents deleted`);
     } catch (error) {
       console.error("Error in bulk delete:", error);
+      toast.error('Failed to delete documents');
     }
   };
 
@@ -276,7 +278,8 @@ export default function DocumentVault() {
         });
         
         const extracted = JSON.parse(response.text || '{}');
-        alert(`AI Extracted Data:\n${JSON.stringify(extracted, null, 2)}`);
+        toast.success('AI Extracted Data successfully');
+        console.log('AI Extracted Data:', extracted);
         
         // Pre-fill new document form
         setNewDoc({

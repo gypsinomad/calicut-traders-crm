@@ -17,6 +17,7 @@ import {
 import { getAIUsageSummary, resetAIUsage, AIUsageSummary } from '../lib/aiUsageTracker';
 import { getAISettings, saveAISettings, AISettings, AIProvider, ProviderSettings } from '../lib/aiSettings';
 import { useAuth } from './Auth';
+import { toast } from 'sonner';
 import { motion } from 'motion/react';
 import { clsx } from 'clsx';
 import { 
@@ -99,10 +100,10 @@ export default function AIUsageDashboard() {
     setSaving(true);
     try {
       await saveAISettings(profile.organization, settings);
-      alert('AI Configuration saved successfully!');
+      toast.success('AI Configuration saved successfully!');
     } catch (error) {
       console.error('Error saving settings:', error);
-      alert('Failed to save settings.');
+      toast.error('Failed to save settings.');
     } finally {
       setSaving(false);
     }

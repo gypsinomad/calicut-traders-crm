@@ -34,6 +34,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { subscribeToCollection, createDocument, updateDocument, deleteDocument } from '../services/db';
 import { Timestamp } from 'firebase/firestore';
 import { handleAIError, generateAIContent, isAIAvailable } from '../lib/ai';
+import { toast } from 'sonner';
 import { generateDocument } from '../lib/documentGenerator';
 import QuoteBuilder from './QuoteBuilder';
 import SendToBuyerDialog from './SendToBuyerDialog';
@@ -85,11 +86,12 @@ export default function QuoteList() {
   };
 
   const handleDeleteQuote = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this quotation?')) return;
     try {
       await deleteDocument('quotes', id);
+      toast.success('Quotation deleted successfully');
     } catch (error) {
       console.error("Error deleting quote:", error);
+      toast.error('Failed to delete quotation');
     }
   };
 
@@ -121,7 +123,7 @@ export default function QuoteList() {
 
       await createDocument('orders', orderData);
       await updateDocument('quotes', quote.id, { status: 'converted' });
-      alert('Quote converted to order successfully!');
+      toast.success('Quote converted to order successfully!');
     } catch (error) {
       console.error("Error converting quote to order:", error);
     }
@@ -160,12 +162,13 @@ export default function QuoteList() {
   };
 
   const handleBulkDelete = async () => {
-    if (!confirm(`Are you sure you want to delete ${selectedQuotes.length} quotations?`)) return;
     try {
       await Promise.all(selectedQuotes.map(id => deleteDocument('quotes', id)));
       setSelectedQuotes([]);
+      toast.success(`${selectedQuotes.length} quotations deleted`);
     } catch (error) {
       console.error("Error in bulk delete:", error);
+      toast.error('Failed to delete quotations');
     }
   };
 
@@ -303,7 +306,7 @@ export default function QuoteList() {
         createdAt: Timestamp.now()
       });
       setAiDraft(null);
-      alert('AI Quote saved as draft!');
+      toast.success('AI Quote saved as draft!');
     } catch (error) {
       console.error('Error saving AI draft:', error);
     }

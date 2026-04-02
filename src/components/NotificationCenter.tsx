@@ -12,12 +12,13 @@ interface Notification {
   id: string;
   title: string;
   message: string;
-  type: 'info' | 'success' | 'warning' | 'error';
+  type: 'info' | 'success' | 'warning' | 'error' | 'user_approval_request';
   timestamp: any;
   read: boolean;
   userId: string;
   relatedEntityType?: string;
   relatedEntityId?: string;
+  organization: string;
 }
 
 export default function NotificationCenter() {
@@ -39,19 +40,28 @@ export default function NotificationCenter() {
       return;
     }
 
+    // Simplify query to avoid index issues
     const q = query(
       collection(db, 'notifications'),
-      where('userId', '==', profile.uid),
-      where('organization', '==', profile.organization),
-      orderBy('timestamp', 'desc'),
-      limit(50)
+      where('userId', '==', profile.uid)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const newNotifications = snapshot.docs.map(doc => ({
+      console.log("Notification snapshot size:", snapshot.size);
+      let newNotifications = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as Notification[];
+      
+      console.log("Total notifications for user:", newNotifications.length);
+
+      // Sort in memory
+      newNotifications.sort((a, b) => {
+        const dateA = getTimestamp(a.timestamp).getTime();
+        const dateB = getTimestamp(b.timestamp).getTime();
+        return dateB - dateA;
+      });
+
       setNotifications(newNotifications);
       setLoading(false);
     }, (error) => {
@@ -105,11 +115,20 @@ export default function NotificationCenter() {
 
     setMarkingAll(true);
     try {
-      const batch = writeBatch(db);
-      unread.forEach(n => {
-        batch.update(doc(db, 'notifications', n.id), { read: true });
-      });
-      await batch.commit();
+      // Handle batch limit of 500
+      const chunks = [];
+      for (let i = 0; i < unread.length; i += 500) {
+        chunks.push(unread.slice(i, i + 500));
+      }
+
+      for (const chunk of chunks) {
+        const batch = writeBatch(db);
+        chunk.forEach(n => {
+          batch.update(doc(db, 'notifications', n.id), { read: true });
+        });
+        await batch.commit();
+      }
+      
       toast.success('All notifications marked as read');
     } catch (error) {
       console.error("Error marking all as read:", error);
@@ -121,15 +140,23 @@ export default function NotificationCenter() {
 
   const clearAll = async () => {
     if (notifications.length === 0) return;
-    if (!confirm('Are you sure you want to delete all notifications?')) return;
-
+    
     setClearingAll(true);
     try {
-      const batch = writeBatch(db);
-      notifications.forEach(n => {
-        batch.delete(doc(db, 'notifications', n.id));
-      });
-      await batch.commit();
+      // Handle batch limit of 500
+      const chunks = [];
+      for (let i = 0; i < notifications.length; i += 500) {
+        chunks.push(notifications.slice(i, i + 500));
+      }
+
+      for (const chunk of chunks) {
+        const batch = writeBatch(db);
+        chunk.forEach(n => {
+          batch.delete(doc(db, 'notifications', n.id));
+        });
+        await batch.commit();
+      }
+
       toast.success('All notifications cleared');
     } catch (error) {
       console.error("Error clearing notifications:", error);
@@ -275,7 +302,7 @@ export default function NotificationCenter() {
                 ) : (
                   <div className="divide-y divide-zinc-100">
                     <AnimatePresence initial={false}>
-                      {filteredNotifications.map(notification => (
+                      {filteredNotifications.slice(0, 50).map(notification => (
                         <motion.div 
                           key={notification.id}
                           initial={{ opacity: 0, x: -20 }}

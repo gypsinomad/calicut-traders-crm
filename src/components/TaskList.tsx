@@ -23,7 +23,7 @@ import { subscribeToCollection, createDocument, updateDocument, deleteDocument }
 import { formatDate, cn } from '../lib/utils';
 import { useAuth } from './Auth.tsx';
 import { Timestamp } from 'firebase/firestore';
-import { generateAIContent } from '../lib/ai';
+import { generateAIContent, isAIAvailable } from '../lib/ai';
 import { Skeleton } from './ui/Skeleton.tsx';
 
 export default function TaskList() {
@@ -132,6 +132,27 @@ export default function TaskList() {
     if (isPrioritizing || tasks.length === 0) return;
     setIsPrioritizing(true);
     
+    if (!isAIAvailable()) {
+      // Rule-based fallback for task prioritization
+      const sorted = [...tasks].sort((a, b) => {
+        // Priority weight
+        const priorityMap = { high: 3, medium: 2, low: 1 };
+        const pA = priorityMap[a.priority as keyof typeof priorityMap] || 0;
+        const pB = priorityMap[b.priority as keyof typeof priorityMap] || 0;
+        
+        if (pA !== pB) return pB - pA;
+        
+        // Due date
+        const dateA = a.dueDate instanceof Timestamp ? a.dueDate.toDate() : new Date(a.dueDate);
+        const dateB = b.dueDate instanceof Timestamp ? b.dueDate.toDate() : new Date(b.dueDate);
+        return dateA.getTime() - dateB.getTime();
+      });
+      
+      setTasks(sorted);
+      setIsPrioritizing(false);
+      return;
+    }
+
     try {
       const taskList = tasks.map(t => ({
         id: t.id,

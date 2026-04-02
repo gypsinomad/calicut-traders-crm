@@ -77,7 +77,7 @@ import { db } from '../firebase';
 
 export default function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose?: () => void }) {
   const { isRTL } = useTranslation();
-  const { profile } = useAuth();
+  const { profile, logout } = useAuth();
   const [unreadMessagesCount, setUnreadMessagesCount] = React.useState(0);
   const [pendingUsersCount, setPendingUsersCount] = React.useState(0);
 
@@ -184,6 +184,13 @@ export default function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose
       </nav>
 
       <div className="p-6 border-t border-emerald-900/50 dark:border-zinc-800 space-y-4">
+        <button 
+          onClick={logout}
+          className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-emerald-100/50 hover:text-white hover:bg-white/5 rounded-xl transition-all"
+        >
+          <LogOut size={18} />
+          <TranslatedText>Sign Out</TranslatedText>
+        </button>
         <div className="flex items-center gap-2 px-4 py-3 bg-black/20 dark:bg-zinc-900 rounded-2xl border border-white/5 dark:border-zinc-800 text-[10px] font-medium text-emerald-300/40 dark:text-zinc-500">
           <div className="flex items-center gap-1 px-1.5 py-0.5 rounded border border-white/10 dark:border-zinc-800 bg-black/40 dark:bg-zinc-950">
             <Command size={10} />

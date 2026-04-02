@@ -81,10 +81,16 @@ export default function Layout() {
     setShowResults(true);
   }, [searchTerm, allLeads, allOrders, allSuppliers]);
 
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
         setShowResults(false);
+      }
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+        setShowProfileDropdown(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -226,56 +232,76 @@ export default function Layout() {
             <NotificationCenter />
             <AICostBadge />
             <div className="h-8 w-[1px] bg-zinc-200 dark:bg-zinc-800 mx-1 md:mx-2" />
-              <div className="flex items-center gap-2 md:gap-3 pl-2 group relative">
-                <div className={`${isRTL ? 'text-left' : 'text-right'} hidden sm:block`}>
-                  <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100">{profile?.displayName || 'User'}</p>
-                  <p className="text-[10px] text-zinc-500 dark:text-zinc-400 uppercase tracking-wider font-medium">{profile?.role || 'Member'}</p>
-                </div>
-                <div className="relative">
-                  <div className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-zinc-600 dark:text-zinc-400 overflow-hidden">
-                    {profile?.photoURL || profile?.avatarUrl ? (
-                      <img src={profile.photoURL || profile.avatarUrl} alt={profile.displayName} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                    ) : (
-                      <User size={20} />
-                    )}
+              <div className="flex items-center gap-2 md:gap-3 pl-2 relative" ref={profileRef}>
+                <button 
+                  onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+                  className="flex items-center gap-2 md:gap-3 hover:bg-zinc-50 dark:hover:bg-zinc-800 p-1 rounded-xl transition-colors"
+                >
+                  <div className={`${isRTL ? 'text-left' : 'text-right'} hidden sm:block`}>
+                    <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100">{profile?.displayName || 'User'}</p>
+                    <p className="text-[10px] text-zinc-500 dark:text-zinc-400 uppercase tracking-wider font-medium">{profile?.role || 'Member'}</p>
                   </div>
-                  <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-zinc-900 ${getPresenceColor(profile?.presenceStatus || 'offline')}`} />
-                </div>
+                  <div className="relative">
+                    <div className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-zinc-600 dark:text-zinc-400 overflow-hidden">
+                      {profile?.photoURL || profile?.avatarUrl ? (
+                        <img src={profile.photoURL || profile.avatarUrl} alt={profile.displayName} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      ) : (
+                        <User size={20} />
+                      )}
+                    </div>
+                    <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-zinc-900 ${getPresenceColor(profile?.presenceStatus || 'offline')}`} />
+                  </div>
+                </button>
                 
                 {/* Dropdown for profile and status */}
-                <div className={`absolute top-full ${isRTL ? 'left-0' : 'right-0'} mt-2 w-56 bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-zinc-200 dark:border-zinc-800 py-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50`}>
-                  <div className="px-4 py-2 border-b border-zinc-100 dark:border-zinc-800 mb-2">
-                    <p className="text-xs font-black text-zinc-400 uppercase tracking-widest mb-3">Set Status</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      {[
-                        { id: 'online', label: 'Online', color: 'bg-emerald-500' },
-                        { id: 'away', label: 'Away', color: 'bg-amber-500' },
-                        { id: 'dnd', label: 'DND', color: 'bg-rose-500' },
-                        { id: 'offline', label: 'Offline', color: 'bg-zinc-300' }
-                      ].map((s) => (
-                        <button
-                          key={s.id}
-                          onClick={() => handlePresenceChange(s.id as UserPresenceStatus)}
-                          className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-[10px] font-bold transition-colors ${
-                            profile?.presenceStatus === s.id 
-                              ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100' 
-                              : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'
-                          }`}
-                        >
-                          <div className={`w-2 h-2 rounded-full ${s.color}`} />
-                          {s.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <button 
-                    onClick={logout}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors font-bold"
-                  >
-                    <LogOut size={16} />
-                    <TranslatedText>Sign Out</TranslatedText>
-                  </button>
-                </div>
+                <AnimatePresence>
+                  {showProfileDropdown && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      className={`absolute top-full ${isRTL ? 'left-0' : 'right-0'} mt-2 w-56 bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-zinc-200 dark:border-zinc-800 py-3 z-50`}
+                    >
+                      <div className="px-4 py-2 border-b border-zinc-100 dark:border-zinc-800 mb-2">
+                        <p className="text-xs font-black text-zinc-400 uppercase tracking-widest mb-3">Set Status</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {[
+                            { id: 'online', label: 'Online', color: 'bg-emerald-500' },
+                            { id: 'away', label: 'Away', color: 'bg-amber-500' },
+                            { id: 'dnd', label: 'DND', color: 'bg-rose-500' },
+                            { id: 'offline', label: 'Offline', color: 'bg-zinc-300' }
+                          ].map((s) => (
+                            <button
+                              key={s.id}
+                              onClick={() => {
+                                handlePresenceChange(s.id as UserPresenceStatus);
+                                setShowProfileDropdown(false);
+                              }}
+                              className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-[10px] font-bold transition-colors ${
+                                profile?.presenceStatus === s.id 
+                                  ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100' 
+                                  : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+                              }`}
+                            >
+                              <div className={`w-2 h-2 rounded-full ${s.color}`} />
+                              {s.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => {
+                          logout();
+                          setShowProfileDropdown(false);
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors font-bold"
+                      >
+                        <LogOut size={16} />
+                        <TranslatedText>Sign Out</TranslatedText>
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
           </div>
         </header>

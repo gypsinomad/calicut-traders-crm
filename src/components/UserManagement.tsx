@@ -9,7 +9,8 @@ import {
   addDoc, 
   serverTimestamp,
   orderBy,
-  Timestamp
+  Timestamp,
+  getDocs
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { UserProfile, UserRole, UserStatus } from '../lib/types';
@@ -41,26 +42,73 @@ export default function UserManagement() {
   const [statusFilter, setStatusFilter] = useState<UserStatus | 'all'>('all');
   const [confirmSuspend, setConfirmSuspend] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [organizations, setOrganizations] = useState<{id: string, companyName: string}[]>([]);
   const { profile: currentUserProfile } = useAuth();
 
   useEffect(() => {
-    if (!currentUserProfile?.organization) return;
+    if (!currentUserProfile) return;
 
-    const q = query(
-      collection(db, 'users'), 
-      where('organization', '==', currentUserProfile.organization),
-      orderBy('createdAt', 'desc')
-    );
+    // Fetch organizations
+    const fetchOrgs = async () => {
+      try {
+        const orgsSnap = await getDocs(collection(db, 'organizations'));
+        const orgsData = orgsSnap.docs.map(doc => ({
+          id: doc.id,
+          companyName: doc.data().companyName || doc.id
+        }));
+        setOrganizations(orgsData);
+      } catch (error) {
+        console.error("Error fetching organizations:", error);
+      }
+    };
+    fetchOrgs();
+
+    // Fetch all users for admins to ensure pending users with no organization are visible
+    const q = query(collection(db, 'users'));
+    
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const usersData = snapshot.docs.map(doc => ({
+      let usersData = snapshot.docs.map(doc => ({
         ...doc.data(),
         uid: doc.id
       })) as UserProfile[];
-      console.log("Fetched users:", usersData.length, usersData.map(u => ({ email: u.email, status: u.status, org: u.organization })));
+      
+      // Filter in memory if not super admin
+      if (currentUserProfile.email !== 'akhilvenugopal@gmail.com') {
+        usersData = usersData.filter(u => 
+          u.organization === currentUserProfile.organization || !u.organization
+        );
+      }
+      
+      // Sort in memory
+      usersData.sort((a, b) => {
+        const dateA = a.createdAt instanceof Timestamp ? a.createdAt.toMillis() : new Date(a.createdAt).getTime();
+        const dateB = b.createdAt instanceof Timestamp ? b.createdAt.toMillis() : new Date(b.createdAt).getTime();
+        return dateB - dateA;
+      });
+
+      console.log("Fetched users for org:", currentUserProfile.organization, usersData.length);
       setUsers(usersData);
       setLoading(false);
-    }, (error) => {
+    }, async (error) => {
       console.error("Error fetching users:", error);
+      
+      // Fallback: if organization query fails, try to at least get pending users if super admin
+      if (currentUserProfile.email === 'akhilvenugopal@gmail.com') {
+        try {
+          const pendingQuery = query(collection(db, 'users'), where('status', '==', 'pending'));
+          const pendingSnap = await getDocs(pendingQuery);
+          const pendingData = pendingSnap.docs.map(doc => ({ ...doc.data(), uid: doc.id })) as UserProfile[];
+          setUsers(prev => {
+            const combined = [...prev];
+            pendingData.forEach(pu => {
+              if (!combined.find(u => u.uid === pu.uid)) combined.push(pu);
+            });
+            return combined;
+          });
+        } catch (e) {
+          console.error("Fallback query failed:", e);
+        }
+      }
       setLoading(false);
     });
 
@@ -75,23 +123,48 @@ export default function UserManagement() {
     };
   }, [currentUserProfile?.organization]);
 
-  const handleStatusChange = async (userId: string, newStatus: UserStatus, userName: string) => {
+  const handleStatusChange = async (userId: string, newStatus: UserStatus, userName: string, orgId?: string) => {
     try {
       const userRef = doc(db, 'users', userId);
-      await updateDoc(userRef, { status: newStatus });
+      const updates: any = { status: newStatus };
+      
+      // Get the user's current data to check for organization
+      const userToUpdate = users.find(u => u.uid === userId);
+      const targetOrg = orgId || userToUpdate?.organization || currentUserProfile?.organization || 'Calicut Traders';
+      
+      if (newStatus === 'active') {
+        updates.organization = targetOrg;
+      }
+      
+      await updateDoc(userRef, updates);
       
       toast.success(`User ${userName} status updated to ${newStatus}`);
 
       if (newStatus === 'active') {
+        // Clear approval request notifications for all admins
+        try {
+          const notifQuery = query(
+            collection(db, 'notifications'), 
+            where('relatedEntityId', '==', userId),
+            where('type', '==', 'user_approval_request')
+          );
+          const notifSnap = await getDocs(notifQuery);
+          const batch = writeBatch(db);
+          notifSnap.docs.forEach(d => batch.delete(d.ref));
+          await batch.commit();
+        } catch (notifErr) {
+          console.error("Error clearing approval notifications:", notifErr);
+        }
+
         // Notify user
         await addDoc(collection(db, 'notifications'), {
           userId: userId,
           title: 'Account Approved',
-          message: `Your account has been approved. Welcome to ${currentUserProfile?.organization || 'Calicut Traders'}!`,
+          message: `Your account has been approved. Welcome to ${targetOrg}!`,
           type: 'success',
           timestamp: serverTimestamp(),
           read: false,
-          organization: currentUserProfile?.organization || 'Calicut Traders'
+          organization: targetOrg
         });
       }
       setConfirmSuspend(null);
@@ -247,6 +320,7 @@ export default function UserManagement() {
             <thead>
               <tr className="bg-zinc-50/50 border-b border-zinc-100">
                 <th className="px-6 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">User</th>
+                <th className="px-6 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Organization</th>
                 <th className="px-6 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Status</th>
                 <th className="px-6 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Role</th>
                 <th className="px-6 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Presence</th>
@@ -275,6 +349,33 @@ export default function UserManagement() {
                         <div className="font-bold text-zinc-900 truncate">{u.displayName}</div>
                         <div className="text-xs text-zinc-500 truncate">{u.email}</div>
                       </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck size={14} className="text-zinc-400" />
+                      <select
+                        value={u.organization || ''}
+                        onChange={(e) => {
+                          const orgId = e.target.value;
+                          const userRef = doc(db, 'users', u.uid);
+                          updateDoc(userRef, { organization: orgId }).then(() => {
+                            toast.success(`Organization updated for ${u.displayName}`);
+                          }).catch(err => {
+                            console.error("Error updating org:", err);
+                            toast.error("Failed to update organization");
+                          });
+                        }}
+                        className="text-sm bg-transparent border-none p-0 focus:ring-0 cursor-pointer font-bold text-zinc-700 hover:text-emerald-600 transition-colors"
+                      >
+                        <option value="">Not Assigned</option>
+                        {organizations.map(org => (
+                          <option key={org.id} value={org.id}>{org.companyName}</option>
+                        ))}
+                        {!organizations.find(o => o.id === 'Calicut Traders') && (
+                          <option value="Calicut Traders">Calicut Traders</option>
+                        )}
+                      </select>
                     </div>
                   </td>
                   <td className="px-6 py-4">
