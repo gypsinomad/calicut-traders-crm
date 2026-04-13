@@ -363,23 +363,9 @@ export default function LeadDetails({ lead, onBack }: LeadDetailsProps) {
 
           <section className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm">
             <h3 className="text-lg font-bold text-zinc-900 mb-6">Activity Timeline</h3>
-            <div className="space-y-8 relative before:absolute before:left-4 before:top-2 before:bottom-2 before:w-0.5 before:bg-zinc-100">
-              {[
-                { title: 'Quotation Sent', desc: 'Sent Proforma Invoice for 5MT Black Pepper', time: '2 days ago', icon: FileText, color: 'bg-blue-500' },
-                { title: 'Lead Qualified', desc: 'Verified company registration and IEC', time: '5 days ago', icon: CheckCircle2, color: 'bg-emerald-500' },
-                { title: 'Initial Contact', desc: 'Inquiry received via website form', time: '1 week ago', icon: Mail, color: 'bg-zinc-400' },
-              ].map((event, i) => (
-                <div key={i} className="relative pl-10">
-                  <div className={`absolute left-0 top-1 w-8 h-8 rounded-full ${event.color} border-4 border-white flex items-center justify-center text-white shadow-sm`}>
-                    <event.icon size={14} />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-zinc-900">{event.title}</h4>
-                    <p className="text-sm text-zinc-500 mt-0.5">{event.desc}</p>
-                    <span className="text-xs text-zinc-400 mt-1 block">{event.time}</span>
-                  </div>
-                </div>
-              ))}
+            <div className="text-center py-8">
+              <Clock size={32} className="mx-auto text-zinc-300 mb-2" />
+              <p className="text-sm text-zinc-500">No activity recorded yet.</p>
             </div>
           </section>
         </div>
@@ -425,16 +411,16 @@ export default function LeadDetails({ lead, onBack }: LeadDetailsProps) {
             <h3 className="text-sm font-bold uppercase tracking-wider mb-4 text-zinc-400">Export Potential</h3>
             <div className="space-y-4">
               <div>
-                <p className="text-3xl font-bold">$12,500</p>
+                <p className="text-3xl font-bold">TBD</p>
                 <p className="text-xs text-zinc-400 mt-1">Estimated Deal Value</p>
               </div>
               <div className="pt-4 border-t border-zinc-800">
                 <div className="flex justify-between text-xs mb-2">
                   <span className="text-zinc-400">Confidence Score</span>
-                  <span className="font-bold">85%</span>
+                  <span className="font-bold">--%</span>
                 </div>
                 <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-                  <div className="h-full bg-emerald-500 w-[85%]" />
+                  <div className="h-full bg-zinc-700 w-0" />
                 </div>
               </div>
             </div>

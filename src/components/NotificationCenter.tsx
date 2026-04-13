@@ -21,6 +21,18 @@ interface Notification {
   organization: string;
 }
 
+const getTimestamp = (timestamp: any) => {
+  if (!timestamp) return new Date();
+  if (timestamp.toDate) {
+    try {
+      return timestamp.toDate();
+    } catch (e) {
+      return new Date();
+    }
+  }
+  return new Date(timestamp);
+};
+
 export default function NotificationCenter() {
   const { profile } = useAuth();
   const navigate = useNavigate();
@@ -76,14 +88,51 @@ export default function NotificationCenter() {
   }, [profile, retry]);
 
   const unreadCount = notifications.filter(n => !n.read).length;
-  const filteredNotifications = activeTab === 'unread' 
-    ? notifications.filter(n => !n.read) 
-    : notifications;
+  
+  // Grouping logic
+  const groupNotifications = (notifs: Notification[]) => {
+    const groups: Record<string, Notification & { count: number; ids: string[] }> = {};
+    
+    notifs.forEach(n => {
+      // Create a unique key for grouping: title + message + relatedEntityId
+      const key = `${n.title}_${n.message}_${n.relatedEntityId || ''}`;
+      
+      if (!groups[key]) {
+        groups[key] = { ...n, count: 1, ids: [n.id] };
+      } else {
+        groups[key].count += 1;
+        groups[key].ids.push(n.id);
+        // Keep the most recent timestamp
+        const currentTs = getTimestamp(n.timestamp);
+        const existingTs = getTimestamp(groups[key].timestamp);
+        if (currentTs > existingTs) {
+          groups[key].timestamp = n.timestamp;
+        }
+        // If any in group is unread, mark group as unread
+        if (!n.read) {
+          groups[key].read = false;
+        }
+      }
+    });
 
-  const handleNotificationClick = async (notification: Notification) => {
+    return Object.values(groups).sort((a, b) => {
+      return getTimestamp(b.timestamp).getTime() - getTimestamp(a.timestamp).getTime();
+    });
+  };
+
+  const filteredNotifications = activeTab === 'unread' 
+    ? groupNotifications(notifications.filter(n => !n.read))
+    : groupNotifications(notifications);
+
+  const handleNotificationClick = async (notification: any) => {
     if (!notification.read) {
       try {
-        await updateDoc(doc(db, 'notifications', notification.id), { read: true });
+        // Mark all notifications in the group as read
+        const batch = writeBatch(db);
+        notification.ids.forEach((id: string) => {
+          batch.update(doc(db, 'notifications', id), { read: true });
+        });
+        await batch.commit();
       } catch (error) {
         console.error("Error marking as read:", error);
       }
@@ -101,9 +150,13 @@ export default function NotificationCenter() {
     }
   };
 
-  const markAsRead = async (id: string) => {
+  const markAsRead = async (ids: string[]) => {
     try {
-      await updateDoc(doc(db, 'notifications', id), { read: true });
+      const batch = writeBatch(db);
+      ids.forEach(id => {
+        batch.update(doc(db, 'notifications', id), { read: true });
+      });
+      await batch.commit();
     } catch (error) {
       console.error("Error marking as read:", error);
     }
@@ -166,24 +219,16 @@ export default function NotificationCenter() {
     }
   };
 
-  const removeNotification = async (id: string) => {
+  const removeNotification = async (ids: string[]) => {
     try {
-      await deleteDoc(doc(db, 'notifications', id));
+      const batch = writeBatch(db);
+      ids.forEach(id => {
+        batch.delete(doc(db, 'notifications', id));
+      });
+      await batch.commit();
     } catch (error) {
       console.error("Error removing notification:", error);
     }
-  };
-
-  const getTimestamp = (timestamp: any) => {
-    if (!timestamp) return new Date();
-    if (timestamp.toDate) {
-      try {
-        return timestamp.toDate();
-      } catch (e) {
-        return new Date();
-      }
-    }
-    return new Date(timestamp);
   };
 
   return (
@@ -211,12 +256,12 @@ export default function NotificationCenter() {
               initial={{ opacity: 0, y: 10, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.95 }}
-              className="absolute right-0 mt-2 w-96 bg-white rounded-2xl shadow-2xl border border-zinc-200 z-50 overflow-hidden flex flex-col"
+              className="fixed md:absolute top-20 md:top-auto right-4 md:right-0 w-[calc(100vw-32px)] md:w-96 bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-zinc-200 dark:border-zinc-800 z-50 overflow-hidden flex flex-col max-h-[80vh] md:max-h-none"
             >
-              <div className="p-4 border-b border-zinc-100 bg-zinc-50/50">
+              <div className="p-4 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
-                    <h3 className="font-bold text-zinc-900">Notifications</h3>
+                    <h3 className="font-bold text-zinc-900 dark:text-zinc-100">Notifications</h3>
                     {unreadCount > 0 && (
                       <span className="px-2 py-0.5 bg-rose-100 text-rose-600 text-[10px] font-bold rounded-full">
                         {unreadCount} new
@@ -244,13 +289,13 @@ export default function NotificationCenter() {
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <div className="flex bg-zinc-100 p-1 rounded-lg">
+                  <div className="flex bg-zinc-100 dark:bg-zinc-800 p-1 rounded-lg">
                     <button
                       onClick={() => setActiveTab('all')}
                       className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
                         activeTab === 'all' 
-                          ? 'bg-white text-zinc-900 shadow-sm' 
-                          : 'text-zinc-500 hover:text-zinc-700'
+                          ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-sm' 
+                          : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'
                       }`}
                     >
                       All
@@ -259,8 +304,8 @@ export default function NotificationCenter() {
                       onClick={() => setActiveTab('unread')}
                       className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
                         activeTab === 'unread' 
-                          ? 'bg-white text-zinc-900 shadow-sm' 
-                          : 'text-zinc-500 hover:text-zinc-700'
+                          ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-sm' 
+                          : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'
                       }`}
                     >
                       Unread
@@ -300,7 +345,7 @@ export default function NotificationCenter() {
                     </p>
                   </div>
                 ) : (
-                  <div className="divide-y divide-zinc-100">
+                  <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
                     <AnimatePresence initial={false}>
                       {filteredNotifications.slice(0, 50).map(notification => (
                         <motion.div 
@@ -309,17 +354,17 @@ export default function NotificationCenter() {
                           animate={{ opacity: 1, x: 0 }}
                           exit={{ opacity: 0, x: 20 }}
                           onClick={() => handleNotificationClick(notification)}
-                          className={`p-4 hover:bg-zinc-50 transition-all relative group cursor-pointer ${!notification.read ? 'bg-emerald-50/30' : ''}`}
+                          className={`p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-all relative group cursor-pointer ${!notification.read ? 'bg-emerald-50/30 dark:bg-emerald-900/10' : ''}`}
                         >
                           {!notification.read && (
                             <div className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500" />
                           )}
                           <div className="flex gap-3">
                             <div className={`mt-1 w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors border ${
-                              notification.type === 'success' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
-                              notification.type === 'warning' ? 'bg-amber-50 text-amber-600 border-amber-100' :
-                              notification.type === 'error' ? 'bg-rose-50 text-rose-600 border-rose-100' :
-                              'bg-blue-50 text-blue-600 border-blue-100'
+                              notification.type === 'success' ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-800' :
+                              notification.type === 'warning' ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-800' :
+                              notification.type === 'error' ? 'bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 border-rose-100 dark:border-rose-800' :
+                              'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-blue-100 dark:border-blue-800'
                             }`}>
                               {notification.type === 'success' ? <Check size={16} /> :
                                notification.type === 'warning' ? <AlertTriangle size={16} /> :
@@ -328,33 +373,40 @@ export default function NotificationCenter() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-start justify-between gap-2">
-                                <p className={`text-sm font-bold truncate ${notification.read ? 'text-zinc-600' : 'text-zinc-900'}`}>
-                                  {notification.title}
-                                </p>
+                                <div className="flex items-center gap-2">
+                                  <p className={`text-sm font-bold truncate ${notification.read ? 'text-zinc-600 dark:text-zinc-400' : 'text-zinc-900 dark:text-zinc-100'}`}>
+                                    {notification.title}
+                                    {notification.count > 1 && (
+                                      <span className="ml-2 px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-500 text-[10px] rounded-md">
+                                        x{notification.count}
+                                      </span>
+                                    )}
+                                  </p>
+                                </div>
                                 <button 
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    removeNotification(notification.id);
+                                    removeNotification(notification.ids);
                                   }}
-                                  className="p-1 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-md opacity-0 group-hover:opacity-100 transition-all"
+                                  className="p-1 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-md opacity-0 group-hover:opacity-100 transition-all"
                                 >
                                   <Trash2 size={14} />
                                 </button>
                               </div>
-                              <p className="text-xs text-zinc-500 mt-0.5 line-clamp-2 leading-relaxed">
+                              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 line-clamp-2 leading-relaxed">
                                 {notification.message}
                               </p>
                               <div className="flex items-center justify-between mt-2">
-                                <p className="text-[10px] font-medium text-zinc-400">
+                                <p className="text-[10px] font-medium text-zinc-400 dark:text-zinc-500">
                                   {formatDistanceToNow(getTimestamp(notification.timestamp), { addSuffix: true })}
                                 </p>
                                 {!notification.read && (
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      markAsRead(notification.id);
+                                      markAsRead(notification.ids);
                                     }}
-                                    className="text-[10px] font-bold text-emerald-600 hover:underline"
+                                    className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
                                   >
                                     Mark as read
                                   </button>
@@ -369,13 +421,13 @@ export default function NotificationCenter() {
                 )}
               </div>
 
-              <div className="p-3 border-t border-zinc-100 text-center bg-zinc-50/50">
+              <div className="p-3 border-t border-zinc-100 dark:border-zinc-800 text-center bg-zinc-50/50 dark:bg-zinc-900/50">
                 <button 
                   onClick={() => {
                     navigate('/communications');
                     setIsOpen(false);
                   }}
-                  className="text-xs font-bold text-zinc-900 hover:text-emerald-600 transition-colors"
+                  className="text-xs font-bold text-zinc-900 dark:text-zinc-100 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
                 >
                   View all activity
                 </button>

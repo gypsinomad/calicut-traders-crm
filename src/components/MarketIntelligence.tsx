@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Brain, TrendingUp, TrendingDown, Minus, RefreshCw, Lightbulb } from 'lucide-react';
 import { handleAIError, generateAIContent, isAIAvailable } from '../lib/ai';
 import { motion } from 'motion/react';
+import { agentService } from '../services/agentService';
+import { useAuth } from './Auth';
 
 interface Insight {
   commodity: string;
@@ -12,6 +14,7 @@ interface Insight {
 }
 
 export default function MarketIntelligence() {
+  const { profile } = useAuth();
   const [insights, setInsights] = useState<Insight[]>([]);
   const [loading, setLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -20,45 +23,16 @@ export default function MarketIntelligence() {
     setLoading(true);
 
     if (!isAIAvailable()) {
-      // Rule-based fallback
-      const fallbackInsights: Insight[] = [
-        {
-          commodity: 'Black Pepper',
-          trend: 'up',
-          summary: 'Global supply remains tight with reduced output from Vietnam. Indian domestic demand is picking up ahead of the festive season.',
-          recommendation: 'Consider securing inventory now before further price appreciation.',
-          riskLevel: 'medium'
-        },
-        {
-          commodity: 'Cardamom',
-          trend: 'down',
-          summary: 'Increased arrivals in Idukki auctions and favorable weather conditions suggest a surplus in the coming months.',
-          recommendation: 'Wait for further price correction before making bulk purchases.',
-          riskLevel: 'low'
-        },
-        {
-          commodity: 'Ginger',
-          trend: 'stable',
-          summary: 'Market arrivals are consistent with seasonal averages. Export demand from Middle East remains steady.',
-          recommendation: 'Maintain regular procurement cycles to satisfy existing export contracts.',
-          riskLevel: 'low'
-        },
-        {
-          commodity: 'Turmeric',
-          trend: 'up',
-          summary: 'Reduced acreage in major growing regions and strong demand for high-curcumin varieties are driving prices higher.',
-          recommendation: 'Focus on high-quality varieties to command premium export prices.',
-          riskLevel: 'medium'
-        }
-      ];
-
-      setInsights(fallbackInsights);
       setLastUpdated(new Date());
       setLoading(false);
       return;
     }
 
     try {
+      if (profile?.organization) {
+        await agentService.runMarketIntelligenceAgent(profile.organization);
+      }
+      
       const model = "gemini-3-flash-preview";
       const prompt = `Analyze the current global export market (specifically Black Pepper, Cardamom, Ginger, Turmeric, and Cloves) for March 2026. 
       Provide a JSON array of insights with the following structure:

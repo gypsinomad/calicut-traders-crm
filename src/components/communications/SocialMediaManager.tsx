@@ -32,11 +32,13 @@ import { motion, AnimatePresence } from 'motion/react';
 import { SocialPost } from '../../lib/types';
 import { metaService } from '../../services/metaService';
 import { zohoSocialService } from '../../services/zohosocialService';
+import { useAuth } from '../Auth';
 import { TranslatedText } from '../TranslatedText';
 
 type SocialTab = 'composer' | 'calendar' | 'analytics' | 'engagement';
 
 export function SocialMediaManager() {
+  const { profile } = useAuth();
   const [activeTab, setActiveTab] = useState<SocialTab>('composer');
   const [posts, setPosts] = useState<SocialPost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,7 +80,7 @@ export function SocialMediaManager() {
     setLoading(true);
     try {
       const metaPosts = await metaService.getPosts();
-      const zohoPosts = await zohoSocialService.getQueue('calicut_traders_ws');
+      const zohoPosts = await zohoSocialService.getQueue(profile?.organization?.toLowerCase().replace(/\s+/g, '_') || 'default');
       setPosts([...metaPosts, ...zohoPosts]);
     } catch (error) {
       console.error('Error loading social posts:', error);
@@ -98,7 +100,7 @@ export function SocialMediaManager() {
           platform: (platformId === 'fb' || platformId === 'ig' ? 'facebook' : platformId === 'li' ? 'linkedin' : 'twitter') as any,
           content: newPostContent,
           status: scheduledDate ? 'scheduled' : 'published' as const,
-          organization: 'default',
+          organization: profile?.organization || '',
           scheduledAt: scheduledDate ? Timestamp.fromDate(new Date(scheduledDate)) : undefined
         };
 

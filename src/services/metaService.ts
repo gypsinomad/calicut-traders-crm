@@ -20,7 +20,7 @@ class MetaService {
     return true;
   }
 
-  async schedulePost(post: Omit<SocialPost, 'id' | 'status' | 'organization'>): Promise<SocialPost> {
+  async schedulePost(post: Omit<SocialPost, 'id' | 'status'>): Promise<SocialPost> {
     console.log('Scheduling post via Meta API:', post);
     
     // Simulate API delay
@@ -29,14 +29,13 @@ class MetaService {
     const scheduledPost: SocialPost = {
       ...post,
       id: `meta_${Math.random().toString(36).substr(2, 9)}`,
-      status: 'scheduled',
-      organization: 'calicut_traders'
+      status: 'scheduled'
     };
 
     return scheduledPost;
   }
 
-  async publishPost(post: Omit<SocialPost, 'id' | 'status' | 'organization'>): Promise<SocialPost> {
+  async publishPost(post: Omit<SocialPost, 'id' | 'status'>): Promise<SocialPost> {
     console.log('Publishing post via Meta API:', post);
     
     // Simulate API delay
@@ -46,78 +45,40 @@ class MetaService {
       ...post,
       id: `meta_${Math.random().toString(36).substr(2, 9)}`,
       status: 'published',
-      publishedAt: Timestamp.now(),
-      organization: 'calicut_traders'
+      publishedAt: Timestamp.now()
     };
 
     return publishedPost;
   }
 
   async getPosts(): Promise<SocialPost[]> {
-    // Simulated mock data
-    return [
-      {
-        id: 'meta_1',
-        platform: 'facebook',
-        content: 'Fresh Kerala Black Pepper now available! High piperine content, directly from our farms. #Export #BlackPepper',
-        mediaUrls: ['https://picsum.photos/seed/pepper/800/600'],
-        scheduledAt: Timestamp.now(),
-        publishedAt: Timestamp.now(),
-        status: 'published',
-        analytics: {
-          reach: 1250,
-          engagement: 85,
-          impressions: 2100,
-          clicks: 42
-        },
-        organization: 'calicut_traders'
-      },
-      {
-        id: 'meta_2',
-        platform: 'instagram',
-        content: 'Calicut Traders at Gulfood 2024! Visit us at Hall 3, Stand A12. #Gulfood #Trade',
-        mediaUrls: ['https://picsum.photos/seed/gulfood/800/800'],
-        scheduledAt: Timestamp.now(),
-        publishedAt: Timestamp.now(),
-        status: 'published',
-        analytics: {
-          reach: 3400,
-          engagement: 210,
-          impressions: 5600,
-          clicks: 125
-        },
-        organization: 'calicut_traders'
-      }
-    ];
+    return [];
   }
 
   async getLeadAds(): Promise<any[]> {
-    return [
-      { id: 'lead_1', name: 'John Doe', email: 'john@uaeimport.com', phone: '971501234567', adSet: 'UAE Product Buyers' },
-      { id: 'lead_2', name: 'Sarah Smith', email: 'sarah@ukproducts.co.uk', phone: '447700900123', adSet: 'UK Importers' }
-    ];
+    return [];
   }
 
   async getInsights(): Promise<any> {
     return {
       facebook: {
-        totalReach: 45200,
-        engagementRate: 3.2,
-        topPost: 'Fresh Kerala Black Pepper...',
+        totalReach: 0,
+        engagementRate: 0,
+        topPost: '',
         audience: {
-          men: 45,
-          women: 55,
-          topCountries: ['UAE', 'UK', 'USA']
+          men: 0,
+          women: 0,
+          topCountries: []
         }
       },
       instagram: {
-        totalReach: 79300,
-        engagementRate: 5.8,
-        topPost: 'Calicut Traders at Gulfood...',
+        totalReach: 0,
+        engagementRate: 0,
+        topPost: '',
         audience: {
-          men: 38,
-          women: 62,
-          topCountries: ['UAE', 'India', 'Germany']
+          men: 0,
+          women: 0,
+          topCountries: []
         }
       }
     };

@@ -48,6 +48,13 @@ export interface Lead {
   riskExplanation?: string;
   smartScore?: number;
   smartScoreExplanation?: string;
+  aiInsights?: {
+    temperature: 'hot' | 'warm' | 'cold';
+    strengths: string[];
+    concerns: string[];
+    nextStep: string;
+    scoredAt: Timestamp;
+  };
   activityLog?: {
     type: 'call' | 'email' | 'whatsapp' | 'meeting';
     note: string;
@@ -142,6 +149,8 @@ export interface ExportOrder {
   originPort?: string;
   destinationPort?: string;
   updatedAt?: Timestamp;
+  createdBy?: string;
+  updatedBy?: string;
   logisticsAI?: any;
   complianceAI?: any;
   transportMode?: string;
@@ -310,6 +319,8 @@ export interface Payment {
   paidAt?: Timestamp;
   dueDate: Timestamp;
   organization: string;
+  createdBy?: string;
+  updatedBy?: string;
   riskAI?: {
     riskLevel: 'low' | 'medium' | 'high';
     score: number;
@@ -422,6 +433,8 @@ export interface Task {
   dueDate: Timestamp;
   assigneeId: string;
   createdAt: Timestamp;
+  createdBy?: string;
+  updatedBy?: string;
   relatedLeadId?: string;
   relatedOrderId?: string;
   organization?: string;
@@ -574,6 +587,25 @@ export interface UnifiedMessage {
   assignedTo?: string;
   relatedEntityId?: string;
   relatedEntityType?: 'lead' | 'order' | 'company';
+  organization: string;
+  aiInsights?: {
+    sentiment: 'positive' | 'neutral' | 'negative';
+    priority: 'low' | 'medium' | 'high' | 'urgent';
+    category: string;
+    suggestedReply: string;
+    lastAnalyzed: Timestamp;
+  };
+}
+
+export interface MarketSignal {
+  id: string;
+  commodity: string;
+  type: 'price' | 'supply' | 'demand' | 'regulation';
+  source: string;
+  content: string;
+  impact: 'positive' | 'negative' | 'neutral';
+  confidence: number;
+  timestamp: Timestamp;
   organization: string;
 }
 

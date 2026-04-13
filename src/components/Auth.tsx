@@ -411,14 +411,14 @@ export function LoginScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-50 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white p-10 rounded-3xl border border-zinc-200 shadow-2xl">
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center p-4 md:p-8">
+      <div className="max-w-md w-full bg-white dark:bg-zinc-900 p-8 md:p-10 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-2xl">
         <div className="text-center mb-8">
-          <div className="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4 rotate-3 shadow-inner">
-            <LogIn size={40} />
+          <div className="w-16 h-16 md:w-20 md:h-20 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-2xl flex items-center justify-center mx-auto mb-4 rotate-3 shadow-inner">
+            <LogIn size={32} className="md:w-10 md:h-10" />
           </div>
-          <h1 className="text-3xl font-black text-zinc-900 mb-2 tracking-tight">Export CRM</h1>
-          <p className="text-zinc-500 font-medium">
+          <h1 className="text-2xl md:text-3xl font-black text-zinc-900 dark:text-zinc-100 mb-2 tracking-tight">Export CRM</h1>
+          <p className="text-zinc-500 dark:text-zinc-400 font-medium text-sm md:text-base">
             Calicut Traders - Export Management CRM
           </p>
         </div>
@@ -426,43 +426,43 @@ export function LoginScreen() {
         <form onSubmit={handleSubmit} className="space-y-4 mb-6">
           {isSignUp && (
             <div>
-              <label className="block text-xs font-bold text-zinc-400 uppercase tracking-widest mb-1 ml-1">Full Name</label>
+              <label className="block text-[10px] md:text-xs font-bold text-zinc-400 uppercase tracking-widest mb-1.5 ml-1">Full Name</label>
               <input
                 type="text"
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all outline-none"
+                className="w-full px-4 py-3.5 md:py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all outline-none dark:text-zinc-100"
                 placeholder="John Doe"
               />
             </div>
           )}
           <div>
-            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-widest mb-1 ml-1">Email Address</label>
+            <label className="block text-[10px] md:text-xs font-bold text-zinc-400 uppercase tracking-widest mb-1.5 ml-1">Email Address</label>
             <input
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all outline-none"
+              className="w-full px-4 py-3.5 md:py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all outline-none dark:text-zinc-100"
               placeholder="name@company.com"
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-widest mb-1 ml-1">Password</label>
+            <label className="block text-[10px] md:text-xs font-bold text-zinc-400 uppercase tracking-widest mb-1.5 ml-1">Password</label>
             <input
               type="password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all outline-none"
+              className="w-full px-4 py-3.5 md:py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all outline-none dark:text-zinc-100"
               placeholder="••••••••"
             />
           </div>
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-4 bg-zinc-900 text-white rounded-2xl font-bold hover:bg-zinc-800 transition-all shadow-lg disabled:opacity-50"
+            className="w-full py-4 bg-zinc-900 dark:bg-emerald-600 text-white rounded-2xl font-bold hover:bg-zinc-800 dark:hover:bg-emerald-500 transition-all shadow-lg disabled:opacity-50"
           >
             {loading ? <Loader2 className="animate-spin mx-auto" size={20} /> : (isSignUp ? 'Create Account' : 'Sign In')}
           </button>
@@ -470,17 +470,17 @@ export function LoginScreen() {
 
         <div className="relative mb-6">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-zinc-100"></div>
+            <div className="w-full border-t border-zinc-100 dark:border-zinc-800"></div>
           </div>
           <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-white px-2 text-zinc-400 font-bold tracking-widest">Or continue with</span>
+            <span className="bg-white dark:bg-zinc-900 px-2 text-zinc-400 dark:text-zinc-500 font-bold tracking-widest">Or continue with</span>
           </div>
         </div>
         
         <button
           onClick={signIn}
           disabled={loading}
-          className="w-full flex items-center justify-center gap-3 px-8 py-4 bg-white border border-zinc-200 text-zinc-900 rounded-2xl font-bold hover:bg-zinc-50 transition-all shadow-sm group mb-6"
+          className="w-full flex items-center justify-center gap-3 px-8 py-4 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 rounded-2xl font-bold hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all shadow-sm group mb-6"
         >
           <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5 group-hover:scale-110 transition-transform" />
           Google Account
@@ -489,13 +489,13 @@ export function LoginScreen() {
         <div className="text-center">
           <button
             onClick={() => setIsSignUp(!isSignUp)}
-            className="text-sm font-bold text-emerald-600 hover:text-emerald-700 transition-colors"
+            className="text-sm font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors"
           >
             {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
           </button>
         </div>
         
-        <p className="mt-8 text-[10px] text-zinc-400 uppercase tracking-widest font-bold text-center">
+        <p className="mt-8 text-[10px] text-zinc-400 dark:text-zinc-500 uppercase tracking-widest font-bold text-center">
           Secure Enterprise Access Only
         </p>
       </div>

@@ -17,6 +17,7 @@ import {
   ScanLine,
   Kanban,
   Command,
+  Zap,
   Shield,
   Activity,
   DollarSign,
@@ -38,35 +39,64 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-const navItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-  { icon: Users, label: 'Leads', path: '/leads' },
-  { icon: FileSearch, label: 'Quotations', path: '/quotes' },
-  { icon: Ship, label: 'Export Orders', path: '/orders' },
-  { icon: Kanban, label: 'Pipeline', path: '/pipeline' },
-  { icon: Truck, label: 'Execution', path: '/execution' },
-  { icon: Package, label: 'Inventory', path: '/inventory' },
-  { icon: TrendingUp, label: 'Market Oracle', path: '/market' },
-  { icon: UserCircle, label: 'Suppliers', path: '/suppliers' },
-  { icon: DollarSign, label: 'Payments', path: '/payments' },
-  { icon: AlertTriangle, label: 'Exceptions', path: '/exceptions' },
-  { icon: PieChart, label: 'Analytics', path: '/analytics' },
-  { icon: ScanLine, label: 'Smart Scanner', path: '/scanner' },
-  { icon: Shield, label: 'Document Vault', path: '/documents' },
-  { icon: CheckSquare, label: 'Tasks', path: '/tasks' },
-  { icon: Building2, label: 'Companies', path: '/companies' },
-  { icon: BarChart3, label: 'Reports', path: '/reports' },
-  { icon: FileCheck, label: 'Export Docs', path: '/documents-manager' },
-  { icon: LayoutGrid, label: 'Buyer Pipeline', path: '/buyer-pipeline' },
-  { icon: Navigation, label: 'Shipment Tracker', path: '/shipment-tracker' },
-  { icon: Mail, label: 'Communications', path: '/communications' },
-  { icon: Calendar, label: 'Calendar', path: '/calendar' },
-  { icon: MessageSquare, label: 'Collaboration', path: '/collaboration' },
-  { icon: UserCircle, label: 'Customer Portal', path: '/portal' },
-  { icon: Users, label: 'User Management', path: '/users' },
-  { icon: Activity, label: 'Audit Trail', path: '/audit' },
-  { icon: Activity, label: 'System Health', path: '/health' },
-  { icon: Settings, label: 'Settings', path: '/settings' },
+const navSections = [
+  {
+    label: 'Sales & CRM',
+    items: [
+      { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+      { icon: Users, label: 'Leads', path: '/leads' },
+      { icon: FileSearch, label: 'Prospecting', path: '/prospecting' },
+      { icon: Zap, label: 'Signals', path: '/signals' },
+      { icon: FileText, label: 'Quotations', path: '/quotes' },
+      { icon: Kanban, label: 'Pipeline', path: '/pipeline' },
+      { icon: LayoutGrid, label: 'Buyer Pipeline', path: '/buyer-pipeline' },
+      { icon: Building2, label: 'Companies', path: '/companies' },
+    ]
+  },
+  {
+    label: 'Operations',
+    items: [
+      { icon: Ship, label: 'Export Orders', path: '/orders' },
+      { icon: Truck, label: 'Execution', path: '/execution' },
+      { icon: Navigation, label: 'Shipment Tracker', path: '/shipment-tracker' },
+      { icon: Package, label: 'Inventory', path: '/inventory' },
+      { icon: UserCircle, label: 'Procurement', path: '/procurement' },
+      { icon: UserCircle, label: 'Suppliers', path: '/suppliers' },
+    ]
+  },
+  {
+    label: 'Intelligence',
+    items: [
+      { icon: TrendingUp, label: 'Market Oracle', path: '/market' },
+      { icon: PieChart, label: 'Analytics', path: '/analytics' },
+      { icon: BarChart3, label: 'Reports', path: '/reports' },
+      { icon: ScanLine, label: 'Smart Scanner', path: '/scanner' },
+    ]
+  },
+  {
+    label: 'Communication',
+    items: [
+      { icon: Mail, label: 'Communications', path: '/communications' },
+      { icon: MessageSquare, label: 'Collaboration', path: '/collaboration' },
+      { icon: Calendar, label: 'Calendar', path: '/calendar' },
+      { icon: CheckSquare, label: 'Tasks', path: '/tasks' },
+      { icon: Activity, label: 'Workflows', path: '/workflows' },
+    ]
+  },
+  {
+    label: 'System',
+    items: [
+      { icon: DollarSign, label: 'Finance', path: '/finance' },
+      { icon: DollarSign, label: 'Payments', path: '/payments' },
+      { icon: AlertTriangle, label: 'Exceptions', path: '/exceptions' },
+      { icon: Shield, label: 'Document Vault', path: '/documents' },
+      { icon: FileCheck, label: 'Export Docs', path: '/documents-manager' },
+      { icon: Users, label: 'User Management', path: '/users' },
+      { icon: Activity, label: 'Audit Trail', path: '/audit' },
+      { icon: Activity, label: 'System Health', path: '/health' },
+      { icon: Settings, label: 'Settings', path: '/settings' },
+    ]
+  }
 ];
 
 import { useTranslation } from '../contexts/LanguageContext.tsx';
@@ -117,11 +147,11 @@ export default function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose
     return () => unsubscribe();
   }, [profile?.role, profile?.organization]);
 
-  const filteredNavItems = navItems.filter(item => {
-    if (item.path === '/users') return profile?.role === 'admin';
-    if (item.path === '/audit' || item.path === '/health') return profile?.role === 'admin';
+  const isItemVisible = (path: string) => {
+    if (path === '/users') return profile?.role === 'admin';
+    if (path === '/audit' || path === '/health') return profile?.role === 'admin';
     return true;
-  });
+  };
 
   return (
     <div className={cn(
@@ -131,7 +161,7 @@ export default function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose
       isRTL ? (isOpen ? "translate-x-0" : "translate-x-full") : (isOpen ? "translate-x-0" : "-translate-x-full"),
       "md:translate-x-0"
     )}>
-      <div className="p-8 flex items-center justify-between">
+      <div className="p-8 flex items-center justify-between shrink-0">
         <div>
           <h1 className="text-2xl font-serif font-bold text-white dark:text-zinc-100 flex items-center gap-2">
             <Ship className="text-[#d97706] dark:text-amber-500" />
@@ -147,39 +177,46 @@ export default function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose
         </button>
       </div>
 
-      <nav className="flex-1 px-4 space-y-0.5 overflow-y-auto custom-scrollbar">
-        {filteredNavItems.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            onClick={() => {
-              if (window.innerWidth < 768 && onClose) {
-                onClose();
-              }
-            }}
-            className={({ isActive }) => cn(
-              "flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 group",
-              isActive 
-                ? "bg-white/10 dark:bg-zinc-800 text-white dark:text-zinc-100 shadow-sm" 
-                : "hover:bg-white/5 dark:hover:bg-zinc-900 hover:text-white dark:hover:text-zinc-200"
-            )}
-          >
-            <item.icon size={18} className={cn(
-              "transition-colors",
-              "group-hover:text-[#d97706] dark:group-hover:text-amber-500"
-            )} />
-            <TranslatedText as="span" className="text-sm font-medium tracking-tight flex-1">{item.label}</TranslatedText>
-            {item.path === '/communications' && unreadMessagesCount > 0 && (
-              <span className="px-1.5 py-0.5 rounded-full bg-[#d97706] dark:bg-amber-600 text-white text-[10px] font-bold">
-                {unreadMessagesCount}
-              </span>
-            )}
-            {item.path === '/users' && pendingUsersCount > 0 && (
-              <span className="px-1.5 py-0.5 rounded-full bg-amber-500 dark:bg-amber-600 text-white text-[10px] font-bold animate-pulse">
-                {pendingUsersCount}
-              </span>
-            )}
-          </NavLink>
+      <nav className="flex-1 px-4 space-y-6 overflow-y-auto custom-scrollbar pb-8">
+        {navSections.map((section) => (
+          <div key={section.label} className="space-y-1">
+            <h3 className="px-4 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300/30 dark:text-zinc-600 mb-2">
+              <TranslatedText>{section.label}</TranslatedText>
+            </h3>
+            {section.items.filter(item => isItemVisible(item.path)).map((item) => (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                onClick={() => {
+                  if (window.innerWidth < 768 && onClose) {
+                    onClose();
+                  }
+                }}
+                className={({ isActive }) => cn(
+                  "flex items-center gap-3 px-4 py-2 rounded-xl transition-all duration-200 group",
+                  isActive 
+                    ? "bg-white/10 dark:bg-zinc-800 text-white dark:text-zinc-100 shadow-sm" 
+                    : "hover:bg-white/5 dark:hover:bg-zinc-900 hover:text-white dark:hover:text-zinc-200"
+                )}
+              >
+                <item.icon size={16} className={cn(
+                  "transition-colors",
+                  "group-hover:text-[#d97706] dark:group-hover:text-amber-500"
+                )} />
+                <TranslatedText as="span" className="text-xs font-medium tracking-tight flex-1">{item.label}</TranslatedText>
+                {item.path === '/communications' && unreadMessagesCount > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-full bg-[#d97706] dark:bg-amber-600 text-white text-[10px] font-bold">
+                    {unreadMessagesCount}
+                  </span>
+                )}
+                {item.path === '/users' && pendingUsersCount > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-full bg-amber-500 dark:bg-amber-600 text-white text-[10px] font-bold animate-pulse">
+                    {pendingUsersCount}
+                  </span>
+                )}
+              </NavLink>
+            ))}
+          </div>
         ))}
       </nav>
 

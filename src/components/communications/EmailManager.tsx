@@ -26,9 +26,11 @@ import { EmailMessage } from '../../lib/types';
 import { zohoMailService } from '../../services/zohoMailService';
 import { TranslatedText } from '../TranslatedText';
 import { Timestamp } from 'firebase/firestore';
-import { auth, db } from '../../firebase';
+import { auth } from '../../firebase';
+import { useAuth } from '../Auth';
 
 export function EmailManager() {
+  const { profile } = useAuth();
   const [emails, setEmails] = useState<EmailMessage[]>([]);
   const [selectedEmail, setSelectedEmail] = useState<EmailMessage | null>(null);
   const [loading, setLoading] = useState(true);
@@ -43,29 +45,21 @@ export function EmailManager() {
     }
 
     try {
-      // Simulate sending
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Add to sent folder (mock)
-      const sentEmail: EmailMessage = {
-        id: Math.random().toString(36).substr(2, 9),
-        threadId: Math.random().toString(36).substr(2, 9),
+      const emailData = {
+        threadId: `th_${Math.random().toString(36).substr(2, 9)}`,
         subject: composeData.subject,
         body: composeData.body,
         to: [composeData.to],
-        from: auth.currentUser?.email || 'me@example.com',
-        timestamp: Timestamp.now(),
-        status: 'sent',
-        organization: 'Global Trade Connect LLP'
+        from: auth.currentUser?.email || '',
+        organization: profile?.organization || ''
       };
-      
-      // Update local state to show it in the list if we were in "Sent" folder
-      // For now, we just show a success message and close
+
+      await zohoMailService.sendEmail(emailData);
       
       alert('Email sent successfully!');
       setIsComposeOpen(false);
       setComposeData({ to: '', subject: '', body: '' });
-      loadEmails(); // Reload to show new email if applicable
+      loadEmails();
     } catch (error) {
       console.error('Error sending email:', error);
       alert('Failed to send email');

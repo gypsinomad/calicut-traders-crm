@@ -38,6 +38,7 @@ import {
 import { db } from '../../firebase';
 import { useAuth } from '../Auth';
 import { TranslatedText } from '../TranslatedText';
+import { agentService } from '../../services/agentService';
 
 export function UnifiedInbox() {
   const { profile } = useAuth();
@@ -65,10 +66,12 @@ export function UnifiedInbox() {
       setMessages(msgs);
       setLoading(false);
 
-      // Seed initial data if empty
-      if (msgs.length === 0 && loading) {
-        seedInitialMessages();
-      }
+      // Trigger AI Agent for unanalyzed messages
+      msgs.forEach(msg => {
+        if (!msg.aiInsights && msg.status === 'unread') {
+          agentService.runCommunicationAgent(msg);
+        }
+      });
     }, (error) => {
       console.error("Error fetching messages:", error);
       setLoading(false);
@@ -76,45 +79,6 @@ export function UnifiedInbox() {
 
     return () => unsubscribe();
   }, [profile?.organization]);
-
-  const seedInitialMessages = async () => {
-    if (!profile?.organization) return;
-    
-    const initialMessages = [
-      {
-        channel: 'whatsapp',
-        sender: { id: 's1', name: 'Al-Futtaim Group (UAE)', avatar: 'https://i.pravatar.cc/150?u=alfuttaim' },
-        content: 'When is the next shipment of Black Pepper expected in Dubai?',
-        timestamp: serverTimestamp(),
-        status: 'unread',
-        relatedEntityType: 'order',
-        relatedEntityId: 'ORD-2024-001',
-        organization: profile.organization
-      },
-      {
-        channel: 'email',
-        sender: { id: 's2', name: 'Global Trading House', email: 'procurement@globaltrading.co.uk' },
-        content: 'Please find the signed contract for the upcoming turmeric order.',
-        timestamp: serverTimestamp(),
-        status: 'pending',
-        relatedEntityType: 'lead',
-        relatedEntityId: 'LEAD-102',
-        organization: profile.organization
-      },
-      {
-        channel: 'facebook',
-        sender: { id: 's3', name: 'Nigeria Trade Importers', avatar: 'https://i.pravatar.cc/150?u=nigeria' },
-        content: 'Interested in your ginger export prices for Lagos.',
-        timestamp: serverTimestamp(),
-        status: 'unread',
-        organization: profile.organization
-      }
-    ];
-
-    for (const msg of initialMessages) {
-      await addDoc(collection(db, 'messages'), msg);
-    }
-  };
 
   const handleSelectMessage = async (message: UnifiedMessage) => {
     setSelectedMessage(message);

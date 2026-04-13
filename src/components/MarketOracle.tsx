@@ -43,24 +43,6 @@ export default function MarketOracle() {
     const unsubscribe = subscribeToCollection<MarketPrice>(
       'market_prices',
       async (data) => {
-        if (data.length === 0 && !loading) {
-          // Seed initial data if empty
-          const initialProducts = [
-            { product: 'Black Pepper', commodity: 'Product', region: 'Kochi, India', price: 625, currency: 'INR', unit: 'kg', trend: 'up' },
-            { product: 'Cardamom', commodity: 'Product', region: 'Idukki, India', price: 2150, currency: 'INR', unit: 'kg', trend: 'down' },
-            { product: 'Ginger', commodity: 'Product', region: 'Wayanad, India', price: 180, currency: 'INR', unit: 'kg', trend: 'up' },
-            { product: 'Turmeric', commodity: 'Product', region: 'Erode, India', price: 145, currency: 'INR', unit: 'kg', trend: 'up' },
-            { product: 'Clove', commodity: 'Product', region: 'Zanzibar', price: 12.5, currency: 'USD', unit: 'kg', trend: 'down' },
-            { product: 'Nutmeg', commodity: 'Product', region: 'Grenada', price: 9.2, currency: 'USD', unit: 'kg', trend: 'stable' },
-          ];
-          
-          for (const s of initialProducts) {
-            await createDocument('market_prices', {
-              ...s,
-              timestamp: Timestamp.now()
-            });
-          }
-        }
         setPrices(data);
         setLoading(false);
       },
@@ -76,30 +58,6 @@ export default function MarketOracle() {
     setPredicting(price.id);
 
     if (!isAIAvailable()) {
-      // Rule-based fallback
-      const trends: ('up' | 'down' | 'stable')[] = ['up', 'down', 'stable'];
-      const randomTrend = trends[Math.floor(Math.random() * trends.length)];
-      const confidence = 60 + Math.floor(Math.random() * 20);
-      
-      let reasoning = '';
-      if (randomTrend === 'up') {
-        reasoning = `Anticipated supply tightening in ${price.region} combined with steady export demand suggests a moderate price increase in the coming weeks.`;
-      } else if (randomTrend === 'down') {
-        reasoning = `Upcoming harvest season in major production hubs is expected to increase market arrivals, potentially putting downward pressure on prices.`;
-      } else {
-        reasoning = `Current market equilibrium between domestic supply and international demand indicates price stability for ${price.product} in the short term.`;
-      }
-
-      const prediction = {
-        trend: randomTrend,
-        confidence,
-        reasoning
-      };
-
-      await updateDocument('market_prices', price.id, { prediction });
-      setPrices(prev => prev.map(p => 
-        p.id === price.id ? { ...p, prediction } : p
-      ));
       setPredicting(null);
       return;
     }
@@ -149,17 +107,7 @@ export default function MarketOracle() {
     p.region.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const mockChartData = [
-    { date: '2025-10', price: 580, forecast: null },
-    { date: '2025-11', price: 595, forecast: null },
-    { date: '2025-12', price: 610, forecast: null },
-    { date: '2026-01', price: 605, forecast: null },
-    { date: '2026-02', price: 620, forecast: null },
-    { date: '2026-03', price: 625, forecast: 625 },
-    { date: '2026-04', price: null, forecast: 640 },
-    { date: '2026-05', price: null, forecast: 655 },
-    { date: '2026-06', price: null, forecast: 670 },
-  ];
+  const chartData = []; // In a real app, this would be fetched from historical indices
 
   return (
     <div className="space-y-6">
@@ -210,53 +158,60 @@ export default function MarketOracle() {
                   </div>
                 </div>
               </div>
-              <div className="p-6 w-full h-[300px]">
-                <ResponsiveContainer width="100%" height={300}>
-                  <AreaChart data={mockChartData}>
-                    <defs>
-                      <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.1}/>
-                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f4f4f5" />
-                    <XAxis 
-                      dataKey="date" 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{ fontSize: 10, fill: '#71717a', fontWeight: 'bold' }}
-                    />
-                    <YAxis 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{ fontSize: 10, fill: '#71717a', fontWeight: 'bold' }}
-                      domain={['auto', 'auto']}
-                    />
-                    <Tooltip 
-                      contentStyle={{ backgroundColor: '#fff', borderRadius: '12px', border: '1px solid #e4e4e7', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                      itemStyle={{ fontSize: '10px', fontWeight: 'bold' }}
-                    />
-                    <Area 
-                      type="monotone" 
-                      dataKey="price" 
-                      stroke="#10b981" 
-                      strokeWidth={3}
-                      fillOpacity={1} 
-                      fill="url(#colorPrice)" 
-                      name="Historical Price"
-                    />
-                    <Area 
-                      type="monotone" 
-                      dataKey="forecast" 
-                      stroke="#10b981" 
-                      strokeWidth={2}
-                      strokeDasharray="5 5"
-                      fillOpacity={0.1} 
-                      fill="#10b981" 
-                      name="AI Forecast"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
+              <div className="p-6 w-full h-[300px] flex items-center justify-center">
+                {chartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <AreaChart data={chartData}>
+                      <defs>
+                        <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.1}/>
+                          <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f4f4f5" />
+                      <XAxis 
+                        dataKey="date" 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{ fontSize: 10, fill: '#71717a', fontWeight: 'bold' }}
+                      />
+                      <YAxis 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{ fontSize: 10, fill: '#71717a', fontWeight: 'bold' }}
+                        domain={['auto', 'auto']}
+                      />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: '#fff', borderRadius: '12px', border: '1px solid #e4e4e7', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                        itemStyle={{ fontSize: '10px', fontWeight: 'bold' }}
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="price" 
+                        stroke="#10b981" 
+                        strokeWidth={3}
+                        fillOpacity={1} 
+                        fill="url(#colorPrice)" 
+                        name="Historical Price"
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="forecast" 
+                        stroke="#10b981" 
+                        strokeWidth={2}
+                        strokeDasharray="5 5"
+                        fillOpacity={0.1} 
+                        fill="#10b981" 
+                        name="AI Forecast"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="text-center">
+                    <ChartIcon size={40} className="mx-auto text-zinc-200 mb-2" />
+                    <p className="text-sm text-zinc-400 font-medium">No historical data or forecast available for this index</p>
+                  </div>
+                )}
               </div>
             </div>
           )}

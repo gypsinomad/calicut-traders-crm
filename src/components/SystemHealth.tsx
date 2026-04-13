@@ -38,19 +38,7 @@ export default function SystemHealth() {
     const unsub = subscribeToCollection<HealthType>(
       'system_health',
       (data) => {
-        if (data.length === 0) {
-          // Mock data if collection is empty
-          setServices([
-            { id: '1', serviceName: 'Core API', status: 'healthy', latency: 45, lastChecked: { toDate: () => new Date() } as any },
-            { id: '2', serviceName: 'Firestore DB', status: 'healthy', latency: 12, lastChecked: { toDate: () => new Date() } as any },
-            { id: '3', serviceName: 'Gemini AI Engine', status: 'healthy', latency: 850, lastChecked: { toDate: () => new Date() } as any },
-            { id: '4', serviceName: 'WhatsApp Gateway', status: 'healthy', latency: 120, lastChecked: { toDate: () => new Date() } as any },
-            { id: '5', serviceName: 'Document Processor', status: 'degraded', latency: 2400, lastChecked: { toDate: () => new Date() } as any, message: 'High load detected' },
-            { id: '6', serviceName: 'ICEGATE Integration', status: 'healthy', latency: 450, lastChecked: { toDate: () => new Date() } as any },
-          ]);
-        } else {
-          setServices(data);
-        }
+        setServices(data);
         setLoading(false);
         setLastUpdated(new Date());
       },
@@ -104,8 +92,8 @@ export default function SystemHealth() {
             </div>
             <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Uptime</span>
           </div>
-          <p className="text-2xl font-bold text-zinc-900">99.98%</p>
-          <p className="text-xs text-zinc-500 mt-1">Last 30 days average</p>
+          <p className="text-2xl font-bold text-zinc-900">--%</p>
+          <p className="text-xs text-zinc-500 mt-1">Uptime (Last 30 days)</p>
         </div>
         <div className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm">
           <div className="flex items-center justify-between mb-4">
@@ -114,8 +102,8 @@ export default function SystemHealth() {
             </div>
             <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Latency</span>
           </div>
-          <p className="text-2xl font-bold text-zinc-900">124ms</p>
-          <p className="text-xs text-zinc-500 mt-1">Global average response</p>
+          <p className="text-2xl font-bold text-zinc-900">--ms</p>
+          <p className="text-xs text-zinc-500 mt-1">Global avg response</p>
         </div>
         <div className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm">
           <div className="flex items-center justify-between mb-4">
@@ -124,8 +112,8 @@ export default function SystemHealth() {
             </div>
             <span className="text-[10px] font-bold text-purple-600 uppercase tracking-wider">CPU Load</span>
           </div>
-          <p className="text-2xl font-bold text-zinc-900">24%</p>
-          <p className="text-xs text-zinc-500 mt-1">Current cluster utilization</p>
+          <p className="text-2xl font-bold text-zinc-900">--%</p>
+          <p className="text-xs text-zinc-500 mt-1">Cluster utilization</p>
         </div>
         <div className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm">
           <div className="flex items-center justify-between mb-4">
@@ -134,8 +122,8 @@ export default function SystemHealth() {
             </div>
             <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Storage</span>
           </div>
-          <p className="text-2xl font-bold text-zinc-900">1.2 TB</p>
-          <p className="text-xs text-zinc-500 mt-1">Document vault usage</p>
+          <p className="text-2xl font-bold text-zinc-900">-- TB</p>
+          <p className="text-xs text-zinc-500 mt-1">Vault usage</p>
         </div>
       </div>
 
@@ -240,35 +228,8 @@ export default function SystemHealth() {
               <Globe size={16} className="text-blue-500" />
               Regional Performance
             </h3>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="text-lg">🇮🇳</span>
-                  <span className="text-sm font-medium text-zinc-900">Mumbai (Primary)</span>
-                </div>
-                <span className="text-xs font-bold text-emerald-600">12ms</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="text-lg">🇺🇸</span>
-                  <span className="text-sm font-medium text-zinc-900">US East</span>
-                </div>
-                <span className="text-xs font-bold text-emerald-600">145ms</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="text-lg">🇪🇺</span>
-                  <span className="text-sm font-medium text-zinc-900">Europe West</span>
-                </div>
-                <span className="text-xs font-bold text-emerald-600">112ms</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="text-lg">🇦🇪</span>
-                  <span className="text-sm font-medium text-zinc-900">Middle East</span>
-                </div>
-                <span className="text-xs font-bold text-emerald-600">85ms</span>
-              </div>
+            <div className="space-y-4 py-8 text-center">
+              <p className="text-xs text-zinc-400 font-medium italic">Monitoring regional latency...</p>
             </div>
           </section>
 
@@ -277,25 +238,8 @@ export default function SystemHealth() {
               <Info size={16} className="text-amber-500" />
               System Alerts
             </h3>
-            <div className="space-y-4">
-              <div className="p-4 bg-amber-50 rounded-xl border border-amber-100">
-                <div className="flex items-start gap-3">
-                  <AlertCircle size={16} className="text-amber-600 mt-0.5" />
-                  <div>
-                    <p className="text-xs font-bold text-amber-900">Document Processor Lag</p>
-                    <p className="text-[10px] text-amber-700 mt-1">Processing time for large PDFs has increased. Investigating auto-scaling rules.</p>
-                  </div>
-                </div>
-              </div>
-              <div className="p-4 bg-zinc-50 rounded-xl border border-zinc-100">
-                <div className="flex items-start gap-3">
-                  <CheckCircle2 size={16} className="text-zinc-400 mt-0.5" />
-                  <div>
-                    <p className="text-xs font-bold text-zinc-900">Backup Successful</p>
-                    <p className="text-[10px] text-zinc-500 mt-1">Daily system backup completed successfully at 02:00 UTC.</p>
-                  </div>
-                </div>
-              </div>
+            <div className="space-y-4 py-8 text-center">
+              <p className="text-xs text-zinc-400 font-medium italic">No active system alerts.</p>
             </div>
           </section>
         </div>

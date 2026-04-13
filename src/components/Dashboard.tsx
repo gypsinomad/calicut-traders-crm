@@ -53,11 +53,11 @@ interface BriefingData {
 }
 
 const StatCard = ({ title, value, change, icon: Icon, trend }: any) => (
-  <div className="bg-white dark:bg-zinc-900 p-8 rounded-[2.5rem] border border-zinc-200/50 dark:border-zinc-800 shadow-sm hover:shadow-2xl hover:shadow-emerald-900/5 transition-all duration-500 group relative overflow-hidden">
+  <div className="bg-white dark:bg-zinc-900 p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] border border-zinc-200/50 dark:border-zinc-800 shadow-sm hover:shadow-2xl hover:shadow-emerald-900/5 transition-all duration-500 group relative overflow-hidden">
     <div className="relative z-10 flex items-start justify-between">
       <div>
         <p className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em] mb-2">{title}</p>
-        <h3 className="text-4xl font-serif font-bold text-zinc-900 dark:text-white group-hover:text-[#064e3b] dark:group-hover:text-emerald-400 transition-colors tracking-tight">{value}</h3>
+        <h3 className="text-2xl md:text-4xl font-serif font-bold text-zinc-900 dark:text-white group-hover:text-[#064e3b] dark:group-hover:text-emerald-400 transition-colors tracking-tight">{value}</h3>
         <div className="flex items-center gap-2 mt-4">
           <div className={cn(
             "flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider",
@@ -171,18 +171,7 @@ export default function Dashboard() {
     setLoadingBriefing(true);
     
     if (!isAIAvailable()) {
-      // Rule-based fallback
-      const insights = [];
-      if (activeLeads > 5) insights.push(`• High sales activity: ${activeLeads} active leads require follow-up.`);
-      if (activeOrders > 0) insights.push(`• Logistics: ${activeOrders} active orders are in progress.`);
-      if (pendingTasks > 0) insights.push(`• Productivity: You have ${pendingTasks} pending tasks to complete.`);
-      if (lowStockItems.length > 0) insights.push(`• Inventory Alert: ${lowStockItems.length} items are below reorder levels.`);
-      if (expiredItems.length > 0) insights.push(`• Quality Control: ${expiredItems.length} batches have expired and need attention.`);
-      
-      if (insights.length === 0) insights.push("• Business is steady. No immediate alerts or actions required.");
-      
-      const fallbackText = insights.join('\n') + "\n\nStay focused and have a productive day!";
-      setBriefing(fallbackText);
+      setBriefing('Welcome back. Your business metrics are updated and ready for review.');
       setLoadingBriefing(false);
       return;
     }
@@ -276,13 +265,13 @@ export default function Dashboard() {
     .filter(o => o.stage !== 'paymentReceived' && o.stage !== 'cancelled')
     .reduce((sum, o) => sum + (o.totalAmount || o.totalValue || 0), 0);
 
-  const complianceRate = orders.length >= 3 
+  const complianceRate = orders.length > 0 
     ? (orders.reduce((acc, o) => {
         const total = o.docsTotal || 5;
         const completed = o.docsCompleted || (o.documents?.length || 0);
         return acc + Math.min(completed / total, 1);
       }, 0) / orders.length) * 100 
-    : 67;
+    : 0;
 
   const expiringCerts = orders.reduce((acc, o) => {
     const expiring = o.certificates?.filter(c => {
@@ -340,17 +329,17 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-10 pb-12">
+    <div className="space-y-6 md:space-y-10 pb-12">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <h2 className="text-5xl font-serif font-bold text-zinc-900 tracking-tight">Executive Overview</h2>
-          <p className="text-zinc-500 mt-2 text-lg font-serif italic">Welcome back, {profile?.displayName || 'User'} — Here is your business at a glance.</p>
+          <h2 className="text-3xl md:text-5xl font-serif font-bold text-zinc-900 dark:text-white tracking-tight">Executive Overview</h2>
+          <p className="text-zinc-500 dark:text-zinc-400 mt-2 text-base md:text-lg font-serif italic">Welcome back, {profile?.displayName || 'User'} — Here is your business at a glance.</p>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 md:gap-4">
           {(userRole === 'admin' || userRole === 'manager') && (
             <button 
               onClick={handleDownloadReport}
-              className="px-6 py-3 bg-white border border-zinc-200 rounded-2xl text-sm font-bold text-zinc-600 hover:bg-zinc-50 transition-all shadow-sm flex items-center gap-2"
+              className="px-6 py-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-sm font-bold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all shadow-sm flex items-center justify-center gap-2"
             >
               <FileText size={18} />
               Export Report
@@ -358,7 +347,7 @@ export default function Dashboard() {
           )}
           <Link 
             to="/orders"
-            className="px-8 py-3 bg-[#064e3b] text-white rounded-2xl text-sm font-bold hover:bg-[#065f46] transition-all shadow-xl shadow-emerald-900/20 flex items-center gap-2"
+            className="px-8 py-3 bg-[#064e3b] dark:bg-emerald-600 text-white rounded-2xl text-sm font-bold hover:bg-[#065f46] dark:hover:bg-emerald-500 transition-all shadow-xl shadow-emerald-900/20 flex items-center justify-center gap-2"
           >
             <Plus size={18} />
             New Export Order
@@ -391,12 +380,12 @@ export default function Dashboard() {
         </motion.div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-8">
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 md:gap-8">
         {(userRole === 'admin' || userRole === 'manager') && (
           <StatCard 
             title="Outstanding Payments" 
             value={`$${outstandingPayments.toLocaleString()}`} 
-            change="+5.2%" 
+            change="--" 
             icon={DollarSign} 
             trend="up" 
           />
@@ -405,7 +394,7 @@ export default function Dashboard() {
           <StatCard 
             title="Compliance Rate" 
             value={`${Math.round(complianceRate)}%`} 
-            change="+12.4%" 
+            change="--" 
             icon={FileText} 
             trend="up" 
           />
@@ -422,14 +411,14 @@ export default function Dashboard() {
         <StatCard 
           title="Active Orders" 
           value={activeOrders.toString()} 
-          change="+12.4%" 
+          change="--" 
           icon={Ship} 
           trend="up" 
         />
         <StatCard 
           title="Expiring Certificates" 
           value={expiringCerts.toString()} 
-          change="+1" 
+          change="--" 
           icon={AlertTriangle} 
           trend="up" 
         />
@@ -450,9 +439,9 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 bg-[#064e3b] rounded-[2.5rem] p-10 text-white relative overflow-hidden shadow-2xl shadow-emerald-900/30">
+        <div className="lg:col-span-2 bg-[#064e3b] dark:bg-zinc-900 rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-10 text-white relative overflow-hidden shadow-2xl shadow-emerald-900/30">
           <div className="relative z-10">
-            <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center justify-between mb-6 md:mb-8">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-white/10 rounded-xl backdrop-blur-md border border-white/10">
                   <Sparkles size={20} className="text-emerald-300" />
@@ -471,72 +460,72 @@ export default function Dashboard() {
             </div>
             
             {loadingBriefing ? (
-              <div className="space-y-6 animate-pulse">
+              <div className="space-y-4 md:space-y-6 animate-pulse">
                 <div className="h-5 bg-white/10 rounded-full w-3/4" />
                 <div className="h-5 bg-white/10 rounded-full w-1/2" />
                 <div className="h-5 bg-white/10 rounded-full w-2/3" />
               </div>
             ) : (
               <div className="max-w-3xl">
-                <div className="text-2xl md:text-3xl font-serif font-medium leading-relaxed text-emerald-50 space-y-4">
+                <div className="text-xl md:text-3xl font-serif font-medium leading-relaxed text-emerald-50 space-y-4">
                   {briefing ? (
                     briefing.split('\n').filter(line => line.trim()).map((line, i) => (
-                      <p key={i} className={line.startsWith('•') ? 'pl-6 -indent-6' : 'mt-6 italic text-emerald-200/80 text-xl'}>
+                      <p key={i} className={line.startsWith('•') ? 'pl-6 -indent-6 text-base md:text-2xl' : 'mt-4 md:mt-6 italic text-emerald-200/80 text-lg md:text-xl'}>
                         {line}
                       </p>
                     ))
                   ) : (
-                    <p>Welcome to your dashboard. Your daily business intelligence is being prepared.</p>
+                    <p className="text-lg md:text-2xl">Welcome to your dashboard. Your daily business intelligence is being prepared.</p>
                   )}
                 </div>
               </div>
             )}
 
-            <div className="flex flex-wrap gap-4 mt-12">
-              <Link to="/market" className="px-6 py-3 bg-white text-[#064e3b] rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-emerald-50 transition-all flex items-center gap-2 shadow-lg">
+            <div className="flex flex-wrap gap-3 md:gap-4 mt-8 md:mt-12">
+              <Link to="/market" className="px-5 md:px-6 py-2.5 md:py-3 bg-white text-[#064e3b] rounded-xl md:rounded-2xl text-[10px] md:text-xs font-black uppercase tracking-widest hover:bg-emerald-50 transition-all flex items-center gap-2 shadow-lg">
                 <Globe size={16} />
                 Market Trends
               </Link>
-              <Link to="/inventory" className="px-6 py-3 bg-emerald-800/50 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-emerald-800 transition-all border border-white/10 flex items-center gap-2 backdrop-blur-sm">
+              <Link to="/inventory" className="px-5 md:px-6 py-2.5 md:py-3 bg-emerald-800/50 text-white rounded-xl md:rounded-2xl text-[10px] md:text-xs font-black uppercase tracking-widest hover:bg-emerald-800 transition-all border border-white/10 flex items-center gap-2 backdrop-blur-sm">
                 <Package size={16} />
                 Inventory
               </Link>
             </div>
           </div>
-          <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-[100px] -mr-48 -mt-48" />
-          <div className="absolute bottom-0 right-0 p-12 opacity-5">
-            <Ship size={200} />
+          <div className="absolute top-0 right-0 w-64 md:w-96 h-64 md:h-96 bg-emerald-500/10 rounded-full blur-[80px] md:blur-[100px] -mr-32 md:-mr-48 -mt-32 md:-mt-48" />
+          <div className="absolute bottom-0 right-0 p-6 md:p-12 opacity-5">
+            <Ship size={100} className="md:w-[200px] md:h-[200px]" />
           </div>
         </div>
 
-        <div className="bg-white p-10 rounded-[2.5rem] border border-zinc-200/50 shadow-sm flex flex-col relative overflow-hidden">
+        <div className="bg-white dark:bg-zinc-900 p-6 md:p-10 rounded-[2rem] md:rounded-[2.5rem] border border-zinc-200/50 dark:border-zinc-800 shadow-sm flex flex-col relative overflow-hidden">
           <div className="relative z-10">
-            <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.3em] mb-10 flex items-center gap-3">
-              <div className="p-2 bg-amber-50 rounded-lg">
+            <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.3em] mb-6 md:mb-10 flex items-center gap-3">
+              <div className="p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
                 <Zap size={16} className="text-[#d97706]" />
               </div>
               Quick Actions
             </h3>
-            <div className="grid grid-cols-2 gap-6 flex-1">
+            <div className="grid grid-cols-2 gap-4 md:gap-6 flex-1">
               {[
-                { label: 'New Order', icon: Ship, path: '/orders', color: 'bg-emerald-50 text-[#064e3b] border-emerald-100' },
-                { label: 'Add Lead', icon: Users, path: '/leads', color: 'bg-blue-50 text-blue-700 border-blue-100' },
-                { label: 'Scan Stock', icon: Package, path: '/scanner', color: 'bg-amber-50 text-amber-700 border-amber-100' },
-                { label: 'Upload Doc', icon: FileText, path: '/documents', color: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+                { label: 'New Order', icon: Ship, path: '/orders', color: 'bg-emerald-50 text-[#064e3b] border-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800' },
+                { label: 'Add Lead', icon: Users, path: '/leads', color: 'bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800' },
+                { label: 'Scan Stock', icon: Package, path: '/scanner', color: 'bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800' },
+                { label: 'Upload Doc', icon: FileText, path: '/documents', color: 'bg-indigo-50 text-indigo-700 border-indigo-100 dark:bg-indigo-900/20 dark:text-indigo-400 dark:border-indigo-800' },
               ].map((action, i) => (
                 <Link 
                   key={i} 
                   to={action.path}
-                  className="flex flex-col items-center justify-center gap-4 p-8 rounded-[2rem] border border-zinc-100 hover:border-emerald-200 hover:bg-[#fcfaf7] transition-all group shadow-sm hover:shadow-xl hover:shadow-emerald-900/5"
+                  className="flex flex-col items-center justify-center gap-3 md:gap-4 p-4 md:p-8 rounded-[1.5rem] md:rounded-[2rem] border border-zinc-100 dark:border-zinc-800 hover:border-emerald-200 dark:hover:border-emerald-800 hover:bg-[#fcfaf7] dark:hover:bg-zinc-800/50 transition-all group shadow-sm hover:shadow-xl hover:shadow-emerald-900/5"
                 >
-                  <div className={`p-4 rounded-2xl ${action.color} border group-hover:scale-110 transition-all duration-500 shadow-sm group-hover:shadow-md`}>
-                    <action.icon size={24} />
+                  <div className={`p-3 md:p-4 rounded-xl md:rounded-2xl ${action.color} border group-hover:scale-110 transition-all duration-500 shadow-sm group-hover:shadow-md`}>
+                    <action.icon size={20} className="md:w-6 md:h-6" />
                   </div>
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 group-hover:text-[#064e3b] transition-colors">{action.label}</span>
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 group-hover:text-[#064e3b] dark:group-hover:text-emerald-400 transition-colors">{action.label}</span>
                 </Link>
               ))}
             </div>
-            <Link to="/settings" className="mt-10 flex items-center justify-center gap-3 py-5 bg-[#fcfaf7] rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 hover:bg-zinc-100 hover:text-[#064e3b] transition-all border border-zinc-100">
+            <Link to="/settings" className="mt-6 md:mt-10 flex items-center justify-center gap-3 py-4 md:py-5 bg-[#fcfaf7] dark:bg-zinc-800/50 rounded-xl md:rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-[#064e3b] dark:hover:text-emerald-400 transition-all border border-zinc-100 dark:border-zinc-800">
               System Settings <ChevronRight size={16} />
             </Link>
           </div>

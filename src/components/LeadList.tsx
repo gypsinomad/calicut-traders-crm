@@ -31,6 +31,7 @@ import { useAuth } from './Auth.tsx';
 import { Timestamp } from 'firebase/firestore';
 import { handleAIError, generateAIContent, isAIAvailable } from '../lib/ai';
 import { TranslatedText } from './TranslatedText.tsx';
+import { agentService } from '../services/agentService';
 import { Skeleton } from './ui/Skeleton';
 
 export default function LeadList() {
@@ -62,7 +63,7 @@ export default function LeadList() {
     source: 'website',
     status: 'new',
     priority: 'warm',
-    organization: profile?.organization || 'Global Trade Connect LLP'
+    organization: profile?.organization || ''
   });
 
   useEffect(() => {
@@ -89,7 +90,7 @@ export default function LeadList() {
       const leadData: any = {
         ...newLead,
         assignedUserId: profile?.uid || '',
-        organization: profile?.organization || 'Global Trade Connect LLP',
+        organization: profile?.organization || '',
         nextFollowUpAt: nextFollowUpDate ? Timestamp.fromDate(new Date(nextFollowUpDate)) : null,
       };
 
@@ -157,28 +158,6 @@ export default function LeadList() {
     setIsScoring(true);
 
     if (!isAIAvailable()) {
-      // Rule-based fallback
-      let score: 'low' | 'medium' | 'high' = 'low';
-      let explanation = '';
-
-      const highRiskCountries = ['Russia', 'Iran', 'North Korea', 'Syria', 'Venezuela'];
-      const mediumRiskCountries = ['Nigeria', 'Pakistan', 'Iraq', 'Libya', 'Ukraine'];
-
-      if (highRiskCountries.some(c => lead.destinationCountry?.includes(c))) {
-        score = 'high';
-        explanation = `High risk due to current trade sanctions or severe economic instability in ${lead.destinationCountry}.`;
-      } else if (mediumRiskCountries.some(c => lead.destinationCountry?.includes(c))) {
-        score = 'medium';
-        explanation = `Moderate risk due to regional logistics challenges or emerging economic factors in ${lead.destinationCountry}.`;
-      } else {
-        score = 'low';
-        explanation = `Low risk based on stable trade relations and established logistics routes to ${lead.destinationCountry}.`;
-      }
-
-      await updateDocument('leads', lead.id, {
-        riskScore: score,
-        riskExplanation: explanation
-      });
       setIsScoring(false);
       return;
     }
@@ -218,45 +197,12 @@ export default function LeadList() {
     setIsSmartScoring(true);
 
     if (!isAIAvailable()) {
-      // Rule-based fallback for smart scoring
-      const baseScore = lead.priority === 'hot' ? 80 : lead.priority === 'warm' ? 60 : 40;
-      const sourceBonus = lead.source === 'referral' ? 15 : lead.source === 'website' ? 10 : 5;
-      const finalScore = Math.min(100, baseScore + sourceBonus);
-      const explanation = `Smart Mode: Score based on priority (${lead.priority}) and source (${lead.source}). Manual review recommended for international trade specifics.`;
-
-      await updateDocument('leads', lead.id, {
-        smartScore: finalScore,
-        smartScoreExplanation: explanation
-      });
       setIsSmartScoring(false);
       return;
     }
 
     try {
-      const prompt = `Evaluate this lead for an export business and provide a score from 0 to 100.
-      Lead Details:
-      - Company: ${lead.companyName}
-      - Product Interest: ${lead.productInterest}
-      - Destination: ${lead.destinationCountry}
-      - Priority: ${lead.priority}
-      - Source: ${lead.source}
-      
-      Return a JSON object with:
-      score: number (0-100)
-      explanation: string (max 30 words)
-      `;
-
-      const response = await generateAIContent('Lead Smart Scoring', {
-        model: 'gemini-3-flash-preview',
-        contents: [{ parts: [{ text: prompt }] }],
-        config: { responseMimeType: 'application/json' }
-      });
-
-      const result = JSON.parse(response.text || '{}');
-      await updateDocument('leads', lead.id, {
-        smartScore: result.score,
-        smartScoreExplanation: result.explanation
-      });
+      await agentService.runLeadScoringAgent(lead);
     } catch (error: any) {
       console.error('Smart scoring error:', error);
     } finally {

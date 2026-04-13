@@ -38,6 +38,11 @@ import BuyerPipeline from './components/BuyerPipeline.tsx';
 import ShipmentTracker from './components/ShipmentTracker.tsx';
 import UserManagement from './components/UserManagement.tsx';
 import CommunicationsHub from './components/communications/CommunicationsHub.tsx';
+import Prospecting from './components/Prospecting.tsx';
+import Signals from './components/Signals.tsx';
+import Procurement from './components/Procurement.tsx';
+import WorkflowManager from './components/WorkflowManager.tsx';
+import FinanceOS from './components/FinanceOS.tsx';
 import { AuthProvider, useAuth, LoginScreen, PendingApprovalScreen } from './components/Auth.tsx';
 import { Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
@@ -160,12 +165,15 @@ function AppContent() {
           <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
             <Route index element={<Dashboard />} />
             <Route path="leads" element={<LeadList />} />
+            <Route path="prospecting" element={<Prospecting />} />
+            <Route path="signals" element={<Signals />} />
             <Route path="quotes" element={<QuoteList />} />
             <Route path="orders" element={<OrderList />} />
             <Route path="pipeline" element={<ShipmentKanban />} />
             <Route path="execution" element={<ShipmentExecution />} />
             <Route path="documents" element={<DocumentVault />} />
             <Route path="tasks" element={<TaskList />} />
+            <Route path="workflows" element={<WorkflowManager />} />
             <Route path="companies" element={<CompanyList />} />
             <Route path="reports" element={<ReportList />} />
             <Route path="documents-manager" element={<ExportDocumentManager />} />
@@ -175,8 +183,10 @@ function AppContent() {
             <Route path="calendar" element={<CalendarView />} />
             <Route path="collaboration" element={<CollaborationSpace />} />
             <Route path="inventory" element={<InventoryManager />} />
+            <Route path="procurement" element={<Procurement />} />
             <Route path="market" element={<MarketOracle />} />
             <Route path="suppliers" element={<SupplierPortal />} />
+            <Route path="finance" element={<FinanceOS />} />
             <Route path="payments" element={<Payments />} />
             <Route path="exceptions" element={<Exceptions />} />
             <Route path="portal" element={<CustomerPortal />} />

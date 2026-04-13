@@ -17,9 +17,9 @@ import {
   Zap,
   Inbox
 } from 'lucide-react';
-import { Task } from '../lib/types.ts';
+import { Task, UserProfile } from '../lib/types.ts';
 import Modal from './Modal.tsx';
-import { subscribeToCollection, createDocument, updateDocument, deleteDocument } from '../services/db';
+import { subscribeToCollection, createDocument, updateDocument, deleteDocument, getDocuments } from '../services/db';
 import { formatDate, cn } from '../lib/utils';
 import { useAuth } from './Auth.tsx';
 import { Timestamp } from 'firebase/firestore';
@@ -39,23 +39,35 @@ export default function TaskList() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
   const [isPrioritizing, setIsPrioritizing] = useState(false);
+  const [teamMembers, setTeamMembers] = useState<UserProfile[]>([]);
 
   const [newTask, setNewTask] = useState<Partial<Task>>({
     title: '',
     description: '',
     priority: 'medium',
     status: 'open',
+    assigneeId: profile?.uid || '',
     organization: profile?.organization || 'Global Trade Connect LLP'
   });
 
   useEffect(() => {
-    const unsubscribe = subscribeToCollection<Task>('tasks', (data) => {
+    if (!profile?.organization) return;
+    
+    // Fetch team members
+    const unsubscribeUsers = subscribeToCollection<UserProfile>('users', (data) => {
+      setTeamMembers(data);
+    }, [{ field: 'organization', operator: '==', value: profile.organization }]);
+
+    const unsubscribeTasks = subscribeToCollection<Task>('tasks', (data) => {
       setTasks(data);
       setLoading(false);
     }, undefined, 'dueDate', 'asc');
 
-    return () => unsubscribe();
-  }, []);
+    return () => {
+      unsubscribeUsers();
+      unsubscribeTasks();
+    };
+  }, [profile?.organization]);
 
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,7 +78,7 @@ export default function TaskList() {
       const taskData = {
         ...newTask,
         dueDate: Timestamp.fromDate(new Date(dueDateStr)),
-        assigneeId: profile?.uid || '',
+        assigneeId: newTask.assigneeId || profile?.uid || '',
         organization: profile?.organization || 'Calicut Traders'
       };
 
@@ -111,6 +123,7 @@ export default function TaskList() {
       description: task.description,
       priority: task.priority,
       status: task.status,
+      assigneeId: task.assigneeId,
     });
     if (task.dueDate) {
       const date = task.dueDate instanceof Timestamp ? task.dueDate.toDate() : new Date(task.dueDate);
@@ -371,7 +384,7 @@ export default function TaskList() {
                           {task.assigneeId && (
                             <div className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400 font-medium">
                               <User size={14} />
-                              {task.assigneeId === profile?.uid ? 'Me' : 'Team'}
+                              {task.assigneeId === profile?.uid ? 'Me' : (teamMembers.find(u => u.uid === task.assigneeId)?.displayName || 'Team')}
                             </div>
                           )}
                         </div>
@@ -455,8 +468,9 @@ export default function TaskList() {
                               {formatDate(task.dueDate)}
                             </div>
                             {task.assigneeId && (
-                              <div className="w-6 h-6 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-zinc-500 dark:text-zinc-400 border border-white dark:border-zinc-700">
-                                {task.assigneeId === profile?.uid ? 'ME' : 'T'}
+                              <div className="flex items-center gap-1.5 text-[10px] text-zinc-400 dark:text-zinc-500 font-bold uppercase tracking-wider">
+                                <User size={12} />
+                                {task.assigneeId === profile?.uid ? 'ME' : (teamMembers.find(u => u.uid === task.assigneeId)?.displayName?.split(' ')[0].toUpperCase() || 'T')}
                               </div>
                             )}
                           </div>
@@ -522,6 +536,21 @@ export default function TaskList() {
                 className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
               />
             </div>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Assignee</label>
+            <select 
+              value={newTask.assigneeId}
+              onChange={(e) => setNewTask({ ...newTask, assigneeId: e.target.value })}
+              className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+            >
+              <option value="">Unassigned</option>
+              {teamMembers.map(user => (
+                <option key={user.uid} value={user.uid}>
+                  {user.displayName} {user.uid === profile?.uid ? '(Me)' : ''}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="flex items-center justify-end gap-3 pt-6 border-t border-zinc-100 dark:border-zinc-800">
             <button 

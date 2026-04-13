@@ -36,6 +36,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { handleAIError, generateAIContent, isAIAvailable } from '../lib/ai';
 import { WhatsAppService } from '../services/whatsapp';
+import { agentService } from '../services/agentService';
 import { Skeleton } from './ui/Skeleton';
 
 export default function OrderList() {
@@ -229,45 +230,15 @@ export default function OrderList() {
     setCheckingCompliance(order.id);
     try {
       if (!isAIAvailable()) {
-        // Rule-based fallback
-        const missingDocs = [];
-        if (order.commodity.toLowerCase().includes('pepper') || order.commodity.toLowerCase().includes('cardamom')) {
-          missingDocs.push('Phytosanitary Certificate', 'Export Board RCMC');
-        }
-        if (order.destinationCountry.toLowerCase().includes('uk') || order.destinationCountry.toLowerCase().includes('europe')) {
-          missingDocs.push('Ethylene Oxide (EtO) Test Report');
-        }
-        missingDocs.push('Certificate of Origin', 'Commercial Invoice', 'Packing List');
-
-        const compliance = {
-          status: missingDocs.length > 5 ? 'critical' : 'warning',
-          score: Math.max(30, 100 - (missingDocs.length * 10)),
-          missingDocs,
-          recommendation: `Smart Mode: Based on destination ${order.destinationCountry}, ensure all mandatory export documents are ready. Quality testing is highly recommended for this region.`
-        };
-
-        await orderService.updateOrder(order.id, order, { complianceAI: compliance });
+        setCheckingCompliance(null);
         return;
       }
 
-      const model = 'gemini-3-flash-preview';
-      const prompt = `Check export compliance for this order:
-      Order: ${order.orderNumber}
-      Commodity: ${order.commodity}
-      Destination: ${order.destinationCountry}
-      Quantity: ${order.quantity} ${order.unit}
-      
-      Consider typical export regulations for products from India to ${order.destinationCountry}.
-      Return a JSON object with: status ('compliant', 'warning', 'critical'), score (0-100), and missingDocs (array of strings), and recommendation (max 50 words).`;
-
-      const response = await generateAIContent('Compliance Check', {
-        model,
-        contents: [{ parts: [{ text: prompt }] }],
-        config: { responseMimeType: 'application/json' }
-      });
-
-      const compliance = JSON.parse(response.text || '{}');
-      await orderService.updateOrder(order.id, order, { complianceAI: compliance });
+      const audit = await agentService.runComplianceAgent(order);
+      if (audit) {
+        // The agent already updates the order in DB and sends notifications
+        console.log('Compliance audit completed:', audit);
+      }
     } catch (error: any) {
       alert(handleAIError(error));
     } finally {

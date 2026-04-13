@@ -102,32 +102,6 @@ export default function SmartScanner() {
     setStatus('processing');
     
     if (!isAIAvailable()) {
-      // Rule-based fallback for image processing
-      let result: any = {};
-      if (mode === 'business_card') {
-        result = {
-          fullName: 'Smart Mode: Manual Entry Required',
-          companyName: 'Extracted from Image',
-          email: 'pending@verification.com',
-          phone: '+00 000 000 000',
-          isFallback: true
-        };
-      } else if (mode === 'document') {
-        result = {
-          documentType: 'other',
-          documentNumber: 'DOC-' + Math.random().toString(36).substring(7).toUpperCase(),
-          companyName: 'Smart Mode: Manual Entry Required',
-          date: new Date().toISOString().split('T')[0],
-          items: [],
-          totalAmount: 0,
-          currency: 'USD',
-          isFallback: true
-        };
-      }
-      
-      // Simulate processing delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      setScanResult(result);
       setStatus('idle');
       setIsProcessing(false);
       return;

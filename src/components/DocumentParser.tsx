@@ -28,22 +28,7 @@ export default function DocumentParser() {
     if (!file) return;
 
     if (!isAIAvailable()) {
-      // Rule-based fallback: Show a manual entry form or mock extraction
-      setParsing(true);
-      setTimeout(() => {
-        setResult({
-          documentType: 'Manual Entry Required',
-          documentNumber: 'PENDING',
-          date: new Date().toISOString().split('T')[0],
-          totalAmount: 0,
-          currency: 'USD',
-          exporter: 'Global Trade Connect LLP',
-          importer: 'Unknown',
-          items: []
-        });
-        setParsing(false);
-        setError('AI parsing is currently unavailable. Please enter details manually.');
-      }, 1500);
+      setError('AI parsing is currently unavailable. Please enter details manually.');
       return;
     }
 

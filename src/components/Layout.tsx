@@ -4,7 +4,7 @@ import Sidebar from './Sidebar.tsx';
 import ComplianceAssistant from './ComplianceAssistant.tsx';
 import NotificationCenter from './NotificationCenter.tsx';
 import CommandPalette from './CommandPalette.tsx';
-import { Search, User, LogOut, Ship, Users, Building2, X, Menu, Sun, Moon } from 'lucide-react';
+import { Search, User, LogOut, Ship, Users, Building2, X, Menu, Sun, Moon, Download } from 'lucide-react';
 import { useAuth } from './Auth.tsx';
 import { subscribeToCollection } from '../services/db';
 import { Lead, ExportOrder, Supplier } from '../lib/types';
@@ -28,7 +28,30 @@ export default function Layout() {
   const [results, setResults] = useState<{ leads: Lead[], orders: ExportOrder[], suppliers: Supplier[] }>({ leads: [], orders: [], suppliers: [] });
   const [showResults, setShowResults] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const searchRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+    }
+  };
 
   const handlePresenceChange = async (status: UserPresenceStatus) => {
     if (profile) {
@@ -224,6 +247,15 @@ export default function Layout() {
             >
               {theme === 'dark' ? <Sun size={20} className="text-amber-500" /> : <Moon size={20} />}
             </button>
+            {deferredPrompt && (
+              <button
+                onClick={handleInstallClick}
+                className="flex items-center gap-2 px-2 md:px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-900/20"
+              >
+                <Download size={16} />
+                <span className="hidden md:inline">Install App</span>
+              </button>
+            )}
             <div className="sm:hidden">
               <button className="p-2 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg">
                 <Search size={20} />

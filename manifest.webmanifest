@@ -1,0 +1,25 @@
+{
+  "name": "Calicut Traders CRM",
+  "short_name": "Calicut CRM",
+  "description": "Export Management CRM for Calicut Traders",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fcfaf7",
+  "theme_color": "#064e3b",
+  "icons": [
+    {
+      "src": "https://picsum.photos/seed/trade/192/192",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://picsum.photos/seed/trade/512/512",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "orientation": "portrait",
+  "categories": ["business", "productivity"]
+}

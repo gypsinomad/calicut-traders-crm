@@ -9,11 +9,13 @@ import {
 import { 
   createDocument, 
   getDocuments, 
-  updateDocument 
+  updateDocument,
+  getDocument
 } from './db';
 import { Timestamp } from 'firebase/firestore';
 import { generateDocument } from '../lib/documentGenerator';
 import { zohoMailService } from './zohoMailService';
+import { agentService } from './agentService';
 
 /**
  * Service to handle automated workflows and alerts
@@ -43,6 +45,9 @@ export const automationService = {
     // 2. Bottleneck Reset
     // When stage changes, we can log the transition for future bottleneck analysis
     automations.push(this.logStageTransition(order, oldStage, newStage));
+
+    // 3. AI Logistics Agent Analysis
+    automations.push(agentService.runLogisticsAgent(order));
 
     await Promise.all(automations);
   },
@@ -83,8 +88,9 @@ export const automationService = {
       await updateDocument('orders', order.id, { documents: updatedDocs });
 
       // Notify user
+      const userId = order.assignedUserId || order.createdBy || 'admin';
       await this.createNotification(
-        order.assignedUserId,
+        userId,
         'Document Auto-Generated',
         `A new ${type} has been automatically generated for order ${order.orderNumber}.`,
         'success',
@@ -165,11 +171,94 @@ export const automationService = {
         await this.handleBottleneck(order, daysInStage);
       }
     }
+
+    // 4. Check for Upcoming Task Deadlines (24 hours)
+    const tasks = await getDocuments<Task>('tasks', [
+      { field: 'status', operator: '!=', value: 'done' }
+    ]);
+
+    for (const task of tasks) {
+      if (!task.assigneeId) continue;
+
+      const timeToDue = task.dueDate.toMillis() - now;
+      const hoursToDue = timeToDue / (60 * 60 * 1000);
+      
+      // Notify if due in less than 24 hours and more than 0 (not yet overdue)
+      if (hoursToDue > 0 && hoursToDue <= 24) {
+        await this.handleUpcomingTask(task, Math.round(hoursToDue));
+      } else if (hoursToDue < 0) {
+        // Handle overdue tasks
+        await this.handleOverdueTask(task);
+      }
+    }
+  },
+
+  async handleUpcomingTask(task: Task, hours: number) {
+    await this.createNotification(
+      task.assigneeId,
+      'Upcoming Task Deadline',
+      `Task "${task.title}" is due in ${hours} hours.`,
+      'warning',
+      task.id,
+      'task',
+      task.organization
+    );
+
+    // Send email for high priority tasks
+    if (task.priority === 'high') {
+      try {
+        const user = await getDocument<any>('users', task.assigneeId);
+        if (user?.email) {
+          await zohoMailService.sendEmail({
+            threadId: `task_${task.id}`,
+            from: `notifications@${task.organization?.toLowerCase().replace(/\s+/g, '') || 'company'}.com`,
+            to: [user.email],
+            subject: `Reminder: Task Due Soon - ${task.title}`,
+            body: `Hello ${user.displayName || 'Team Member'},\n\nThis is a reminder that the task "${task.title}" is due in ${hours} hours.\n\nDescription: ${task.description || 'No description provided.'}\n\nPlease ensure it is completed on time.\n\nBest regards,\nTrade Connect Automation`,
+            organization: task.organization || ''
+          });
+        }
+      } catch (error) {
+        console.error('Error sending task reminder email:', error);
+      }
+    }
+  },
+
+  async handleOverdueTask(task: Task) {
+    await this.createNotification(
+      task.assigneeId,
+      'Task Overdue',
+      `Task "${task.title}" was due on ${task.dueDate.toDate().toLocaleDateString()}. Please update its status.`,
+      'error',
+      task.id,
+      'task',
+      task.organization
+    );
+
+    // Always send email for overdue tasks
+    try {
+      const user = await getDocument<any>('users', task.assigneeId);
+      if (user?.email) {
+        await zohoMailService.sendEmail({
+          threadId: `task_${task.id}`,
+          from: `notifications@${task.organization?.toLowerCase().replace(/\s+/g, '') || 'company'}.com`,
+          to: [user.email],
+          subject: `URGENT: Task Overdue - ${task.title}`,
+          body: `Hello ${user.displayName || 'Team Member'},\n\nURGENT: The task "${task.title}" is now overdue. It was due on ${task.dueDate.toDate().toLocaleDateString()}.\n\nPlease update the task status as soon as possible.\n\nBest regards,\nTrade Connect Automation`,
+          organization: task.organization || ''
+        });
+      }
+    } catch (error) {
+      console.error('Error sending overdue task email:', error);
+    }
   },
 
   async handleOverduePayment(payment: Payment) {
+    // Try to find an admin or manager to notify
+    const userId = payment.updatedBy || 'admin';
+    
     await this.createNotification(
-      'admin', // Or assigned user
+      userId,
       'Overdue Payment Alert',
       `Payment for order ${payment.orderId} is overdue. Amount: ${payment.amount} ${payment.currency}`,
       'error',
@@ -191,8 +280,9 @@ export const automationService = {
   },
 
   async handleExpiringCertificate(order: ExportOrder, cert: any, days: number) {
+    const userId = order.assignedUserId || order.createdBy || 'admin';
     await this.createNotification(
-      order.assignedUserId,
+      userId,
       'Certificate Renewal Alert',
       `Certificate ${cert.number} (${cert.type}) for order ${order.orderNumber} expires in ${days} days.`,
       days <= 30 ? 'error' : 'warning',
@@ -203,8 +293,9 @@ export const automationService = {
   },
 
   async handleBottleneck(order: ExportOrder, days: number) {
+    const userId = order.assignedUserId || order.createdBy || 'admin';
     await this.createNotification(
-      order.assignedUserId,
+      userId,
       'Bottleneck Alert',
       `Order ${order.orderNumber} has been in ${order.stage} stage for ${days} days.`,
       'warning',
@@ -225,7 +316,7 @@ export const automationService = {
       
       const email = {
         threadId: `th_${order.id}`,
-        from: 'logistics@calicuttraders.com',
+        from: `logistics@${order.organization?.toLowerCase().replace(/\s+/g, '') || 'company'}.com`,
         to: [buyerEmail],
         subject: `Shipment Dispatched: Order #${order.orderNumber}`,
         body: `Dear Customer, your order #${order.orderNumber} for ${order.commodity} has been shipped. 
@@ -238,13 +329,15 @@ export const automationService = {
           { name: 'Bill_of_Lading.pdf', url: '#', size: 1024 * 1024 },
           { name: 'Packing_List.pdf', url: '#', size: 512 * 1024 }
         ],
-        relatedOrderId: order.id
+        relatedOrderId: order.id,
+        organization: order.organization || ''
       };
 
       await zohoMailService.sendEmail(email);
 
+      const userId = order.assignedUserId || order.createdBy || 'admin';
       await this.createNotification(
-        order.assignedUserId,
+        userId,
         'Shipment Email Sent',
         `Shipment notification email has been automatically sent to ${buyerEmail} for order ${order.orderNumber}.`,
         'success',
@@ -266,6 +359,38 @@ export const automationService = {
     relatedType?: string,
     organization?: string
   ) {
+    if (!userId) {
+      console.warn('Attempted to create notification without userId:', { title, message });
+      return;
+    }
+
+    // Check if a similar unread notification already exists to avoid spamming
+    try {
+      const filters = [
+        { field: 'userId', operator: '==', value: userId },
+        { field: 'title', operator: '==', value: title },
+        { field: 'read', operator: '==', value: false }
+      ];
+
+      if (relatedId) {
+        filters.push({ field: 'relatedEntityId', operator: '==', value: relatedId });
+      }
+
+      const existing = await getDocuments<Notification>('notifications', filters);
+      
+      // If there's already an unread notification with the same title for this user/entity, don't create a new one
+      if (existing.length > 0) {
+        // Optionally update the timestamp of the existing one
+        await updateDocument('notifications', existing[0].id, { 
+          timestamp: Timestamp.now(),
+          message: message // Update message in case it changed slightly
+        });
+        return;
+      }
+    } catch (error) {
+      console.error('Error checking for existing notifications:', error);
+    }
+
     const notification: Partial<Notification> = {
       userId,
       title,
@@ -275,7 +400,7 @@ export const automationService = {
       timestamp: Timestamp.now(),
       relatedEntityId: relatedId,
       relatedEntityType: relatedType,
-      organization: organization || 'Calicut Traders' // Fallback
+      organization: organization || ''
     };
     await createDocument('notifications', notification);
   }

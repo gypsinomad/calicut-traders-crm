@@ -19,7 +19,7 @@ class ZohoSocialService {
     return true;
   }
 
-  async publishPost(post: Omit<SocialPost, 'id' | 'status' | 'organization'>): Promise<SocialPost> {
+  async publishPost(post: Omit<SocialPost, 'id' | 'status'>): Promise<SocialPost> {
     console.log('Publishing post via Zoho Social:', post);
     
     // Simulate API delay
@@ -29,48 +29,22 @@ class ZohoSocialService {
       ...post,
       id: `zs_${Math.random().toString(36).substr(2, 9)}`,
       status: 'published',
-      publishedAt: Timestamp.now(),
-      organization: 'calicut_traders'
+      publishedAt: Timestamp.now()
     };
 
     return publishedPost;
   }
 
   async getQueue(workspaceId?: string): Promise<SocialPost[]> {
-    // Simulated mock data
-    console.log(`Fetching queue for workspace: ${workspaceId || 'default'}`);
-    return [
-      {
-        id: 'zs_1',
-        platform: 'linkedin',
-        content: 'Calicut Traders achieves ISO 22000 certification! Committed to food safety and quality. #ISO22000 #Export',
-        scheduledAt: Timestamp.now(),
-        status: 'scheduled',
-        organization: 'calicut_traders'
-      },
-      {
-        id: 'zs_2',
-        platform: 'twitter',
-        content: 'New turmeric harvest is here! High curcumin content guaranteed. DM for quotes. #Turmeric #Trade',
-        scheduledAt: Timestamp.now(),
-        status: 'scheduled',
-        organization: 'calicut_traders'
-      }
-    ];
+    return [];
   }
 
   async getEngagement(): Promise<any[]> {
-    return [
-      { id: 'e1', platform: 'linkedin', type: 'mention', user: 'Global Trade UK', content: 'Great quality products from @CalicutTraders!' },
-      { id: 'e2', platform: 'twitter', type: 'comment', user: 'DubaiFoodie', content: 'Where can I buy your products in UAE?' }
-    ];
+    return [];
   }
 
   async getBrandMonitoring(): Promise<any[]> {
-    return [
-      { id: 'bm1', keyword: 'Calicut Traders', platform: 'facebook', content: 'Calicut Traders is expanding to Nigeria.' },
-      { id: 'bm2', keyword: 'Product Export', platform: 'linkedin', content: 'Global product prices are rising, India is a good alternative.' }
-    ];
+    return [];
   }
 }
 

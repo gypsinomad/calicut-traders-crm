@@ -94,6 +94,20 @@ export const getDocuments = async <T>(
   }
 };
 
+export const getDocument = async <T>(path: string, id: string) => {
+  try {
+    const docRef = doc(db, path, id);
+    const snapshot = await getDoc(docRef);
+    if (snapshot.exists()) {
+      return { id: snapshot.id, ...snapshot.data() } as T;
+    }
+    return null;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.GET, `${path}/${id}`);
+    return null;
+  }
+};
+
 export const subscribeToCollection = <T>(
   path: string, 
   callback: (data: T[]) => void,
@@ -123,11 +137,26 @@ export const subscribeToCollection = <T>(
 
 export const createDocument = async <T extends object>(path: string, data: T) => {
   try {
+    const now = Timestamp.now();
     const docRef = await addDoc(collection(db, path), {
       ...data,
-      createdAt: Timestamp.now(),
-      updatedAt: Timestamp.now(),
+      createdAt: now,
+      updatedAt: now,
+      createdBy: auth.currentUser?.uid || 'system',
+      updatedBy: auth.currentUser?.uid || 'system',
     });
+
+    // Log the creation
+    await addDoc(collection(db, 'systemLogs'), {
+      operation: 'CREATE',
+      collection: path,
+      documentId: docRef.id,
+      userId: auth.currentUser?.uid || 'system',
+      userEmail: auth.currentUser?.email || 'system',
+      timestamp: now,
+      data: data
+    });
+
     return docRef.id;
   } catch (error) {
     handleFirestoreError(error, OperationType.CREATE, path);
@@ -137,9 +166,36 @@ export const createDocument = async <T extends object>(path: string, data: T) =>
 export const updateDocument = async <T extends object>(path: string, id: string, data: Partial<T>) => {
   try {
     const docRef = doc(db, path, id);
+    const now = Timestamp.now();
+    
+    // 1. Fetch current version for history
+    const currentDoc = await getDoc(docRef);
+    if (currentDoc.exists()) {
+      await addDoc(collection(db, 'documentVersions'), {
+        originalId: id,
+        collection: path,
+        data: currentDoc.data(),
+        versionedAt: now,
+        versionedBy: auth.currentUser?.uid || 'system'
+      });
+    }
+
+    // 2. Perform update
     await updateDoc(docRef, {
       ...data,
-      updatedAt: Timestamp.now(),
+      updatedAt: now,
+      updatedBy: auth.currentUser?.uid || 'system',
+    });
+
+    // 3. Log the update
+    await addDoc(collection(db, 'systemLogs'), {
+      operation: 'UPDATE',
+      collection: path,
+      documentId: id,
+      userId: auth.currentUser?.uid || 'system',
+      userEmail: auth.currentUser?.email || 'system',
+      timestamp: now,
+      changes: data
     });
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, `${path}/${id}`);
@@ -149,9 +205,71 @@ export const updateDocument = async <T extends object>(path: string, id: string,
 export const deleteDocument = async (path: string, id: string) => {
   try {
     const docRef = doc(db, path, id);
+    const now = Timestamp.now();
+
+    // 1. Fetch document before deletion
+    const currentDoc = await getDoc(docRef);
+    if (currentDoc.exists()) {
+      // 2. Save to trash for admin restoration
+      await addDoc(collection(db, 'trash'), {
+        originalId: id,
+        originalCollection: path,
+        data: currentDoc.data(),
+        deletedAt: now,
+        deletedBy: auth.currentUser?.uid || 'system',
+        deletedByUserEmail: auth.currentUser?.email || 'system'
+      });
+    }
+
+    // 3. Perform actual deletion (or we could do soft delete, but user asked for a copy to restore)
     await deleteDoc(docRef);
+
+    // 4. Log the deletion
+    await addDoc(collection(db, 'systemLogs'), {
+      operation: 'DELETE',
+      collection: path,
+      documentId: id,
+      userId: auth.currentUser?.uid || 'system',
+      userEmail: auth.currentUser?.email || 'system',
+      timestamp: now
+    });
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, `${path}/${id}`);
+  }
+};
+
+export const restoreDocument = async (trashId: string) => {
+  try {
+    const trashRef = doc(db, 'trash', trashId);
+    const trashDoc = await getDoc(trashRef);
+    
+    if (!trashDoc.exists()) throw new Error('Trash item not found');
+    
+    const { originalId, originalCollection, data } = trashDoc.data();
+    const now = Timestamp.now();
+
+    // 1. Restore the document
+    await addDoc(collection(db, originalCollection), {
+      ...data,
+      updatedAt: now,
+      restoredAt: now,
+      restoredBy: auth.currentUser?.uid || 'system'
+    });
+
+    // 2. Remove from trash
+    await deleteDoc(trashRef);
+
+    // 3. Log the restoration
+    await addDoc(collection(db, 'systemLogs'), {
+      operation: 'RESTORE',
+      collection: originalCollection,
+      documentId: originalId,
+      userId: auth.currentUser?.uid || 'system',
+      userEmail: auth.currentUser?.email || 'system',
+      timestamp: now
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, `trash/${trashId}`);
   }
 };
 

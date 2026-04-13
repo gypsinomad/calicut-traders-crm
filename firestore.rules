@@ -332,7 +332,7 @@ service cloud.firestore {
              data.type in ['info', 'success', 'warning', 'error', 'user_approval_request'] &&
              data.userId is string && data.userId.size() > 0 &&
              data.timestamp is timestamp &&
-             data.organization is string && data.organization.size() > 0 &&
+             data.organization is string &&
              (!('read' in data) || data.read is bool) &&
              (!('relatedEntityId' in data) || data.relatedEntityId is string) &&
              (!('relatedEntityType' in data) || data.relatedEntityType is string);
@@ -530,6 +530,27 @@ service cloud.firestore {
       allow create: if isAuthenticated();
       allow update: if false;
       allow delete: if false;
+    }
+
+    match /systemLogs/{logId} {
+      allow read: if isAdmin() || isManager();
+      allow create: if isAuthenticated();
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    match /documentVersions/{versionId} {
+      allow read: if isAdmin() || isManager();
+      allow create: if isAuthenticated();
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    match /trash/{trashId} {
+      allow read: if isAdmin() || isManager();
+      allow create: if isAuthenticated();
+      allow update: if false;
+      allow delete: if isAdmin();
     }
 
     // Default deny

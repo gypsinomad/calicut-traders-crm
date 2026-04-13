@@ -1,14 +1,14 @@
 import { ExportOrder, DocType } from './types';
 
 const COMPANY_DETAILS = {
-  name: 'Calicut Traders',
-  address: '12/456, Beach Road, Kozhikode, Kerala - 673001, India',
-  email: 'exports@calicuttraders.com',
-  phone: '+91 495 2345678',
-  gstin: '32AAAAA0000A1Z5',
-  iec: '0512345678',
-  fssai: '11321000000123',
-  pan: 'AAAAA0000A'
+  name: '[COMPANY NAME]',
+  address: '[COMPANY ADDRESS]',
+  email: '[COMPANY EMAIL]',
+  phone: '[COMPANY PHONE]',
+  gstin: '[GSTIN]',
+  iec: '[IEC]',
+  fssai: '[FSSAI]',
+  pan: '[PAN]'
 };
 
 const getHeader = (title: string, refNo: string, date: string) => `
@@ -31,7 +31,7 @@ const getFooter = () => `
     <div style="margin-top: 50px; display: flex; justify-content: space-between; align-items: flex-end;">
       <div style="font-size: 10px; color: #a1a1aa;">
         <p style="margin: 0;">This is a computer-generated document.</p>
-        <p style="margin: 0;">Global Trade Connect - Excellence in Global Trade since 1995</p>
+        <p style="margin: 0;">Powered by Global Trade Connect</p>
       </div>
       <div style="text-align: center; width: 200px;">
         <div style="height: 60px; border-bottom: 1px solid #e4e4e7; margin-bottom: 10px;"></div>
@@ -115,9 +115,9 @@ export const generateDocument = (type: DocType, order: ExportOrder): string => {
           </div>
           <div>
             <h3 style="font-size: 11px; text-transform: uppercase; color: #94a3b8; margin-bottom: 8px;">Shipping Details</h3>
-            <p style="margin: 0; font-size: 12px;">Vessel/Flight: <strong>${order.transportMode === 'sea' ? 'MSC CALICUT V.102' : 'EK 502'}</strong></p>
-            <p style="margin: 2px 0 0; font-size: 12px;">Port of Loading: <strong>${order.originPort || 'Cochin, India'}</strong></p>
-            <p style="margin: 2px 0 0; font-size: 12px;">Port of Discharge: <strong>${order.destinationPort || order.destination}</strong></p>
+            <p style="margin: 0; font-size: 12px;">Vessel/Flight: <strong>${order.vesselName || '[VESSEL/FLIGHT]'}</strong></p>
+            <p style="margin: 2px 0 0; font-size: 12px;">Port of Loading: <strong>${order.originPort || '[PORT OF LOADING]'}</strong></p>
+            <p style="margin: 2px 0 0; font-size: 12px;">Port of Discharge: <strong>${order.destinationPort || order.destination || '[PORT OF DISCHARGE]'}</strong></p>
           </div>
         </div>
         ${getTable(order.items || [{ description: order.commodity, quantity: order.quantity, unit: order.unit, unitPrice: order.totalAmount / order.quantity, hsCode: order.hsCode }])}
@@ -145,16 +145,16 @@ export const generateDocument = (type: DocType, order: ExportOrder): string => {
           </thead>
           <tbody>
             <tr style="border-bottom: 1px solid #f1f5f9;">
-              <td style="padding: 12px; font-size: 13px;">CST/${order.orderNumber}/1-50</td>
-              <td style="padding: 12px; font-size: 13px;">${order.commodity} in 25kg PP Bags</td>
-              <td style="padding: 12px; text-align: right; font-size: 13px;">${order.quantity} ${order.unit}</td>
-              <td style="padding: 12px; text-align: right; font-size: 13px;">${order.quantity * 1.02} ${order.unit}</td>
+              <td style="padding: 12px; font-size: 13px;">${order.orderNumber}/1-50</td>
+              <td style="padding: 12px; font-size: 13px;">${order.commodity || '[COMMODITY]'}</td>
+              <td style="padding: 12px; text-align: right; font-size: 13px;">${order.quantity || 0} ${order.unit || ''}</td>
+              <td style="padding: 12px; text-align: right; font-size: 13px;">${(order.quantity || 0) * 1.02} ${order.unit || ''}</td>
             </tr>
           </tbody>
         </table>
         <div style="margin-top: 20px; font-size: 12px; color: #475569;">
-          <p>Total Packages: <strong>${Math.ceil(order.quantity / 25)} Bags</strong></p>
-          <p>Container No: <strong>${order.containerNumber || 'TCNU1234567'}</strong></p>
+          <p>Total Packages: <strong>${order.quantity ? Math.ceil(order.quantity / 25) : 0} Bags</strong></p>
+          <p>Container No: <strong>${order.containerNumber || '[CONTAINER NO]'}</strong></p>
         </div>
         ${getFooter()}
       `;
@@ -179,16 +179,16 @@ export const generateDocument = (type: DocType, order: ExportOrder): string => {
           </div>
           <div style="background-color: white; padding: 15px;">
             <h3 style="font-size: 9px; text-transform: uppercase; color: #94a3b8; margin-bottom: 5px;">Vessel / Voyage</h3>
-            <p style="margin: 0; font-size: 11px; font-weight: 700;">MSC CALICUT V.102</p>
+            <p style="margin: 0; font-size: 11px; font-weight: 700;">${order.vesselName || '[VESSEL/VOYAGE]'}</p>
           </div>
         </div>
         <div style="margin-top: 20px; border: 1px solid #e4e4e7;">
           <div style="background-color: #f8fafc; padding: 10px; border-bottom: 1px solid #e4e4e7; font-size: 10px; font-weight: 700; text-transform: uppercase;">Description of Goods</div>
           <div style="padding: 20px; font-size: 12px; line-height: 1.6;">
-            <p><strong>Container No:</strong> ${order.containerNumber || 'TCNU1234567'}</p>
-            <p><strong>Seal No:</strong> CST987654</p>
-            <p><strong>Goods:</strong> ${order.quantity || 1} ${order.unit || 'MT'} OF ${(order.commodity || 'Premium Commodities').toUpperCase()}</p>
-            <p><strong>HS CODE:</strong> ${order.hsCode || '0904'}</p>
+            <p><strong>Container No:</strong> ${order.containerNumber || '[CONTAINER NO]'}</p>
+            <p><strong>Seal No:</strong> [SEAL NO]</p>
+            <p><strong>Goods:</strong> ${order.quantity || 0} ${order.unit || ''} OF ${(order.commodity || '[COMMODITY]').toUpperCase()}</p>
+            <p><strong>HS CODE:</strong> ${order.hsCode || '[HS CODE]'}</p>
           </div>
         </div>
         ${getFooter()}
@@ -314,9 +314,9 @@ export const generateDocument = (type: DocType, order: ExportOrder): string => {
       return `
         ${getHeader('L/C Utilization Advice', refNo, date)}
         <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
-          <p style="margin: 0; font-size: 13px;"><strong>L/C Number:</strong> LC/2026/998877</p>
-          <p style="margin: 5px 0 0; font-size: 13px;"><strong>Issuing Bank:</strong> HSBC BANK, DUBAI</p>
-          <p style="margin: 5px 0 0; font-size: 13px;"><strong>Advising Bank:</strong> STATE BANK OF INDIA, KOZHIKODE</p>
+          <p style="margin: 0; font-size: 13px;"><strong>L/C Number:</strong> [L/C NUMBER]</p>
+          <p style="margin: 5px 0 0; font-size: 13px;"><strong>Issuing Bank:</strong> [ISSUING BANK]</p>
+          <p style="margin: 5px 0 0; font-size: 13px;"><strong>Advising Bank:</strong> [ADVISING BANK]</p>
         </div>
         <h4 style="font-size: 12px; font-weight: 700; text-transform: uppercase; margin-bottom: 15px;">Documents Presented</h4>
         <ul style="font-size: 13px; color: #1e293b; line-height: 2;">
@@ -342,15 +342,15 @@ export const generateDocument = (type: DocType, order: ExportOrder): string => {
           </tr>
           <tr style="border-bottom: 1px solid #f1f5f9;">
             <td style="padding: 12px; font-size: 13px;">Moisture Content</td>
-            <td style="padding: 12px; font-size: 13px; text-align: right;">11.5%</td>
+            <td style="padding: 12px; font-size: 13px; text-align: right;">--%</td>
           </tr>
           <tr style="border-bottom: 1px solid #f1f5f9;">
             <td style="padding: 12px; font-size: 13px;">Purity Percentage</td>
-            <td style="padding: 12px; font-size: 13px; text-align: right;">99.8%</td>
+            <td style="padding: 12px; font-size: 13px; text-align: right;">--%</td>
           </tr>
           <tr style="border-bottom: 1px solid #f1f5f9;">
             <td style="padding: 12px; font-size: 13px;">Extraneous Matter</td>
-            <td style="padding: 12px; font-size: 13px; text-align: right;">0.2% Max</td>
+            <td style="padding: 12px; font-size: 13px; text-align: right;">--% Max</td>
           </tr>
         </table>
         <p style="font-size: 12px; color: #475569; font-style: italic;">The above results are based on samples drawn from Batch CST/2026/${order.orderNumber}.</p>
@@ -369,8 +369,8 @@ export const generateDocument = (type: DocType, order: ExportOrder): string => {
             <p><strong>Duration:</strong> 24 Hours Exposure</p>
             <p><strong>Temperature:</strong> 27 Degrees Celsius</p>
           </div>
-          <p><strong>Commodity:</strong> ${order.commodity}</p>
-          <p><strong>Container No:</strong> ${order.containerNumber || 'TCNU1234567'}</p>
+          <p><strong>Commodity:</strong> ${order.commodity || '[COMMODITY]'}</p>
+          <p><strong>Container No:</strong> ${order.containerNumber || '[CONTAINER NO]'}</p>
         </div>
         ${getFooter()}
       `;
