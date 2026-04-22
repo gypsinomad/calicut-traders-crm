@@ -127,7 +127,7 @@ export default function UserManagement() {
   const handleStatusChange = async (userId: string, newStatus: UserStatus, userName: string, orgId?: string) => {
     try {
       const userRef = doc(db, 'users', userId);
-      const updates: any = { status: newStatus };
+      const updates: Partial<UserProfile> = { status: newStatus };
       
       // Get the user's current data to check for organization
       const userToUpdate = users.find(u => u.uid === userId);

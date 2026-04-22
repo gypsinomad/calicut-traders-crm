@@ -11,7 +11,8 @@ import {
   Timestamp,
   getDocFromServer,
   getDocs,
-  getDoc
+  getDoc,
+  WhereFilterOp
 } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 export { db, auth };
@@ -69,7 +70,7 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 
 export const getDocuments = async <T>(
   path: string, 
-  filters?: { field: string; operator: any; value: any }[],
+  filters?: { field: string; operator: WhereFilterOp; value: any }[],
   sortField?: string,
   sortOrder: 'asc' | 'desc' = 'desc'
 ) => {
@@ -111,7 +112,7 @@ export const getDocument = async <T>(path: string, id: string) => {
 export const subscribeToCollection = <T>(
   path: string, 
   callback: (data: T[]) => void,
-  filters?: { field: string; operator: any; value: any }[],
+  filters?: { field: string; operator: WhereFilterOp; value: any }[],
   sortField?: string,
   sortOrder: 'asc' | 'desc' = 'desc'
 ) => {

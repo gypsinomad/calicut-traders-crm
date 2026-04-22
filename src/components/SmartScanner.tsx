@@ -23,8 +23,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import QrScanner from 'react-qr-scanner';
 import { db, auth } from '../firebase';
 import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
-import { generateAIContent, isAIAvailable } from '../lib/ai';
-import { Type } from '@google/genai';
+import { generateAIContent, isAIAvailable, Type } from '../lib/ai';
 
 type ScannerMode = 'inventory' | 'business_card' | 'document';
 
@@ -32,7 +31,7 @@ export default function SmartScanner() {
   const [mode, setMode] = useState<ScannerMode>('inventory');
   const [isScanning, setIsScanning] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [scanResult, setScanResult] = useState<any>(null);
+  const [scanResult, setScanResult] = useState<any | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [status, setStatus] = useState<'idle' | 'success' | 'error' | 'processing'>('idle');
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
@@ -112,7 +111,7 @@ export default function SmartScanner() {
       const mimeType = 'image/jpeg';
 
       let prompt = '';
-      let schema: any = {};
+      let schema: object = {};
 
       if (mode === 'business_card') {
         prompt = "Extract contact information from this business card. Return as JSON.";

@@ -87,11 +87,11 @@ export default function LeadList() {
 
     setIsSubmitting(true);
     try {
-      const leadData: any = {
+      const leadData: Partial<Lead> = {
         ...newLead,
         assignedUserId: profile?.uid || '',
         organization: profile?.organization || '',
-        nextFollowUpAt: nextFollowUpDate ? Timestamp.fromDate(new Date(nextFollowUpDate)) : null,
+        nextFollowUpAt: nextFollowUpDate ? Timestamp.fromDate(new Date(nextFollowUpDate)) : null as any,
       };
 
       if (editingLead) {
@@ -140,7 +140,7 @@ export default function LeadList() {
       phone: lead.phone,
       destinationCountry: lead.destinationCountry,
       productInterest: lead.productInterest,
-      productCategories: (lead as any).productCategories || '',
+      productCategories: lead.productCategories || '',
       incotermsPreference: lead.incotermsPreference,
       source: lead.source,
       status: lead.status,

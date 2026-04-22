@@ -52,7 +52,15 @@ interface BriefingData {
   motivationalQuote: string;
 }
 
-const StatCard = ({ title, value, change, icon: Icon, trend }: any) => (
+interface StatCardProps {
+  title: string;
+  value: string | number;
+  change: string;
+  icon: React.ElementType;
+  trend: 'up' | 'down';
+}
+
+const StatCard = ({ title, value, change, icon: Icon, trend }: StatCardProps) => (
   <div className="bg-white dark:bg-zinc-900 p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] border border-zinc-200/50 dark:border-zinc-800 shadow-sm hover:shadow-2xl hover:shadow-emerald-900/5 transition-all duration-500 group relative overflow-hidden">
     <div className="relative z-10 flex items-start justify-between">
       <div>

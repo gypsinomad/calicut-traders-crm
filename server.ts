@@ -2,6 +2,7 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
+import { VertexAI } from "@google-cloud/vertexai";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -10,9 +11,37 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
+  app.use(express.json({ limit: '10mb' }));
+
+  const vertexAI = new VertexAI({ 
+    project: 'spiceroute-manager-65f3b', 
+    location: 'us-central1' 
+  });
+
   // API routes
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+
+  app.post("/api/ai/generateContent", async (req, res) => {
+    try {
+      const { model, contents, config } = req.body;
+      
+      const generativeModel = vertexAI.preview.getGenerativeModel({
+        model: model || 'gemini-3-flash-preview',
+        generationConfig: config
+      });
+
+      const result = await generativeModel.generateContent({
+        contents: contents
+      });
+
+      const response = await result.response;
+      res.json(response);
+    } catch (error: any) {
+      console.error("[AI] Error:", error);
+      res.status(500).json({ error: error.message || "AI Generation failed" });
+    }
   });
 
   app.post("/api/whatsapp/send", async (req, res) => {

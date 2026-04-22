@@ -1,5 +1,44 @@
-import { GoogleGenAI, GenerateContentParameters, GenerateContentResponse, ThinkingLevel } from '@google/genai';
-export { ThinkingLevel };
+// Removed @google-cloud/vertexai from frontend to prevent build errors
+// Vertex AI is now handled server-side in server.ts
+
+export enum Type {
+  TYPE_UNSPECIFIED = "TYPE_UNSPECIFIED",
+  STRING = "STRING",
+  NUMBER = "NUMBER",
+  INTEGER = "INTEGER",
+  BOOLEAN = "BOOLEAN",
+  ARRAY = "ARRAY",
+  OBJECT = "OBJECT"
+}
+
+export enum ThinkingLevel {
+  UNSPECIFIED = "THINKING_LEVEL_UNSPECIFIED",
+  LOW = "LOW",
+  MEDIUM = "MEDIUM",
+  HIGH = "HIGH"
+}
+
+// Re-export type for compatibility
+export interface TradeAIParameters {
+  model?: string;
+  contents: any;
+  config?: any;
+  safetySettings?: any;
+}
+
+export interface TradeAIResponse {
+  text: string;
+  candidates?: any[];
+  usageMetadata?: {
+    promptTokenCount: number;
+    candidatesTokenCount: number;
+    totalTokenCount: number;
+  };
+}
+
+export type GenerateContentParameters = TradeAIParameters;
+export type GenerateContentResponse = TradeAIResponse;
+
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import { trackAICall, getAIUsageSummary } from './aiUsageTracker';
@@ -34,7 +73,6 @@ function notifyListeners() {
 }
 
 // Provider instances
-let geminiInstance: GoogleGenAI | null = null;
 let openaiInstance: OpenAI | null = null;
 let anthropicInstance: Anthropic | null = null;
 let currentProvider: AIProvider | null = null;
@@ -48,12 +86,11 @@ async function getAIProvider(orgId: string) {
   const apiKey = providerSettings.apiKey || (provider === 'gemini' ? process.env.GEMINI_API_KEY : '') || '';
   
   if (currentProvider !== provider || currentApiKey !== apiKey) {
-    geminiInstance = null;
     openaiInstance = null;
     anthropicInstance = null;
     
     if (provider === 'gemini') {
-      geminiInstance = new GoogleGenAI({ apiKey });
+      // Handled server-side
     } else if (provider === 'openai' || provider === 'deepseek' || provider === 'nemotron' || provider === 'mistral') {
       openaiInstance = new OpenAI({ 
         apiKey, 
@@ -70,7 +107,6 @@ async function getAIProvider(orgId: string) {
 
   return { 
     provider, 
-    gemini: geminiInstance, 
     openai: openaiInstance, 
     anthropic: anthropicInstance, 
     settings,
@@ -96,14 +132,14 @@ export function isAIAvailable() {
   );
 }
 
-export async function generateAIContent(feature: string, params: GenerateContentParameters): Promise<GenerateContentResponse> {
+export async function generateAIContent(feature: string, params: TradeAIParameters): Promise<TradeAIResponse> {
   const user = auth.currentUser;
   if (!user) throw new Error('User not authenticated');
 
   const profileSnap = await getDoc(doc(db, 'users', user.uid));
   const orgId = profileSnap.exists() ? profileSnap.data().organization : 'default';
 
-  const { provider, gemini, openai, anthropic, settings, providerSettings } = await getAIProvider(orgId);
+  const { provider, openai, anthropic, settings, providerSettings } = await getAIProvider(orgId);
 
   if (!settings.enabled || (providerSettings && !providerSettings.enabled)) {
     throw new Error('AI features are currently disabled in settings.');
@@ -151,12 +187,28 @@ export async function generateAIContent(feature: string, params: GenerateContent
       }
     }
 
-    if (provider === 'gemini' && gemini) {
-      const response = await gemini.models.generateContent({
-        ...params,
-        model
+    if (provider === 'gemini') {
+      const contents = Array.isArray(params.contents) 
+        ? params.contents.map((c: any) => c.parts ? c : { role: 'user', parts: [{ text: typeof c === 'string' ? c : (c as any).text }] })
+        : [{ role: 'user', parts: [{ text: typeof params.contents === 'string' ? params.contents : (params.contents as any).text }] }];
+
+      const serverResponse = await fetch('/api/ai/generateContent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model,
+          contents,
+          config: params.config
+        })
       });
-      responseText = response.text || '';
+
+      if (!serverResponse.ok) {
+        const errorData = await serverResponse.json();
+        throw new Error(errorData.error || 'Server-side AI generation failed');
+      }
+
+      const response = await serverResponse.json();
+      responseText = response.candidates?.[0]?.content?.parts?.[0]?.text || '';
       inputTokens = response.usageMetadata?.promptTokenCount || 0;
       outputTokens = response.usageMetadata?.candidatesTokenCount || 0;
     } else if ((provider === 'openai' || provider === 'deepseek' || provider === 'nemotron' || provider === 'mistral') && openai) {

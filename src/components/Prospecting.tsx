@@ -2,9 +2,7 @@ import React, { useState } from 'react';
 import { Search, Globe, Mail, Phone, Building2, Sparkles, Filter, Download, Plus, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
-import { GoogleGenAI, Type } from "@google/genai";
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+import { generateAIContent, isAIAvailable, Type as SchemaType } from "../lib/ai";
 
 interface Prospect {
   id: string;
@@ -31,26 +29,31 @@ export default function Prospecting() {
 
     setLoading(true);
     try {
-      const response = await ai.models.generateContent({
+      const response = await generateAIContent('Prospect Search', {
         model: "gemini-3-flash-preview",
-        contents: `Find 5 potential spice and food importers in ${searchTerm}. Return as a JSON array of objects with fields: company, country, industry, website, score (0-100).`,
         config: {
           responseMimeType: "application/json",
           responseSchema: {
-            type: Type.ARRAY,
+            type: SchemaType.ARRAY,
             items: {
-              type: Type.OBJECT,
+              type: SchemaType.OBJECT,
               properties: {
-                company: { type: Type.STRING },
-                country: { type: Type.STRING },
-                industry: { type: Type.STRING },
-                website: { type: Type.STRING },
-                score: { type: Type.NUMBER }
+                company: { type: SchemaType.STRING },
+                country: { type: SchemaType.STRING },
+                industry: { type: SchemaType.STRING },
+                website: { type: SchemaType.STRING },
+                score: { type: SchemaType.NUMBER }
               },
               required: ["company", "country", "industry", "website", "score"]
             }
           }
-        }
+        },
+        contents: [{
+          role: "user",
+          parts: [{
+            text: `Find 5 potential spice and food importers in ${searchTerm}. Return as a JSON array of objects with fields: company, country, industry, website, score (0-100).`
+          }]
+        }]
       });
 
       const results = JSON.parse(response.text || '[]');
@@ -74,20 +77,25 @@ export default function Prospecting() {
 
     setEnrichingId(id);
     try {
-      const response = await ai.models.generateContent({
+      const response = await generateAIContent('Prospect Enrichment', {
         model: "gemini-3-flash-preview",
-        contents: `Find verified contact information for ${prospect.company} (${prospect.website}). Return as JSON with fields: contactName, email, phone.`,
         config: {
           responseMimeType: "application/json",
           responseSchema: {
-            type: Type.OBJECT,
+            type: SchemaType.OBJECT,
             properties: {
-              contactName: { type: Type.STRING },
-              email: { type: Type.STRING },
-              phone: { type: Type.STRING }
+              contactName: { type: SchemaType.STRING },
+              email: { type: SchemaType.STRING },
+              phone: { type: SchemaType.STRING }
             }
           }
-        }
+        },
+        contents: [{
+          role: "user",
+          parts: [{
+            text: `Find verified contact information for ${prospect.company} (${prospect.website}). Return as JSON with fields: contactName, email, phone.`
+          }]
+        }]
       });
 
       const enrichment = JSON.parse(response.text || '{}');
