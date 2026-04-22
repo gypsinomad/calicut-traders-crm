@@ -1,6 +1,7 @@
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
+import fs from "node:fs/promises";
 import { fileURLToPath } from "url";
 import { VertexAI } from "@google-cloud/vertexai";
 import cors from "cors";
@@ -16,35 +17,23 @@ console.log("[Server] AI_API_SECRET presence:", !!process.env.AI_API_SECRET);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// AI Cache & Monitoring
-const aiCache = new Map<string, { response: any, timestamp: number }>();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-const sessionCounter = new Map<string, number>();
-const pendingRequests = new Map<string, Promise<any>>();
-
-const MAX_AI_CALLS_PER_SESSION = 20;
-const MAX_AI_CALLS_PER_REQUEST = 5; // To prevent runaway loops in a single workflow
-
-function getPromptHash(model: string, contents: any, config: any): string {
-  const data = JSON.stringify({ model, contents, config });
-  return crypto.createHash("sha256").update(data).digest("hex");
-}
-
+// AI Dedicated Service Start
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
   // Middleware
-  const corsOptions = {
-    origin: true,
-    credentials: true
-  };
-  app.use("/api", cors(corsOptions));
   app.use("/api", express.json({ limit: "10mb" }));
+
+  // API logs endpoint (for browser error reporting)
+  app.post("/api/logs", (req, res) => {
+    console.log("[Remote Browser Log]:", req.body);
+    res.status(204).end();
+  });
 
   // API health check (unprotected)
   app.get("/api/health", (req, res) => {
-    res.json({ status: "ok", timestamp: new Date().toISOString() });
+    res.json({ status: "ok" });
   });
 
   const vertexAI = new VertexAI({ 
@@ -54,64 +43,27 @@ async function startServer() {
 
   // Security Middleware for AI
   const authenticateAI = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    const authHeader = req.headers.authorization;
-    const clientSecret = req.headers["x-ai-secret"];
+    const token = req.headers.authorization?.split(" ")[1] || req.headers["x-ai-secret"];
     const secret = process.env.AI_API_SECRET;
 
-    if (!secret) {
-      console.warn("[Security] AI_API_SECRET not set in environment. AI routes are unprotected.");
+    if (!secret || token === secret) {
       return next();
     }
-
-    const token = authHeader?.split(" ")[1] || clientSecret;
-    if (token !== secret) {
-      console.warn(`[Security] Unauthorized AI request from ${req.ip}`);
-      return res.status(401).json({ error: "Unauthorized: Invalid AI credentials" });
-    }
-    next();
+    
+    res.status(401).json({ error: "Unauthorized" });
   };
 
   // Dedicated AI Endpoint
   const handleAIRequest = async (req: express.Request, res: express.Response) => {
     try {
-      const { model, contents, config, sessionId = "default" } = req.body;
-      
-      const currentSessionCount = sessionCounter.get(sessionId) || 0;
-      if (currentSessionCount >= MAX_AI_CALLS_PER_SESSION) {
-        return res.status(429).json({ error: "Session AI limit reached" });
-      }
-
-      const promptHash = getPromptHash(model, contents, config);
-      const cached = aiCache.get(promptHash);
-      if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
-        return res.json(cached.response);
-      }
-
-      if (pendingRequests.has(promptHash)) {
-        const response = await pendingRequests.get(promptHash);
-        return res.json(response);
-      }
-
-      sessionCounter.set(sessionId, currentSessionCount + 1);
-
-      const requestPromise = (async () => {
-        const generativeModel = vertexAI.preview.getGenerativeModel({
-          model: model || "gemini-3-flash-preview",
-          generationConfig: config
-        });
-        const result = await generativeModel.generateContent({ contents });
-        const response = await result.response;
-        aiCache.set(promptHash, { response, timestamp: Date.now() });
-        return response;
-      })();
-
-      pendingRequests.set(promptHash, requestPromise);
-      try {
-        const response = await requestPromise;
-        res.json(response);
-      } finally {
-        pendingRequests.delete(promptHash);
-      }
+      const { model, contents, config } = req.body;
+      const generativeModel = vertexAI.preview.getGenerativeModel({
+        model: model || "gemini-3-flash-preview",
+        generationConfig: config
+      });
+      const result = await generativeModel.generateContent({ contents });
+      const response = await result.response;
+      res.json(response);
     } catch (error: any) {
       console.error("[AI] Error:", error);
       res.status(500).json({ error: error.message || "AI Generation failed" });
@@ -120,51 +72,6 @@ async function startServer() {
 
   app.post("/api/ai/generate", authenticateAI, handleAIRequest);
   app.post("/api/ai/generateContent", authenticateAI, handleAIRequest);
-
-  app.post("/api/whatsapp/send", async (req, res) => {
-    const { to, templateName, languageCode, components } = req.body;
-    const token = process.env.WHATSAPP_API_TOKEN;
-    const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-
-    if (!token || !phoneNumberId) {
-      // Fallback for simulation if not configured
-      return res.json({ success: true, messageId: `SIM_${Date.now()}`, status: 'simulated' });
-    }
-
-    try {
-      const response = await fetch(
-        `https://graph.facebook.com/v18.0/${phoneNumberId}/messages`,
-        {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            messaging_product: "whatsapp",
-            to,
-            type: "template",
-            template: {
-              name: templateName,
-              language: { code: languageCode || "en_US" },
-              components,
-            },
-          }),
-        }
-      );
-
-      const data = await response.json();
-      if (!response.ok) {
-        console.error("[WhatsApp] API Error:", data);
-        return res.status(response.status).json(data);
-      }
-
-      res.json(data);
-    } catch (error) {
-      console.error("[WhatsApp] Request Failed:", error);
-      res.status(500).json({ error: "Failed to send WhatsApp message" });
-    }
-  });
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
