@@ -132,6 +132,8 @@ export function isAIAvailable() {
   );
 }
 
+const sessionId = Math.random().toString(36).substring(7);
+
 export async function generateAIContent(feature: string, params: TradeAIParameters): Promise<TradeAIResponse> {
   const user = auth.currentUser;
   if (!user) throw new Error('User not authenticated');
@@ -192,13 +194,18 @@ export async function generateAIContent(feature: string, params: TradeAIParamete
         ? params.contents.map((c: any) => c.parts ? c : { role: 'user', parts: [{ text: typeof c === 'string' ? c : (c as any).text }] })
         : [{ role: 'user', parts: [{ text: typeof params.contents === 'string' ? params.contents : (params.contents as any).text }] }];
 
-      const serverResponse = await fetch('/api/ai/generateContent', {
+      const serverResponse = await fetch('/api/ai/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.AI_API_SECRET || ''}`,
+          'X-AI-Secret': process.env.AI_API_SECRET || ''
+        },
         body: JSON.stringify({
           model,
           contents,
-          config: params.config
+          config: params.config,
+          sessionId
         })
       });
 
