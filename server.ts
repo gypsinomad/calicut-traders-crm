@@ -4,10 +4,14 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { VertexAI } from "@google-cloud/vertexai";
 import cors from "cors";
-import crypto from "crypto";
+import crypto from "node:crypto";
 import dotenv from "dotenv";
 
 dotenv.config();
+
+console.log("[Server] Starting with PID:", process.pid);
+console.log("[Server] NODE_ENV:", process.env.NODE_ENV);
+console.log("[Server] AI_API_SECRET presence:", !!process.env.AI_API_SECRET);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -30,24 +34,25 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  // CORS restrictions - only allow requests from the app's own origin
+  // Middleware
   const corsOptions = {
-    origin: (origin: any, callback: any) => {
-      // In development/AI Studio, origin might be undefined for some requests
-      // But generally we want to restrict it to the same host in production
-      callback(null, true);
-    },
+    origin: true,
     credentials: true
   };
-  app.use(cors(corsOptions));
-  app.use(express.json({ limit: "10mb" }));
+  app.use("/api", cors(corsOptions));
+  app.use("/api", express.json({ limit: "10mb" }));
+
+  // API health check (unprotected)
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
 
   const vertexAI = new VertexAI({ 
     project: "spiceroute-manager-65f3b", 
     location: "us-central1" 
   });
 
-  // Security Middleware
+  // Security Middleware for AI
   const authenticateAI = (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const authHeader = req.headers.authorization;
     const clientSecret = req.headers["x-ai-secret"];
@@ -66,54 +71,27 @@ async function startServer() {
     next();
   };
 
-  // API routes
-  app.get("/api/health", (req, res) => {
-    res.json({ status: "ok", timestamp: new Date().toISOString() });
-  });
-
   // Dedicated AI Endpoint
-  app.post("/api/ai/generate", authenticateAI, async (req, res) => {
+  const handleAIRequest = async (req: express.Request, res: express.Response) => {
     try {
       const { model, contents, config, sessionId = "default" } = req.body;
       
-      // 1. Cost Monitoring & Limits
       const currentSessionCount = sessionCounter.get(sessionId) || 0;
-      
-      // Block if session limit exceeded
       if (currentSessionCount >= MAX_AI_CALLS_PER_SESSION) {
-        console.warn(`[AI] Session ${sessionId} blocked: reached ${MAX_AI_CALLS_PER_SESSION} calls.`);
-        return res.status(429).json({ error: "Session AI limit reached. Please refresh or try again later." });
+        return res.status(429).json({ error: "Session AI limit reached" });
       }
 
-      // Runaway loop protection: Max 5 calls in quick succession (e.g. 10 seconds)
-      // For simplicity, we'll just track if we just made too many calls very recently
-      // But per the request: "Add a MAX_AI_CALLS_PER_REQUEST=5 limit"
-      // I'll take this as a "per turn" or "per complex request" limit if the client sent an array
-      // However, we'll just implement a strict session check for now.
-      // Better: if "contents" is too large, it might be a loop symptom.
-      
-      if (currentSessionCount > 0 && currentSessionCount % 5 === 0) {
-        console.warn(`[AI] Session ${sessionId} warning: ${currentSessionCount} calls made.`);
-      }
-      
       const promptHash = getPromptHash(model, contents, config);
-
-      // 2. Caching
       const cached = aiCache.get(promptHash);
       if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
-        console.log(`[AI] Cache hit for ${promptHash}`);
         return res.json(cached.response);
       }
 
-      // 3. Deduplication
       if (pendingRequests.has(promptHash)) {
-        console.log(`[AI] Deduplication: waiting for pending request ${promptHash}`);
         const response = await pendingRequests.get(promptHash);
         return res.json(response);
       }
 
-      // 4. Rate Limiting Check (MAX_AI_CALLS_PER_REQUEST imitation)
-      // This is a simple per-session increment
       sessionCounter.set(sessionId, currentSessionCount + 1);
 
       const requestPromise = (async () => {
@@ -121,20 +99,13 @@ async function startServer() {
           model: model || "gemini-3-flash-preview",
           generationConfig: config
         });
-
-        const result = await generativeModel.generateContent({
-          contents: contents
-        });
-
+        const result = await generativeModel.generateContent({ contents });
         const response = await result.response;
-        
-        // Update cache
         aiCache.set(promptHash, { response, timestamp: Date.now() });
         return response;
       })();
 
       pendingRequests.set(promptHash, requestPromise);
-      
       try {
         const response = await requestPromise;
         res.json(response);
@@ -145,14 +116,10 @@ async function startServer() {
       console.error("[AI] Error:", error);
       res.status(500).json({ error: error.message || "AI Generation failed" });
     }
-  });
+  };
 
-  // Legacy route for compatibility during migration (proxies to new handler)
-  app.post("/api/ai/generateContent", authenticateAI, (req, res) => {
-    // Redirect or proxy internally
-    req.url = "/api/ai/generate";
-    app._router.handle(req, res, () => {});
-  });
+  app.post("/api/ai/generate", authenticateAI, handleAIRequest);
+  app.post("/api/ai/generateContent", authenticateAI, handleAIRequest);
 
   app.post("/api/whatsapp/send", async (req, res) => {
     const { to, templateName, languageCode, components } = req.body;
@@ -201,11 +168,13 @@ async function startServer() {
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
+    console.log("[Server] Initializing Vite middleware...");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
+    console.log("[Server] Vite middleware ready");
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
@@ -219,4 +188,7 @@ async function startServer() {
   });
 }
 
-startServer();
+startServer().catch(err => {
+  console.error("Failed to start server:", err);
+  process.exit(1);
+});

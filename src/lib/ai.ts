@@ -194,12 +194,14 @@ export async function generateAIContent(feature: string, params: TradeAIParamete
         ? params.contents.map((c: any) => c.parts ? c : { role: 'user', parts: [{ text: typeof c === 'string' ? c : (c as any).text }] })
         : [{ role: 'user', parts: [{ text: typeof params.contents === 'string' ? params.contents : (params.contents as any).text }] }];
 
+      const aiSecretToken = (typeof process !== 'undefined' ? process.env?.AI_API_SECRET : '') || '';
+
       const serverResponse = await fetch('/api/ai/generate', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.AI_API_SECRET || ''}`,
-          'X-AI-Secret': process.env.AI_API_SECRET || ''
+          'Authorization': `Bearer ${aiSecretToken}`,
+          'X-AI-Secret': aiSecretToken
         },
         body: JSON.stringify({
           model,
