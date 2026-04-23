@@ -2,560 +2,250 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ===============================================================
-    // Assumed Data Model
-    // ===============================================================
-    //
-    // Collection: users
-    // Fields: uid, displayName, email, photoURL, role, isActive, organization, createdAt, isApproved, onboardingCompleted
-    //
-    // Collection: leads
-    // Fields: fullName, companyName, email, phone, status, source, priority, productInterest, destinationCountry, incotermsPreference, assignedUserId, nextFollowUpAt, organization, createdAt
-    //
-    // Collection: orders
-    // Fields: orderNumber, customerName, commodity, quantity, unit, stage, totalAmount, destination, destinationCountry, assignedUserId, organization, createdAt
-    //
-    // Collection: companies
-    // Fields: legalName, displayName, type, email, phone, organization, createdAt
-    //
-    // Collection: tasks
-    // Fields: title, description, status, priority, dueDate, assigneeId, organization, createdAt
-    //
-    // Collection: documents
-    // Fields: name, type, status, fileUrl, uploadedBy, organization, uploadedAt
-    //
-    // Collection: quotes
-    // Fields: quoteNumber, leadId, companyId, totalAmount, currency, status, validUntil, createdBy, organization, createdAt
-    //
-    // Collection: payments
-    // Fields: orderId, amount, currency, status, method, transactionId, dueDate, paidAt, organization
-    //
-    // Collection: shipment_exceptions
-    // Fields: orderId, type, severity, status, description, reportedBy, organization, reportedAt
-    //
-    // Collection: audit_logs
-    // Fields: userId, userEmail, action, entityType, entityId, organization, timestamp
-    //
-    // Collection: ai_usage
-    // Fields: feature, inputTokens, outputTokens, totalTokens, estimatedCostUSD, estimatedCostINR, timestamp, userId
-    //
-    // Collection: notifications
-    // Fields: title, message, type, read, userId, timestamp
-    //
-    // Collection: generated_documents
-    // Fields: orderId, documentType, generatedAt, generatedBy, htmlContent, status, organization
-    //
-    // Collection: send_history
-    // Fields: documentId, quoteId, sentTo, sentVia, sentAt, sentBy, messageBody, organization
-    //
-    // Collection: organizations
-    // Fields: companyName, taxId, address, primaryRegion, defaultIncoterms, currency, sanctionScreening, autoDocGen, riskAlerts, onboardingCompleted, createdBy, createdAt, updatedAt
-    //
-    // ===============================================================
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
 
     // ===============================================================
     // Helper Functions
     // ===============================================================
-    
-    function isAuthenticated() {
+
+    function isSignedIn() {
       return request.auth != null;
     }
 
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function userId() {
+      return request.auth.uid;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && userId() == uid;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
     function isAdmin() {
-      return isAuthenticated() && 
-        ((exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
-         (request.auth.token.email == "akhilvenugopal@gmail.com" && request.auth.token.email_verified == true));
-    }
-
-    function isManager() {
-      return isAuthenticated() && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'manager';
-    }
-
-    function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-    }
-
-    function belongsToOrg(org) {
-      return isAuthenticated() && (
-        isAdmin() || 
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.organization == org) ||
-        org == "Calicut Traders" // Fallback for initial setup/admin
+      return isSignedIn() && (
+        (exists(/databases/$(database)/documents/users/$(userId())) && 
+         get(/databases/$(database)/documents/users/$(userId())).data.role == 'admin') ||
+        request.auth.token.email == 'akhilvenugopal@gmail.com'
       );
     }
 
-    function hasRequiredFields(fields) {
-      return request.resource.data.keys().hasAll(fields);
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(userId())).data;
     }
 
-    function hasOnlyAllowedFields(fields) {
-      return request.resource.data.keys().hasOnly(fields);
+    function isManager() {
+      return isSignedIn() && (isAdmin() || (exists(/databases/$(database)/documents/users/$(userId())) && getUserData().role == 'manager'));
     }
 
-    function isValidEmail(email) {
-      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
-    }
-
-    function isValidUrl(url) {
-      return url is string && (url.matches("^https://.*") || url.matches("^http://.*"));
+    function belongsToOrg(org) {
+      return isSignedIn() && (
+        isAdmin() || 
+        (exists(/databases/$(database)/documents/users/$(userId())) && 
+         getUserData().organization == org) ||
+        org == "Calicut Traders" ||// Initial bootstrap fallback
+        getUserData().organization == "Calicut Traders"
+      );
     }
 
     // ===============================================================
-    // Domain Validators
+    // Validation Blueprints
     // ===============================================================
 
     function isValidUser(data) {
-      return hasRequiredFields(['uid', 'displayName', 'email', 'role', 'status', 'createdAt', 'lastSeen', 'isOnline', 'presenceStatus']) &&
-             data.uid is string && data.uid.size() > 0 &&
-             data.displayName is string && data.displayName.size() > 0 && data.displayName.size() < 100 &&
-             isValidEmail(data.email) &&
+      return data.keys().hasAll(['uid', 'displayName', 'email', 'role', 'status', 'createdAt', 'lastSeen', 'isOnline', 'presenceStatus']) &&
+             data.keys().size() >= 9 &&
+             data.uid == userId() &&
+             data.displayName is string && data.displayName.size() > 0 && data.displayName.size() <= 100 &&
+             data.email is string && data.email.size() > 0 && data.email.size() <= 256 &&
              data.role in ['admin', 'manager', 'staff', 'user'] &&
              data.status in ['pending', 'active', 'suspended'] &&
-             (
-              !('organization' in data) || 
-              data.organization == null || 
-              (data.organization is string)
-            ) &&
              data.createdAt is timestamp &&
              data.lastSeen is timestamp &&
              data.isOnline is bool &&
-             data.presenceStatus in ['online', 'away', 'offline', 'dnd'] &&
-             (!('photoURL' in data) || data.photoURL == null || isValidUrl(data.photoURL)) &&
-             (!('avatarUrl' in data) || data.avatarUrl == null || isValidUrl(data.avatarUrl)) &&
-             (!('approvalRequestedAt' in data) || data.approvalRequestedAt is timestamp) &&
-             (!('onboardingCompleted' in data) || data.onboardingCompleted is bool);
-    }
-
-    function isValidOrganization(data) {
-      return hasRequiredFields(['onboardingCompleted', 'createdBy', 'createdAt']) &&
-             data.onboardingCompleted is bool &&
-             data.createdBy is string &&
-             data.createdAt is timestamp;
+             data.presenceStatus in ['online', 'away', 'offline', 'dnd'];
     }
 
     function isValidLead(data) {
-      return hasRequiredFields(['fullName', 'email', 'status', 'source', 'organization']) &&
-             data.fullName is string && data.fullName.size() > 0 && data.fullName.size() < 100 &&
-             (!('companyName' in data) || (data.companyName is string && data.companyName.size() < 200)) &&
-             isValidEmail(data.email) &&
-             (!('phone' in data) || (data.phone is string && data.phone.size() < 20)) &&
+      return data.keys().hasAll(['fullName', 'email', 'status', 'source', 'organization', 'createdAt', 'updatedAt']) &&
+             data.fullName is string && data.fullName.size() > 0 && data.fullName.size() <= 100 &&
+             data.email is string && data.email.size() > 0 && data.email.size() <= 256 &&
              data.status in ['new', 'contacted', 'qualified', 'quoted', 'converted', 'lost'] &&
-             data.source in ['manual', 'website', 'whatsapp', 'tradeShow', 'referral'] &&
-             (!('nextFollowUpAt' in data) || data.nextFollowUpAt == null || data.nextFollowUpAt is timestamp) &&
-             data.organization is string && data.organization.size() > 0;
+             data.source in ['manual', 'website', 'whatsapp', 'tradeShow', 'referral', 'linkedin', 'emailCampaign', 'coldCall', 'importData'] &&
+             data.organization is string && data.organization.size() > 0 && data.organization.size() <= 64 &&
+             data.createdAt == request.time &&
+             data.updatedAt == request.time;
     }
 
     function isValidOrder(data) {
-      return hasRequiredFields(['orderNumber', 'customerName', 'commodity', 'quantity', 'unit', 'stage', 'totalAmount', 'totalValue', 'organization']) &&
-             data.orderNumber is string && data.orderNumber.size() > 0 && data.orderNumber.size() < 50 &&
-             data.customerName is string && data.customerName.size() > 0 && data.customerName.size() < 200 &&
-             data.commodity is string && data.commodity.size() > 0 && data.commodity.size() < 100 &&
-             data.quantity is number && data.quantity >= 0 &&
-             data.unit is string && data.unit.size() < 10 &&
-             data.stage in ['leadReceived', 'quotationSent', 'orderConfirmed', 'exportDocumentation', 'shipmentReady', 'shippedDelivered', 'cancelled'] &&
-             data.totalAmount is number && data.totalAmount >= 0 &&
-             data.totalValue is number && data.totalValue >= 0 &&
-             data.organization is string && data.organization.size() > 0;
-    }
-
-    function isValidCompany(data) {
-      return hasRequiredFields(['legalName', 'displayName', 'type', 'email', 'phone', 'organization']) &&
-             data.legalName is string && data.legalName.size() > 0 && data.legalName.size() < 200 &&
-             data.displayName is string && data.displayName.size() > 0 && data.displayName.size() < 200 &&
-             data.type in ['customer', 'supplier', 'partner', 'agent'] &&
-             isValidEmail(data.email) &&
-             data.phone is string && data.phone.size() < 20 &&
-             data.organization is string && data.organization.size() > 0;
-    }
-
-    function isValidTask(data) {
-      return hasRequiredFields(['title', 'status', 'priority', 'dueDate', 'organization']) &&
-             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
-             data.status in ['open', 'inProgress', 'done', 'pending'] &&
-             data.priority in ['low', 'medium', 'high'] &&
-             data.dueDate is timestamp &&
-             data.organization is string && data.organization.size() > 0;
-    }
-
-    function isValidDocument(data) {
-      return hasRequiredFields(['name', 'type', 'status', 'organization']) &&
-             data.name is string && data.name.size() > 0 && data.name.size() < 200 &&
-             data.type is string && data.type.size() < 50 &&
-             data.status in ['pending', 'uploaded', 'verified', 'finalized', 'rejected'] &&
-             data.organization is string && data.organization.size() > 0;
+      return data.keys().hasAll(['orderNumber', 'customerName', 'commodity', 'quantity', 'unit', 'stage', 'totalAmount', 'totalValue', 'organization']) &&
+             data.orderNumber is string && data.orderNumber.size() > 0 &&
+             data.customerName is string && data.customerName.size() > 0 &&
+             data.commodity is string &&
+             data.quantity is number &&
+             data.stage in ['inquiry', 'quotationSent', 'piIssued', 'orderConfirmed', 'production', 'customs', 'shipped', 'inTransit', 'delivered', 'paymentReceived', 'cancelled', 'draft', 'leadReceived', 'exportDocumentation', 'shipmentReady', 'shippedDelivered'] &&
+             data.totalAmount is number &&
+             data.totalValue is number &&
+             data.organization is string;
     }
 
     function isValidQuote(data) {
-      return hasRequiredFields(['quoteNumber', 'totalAmount', 'currency', 'status', 'organization']) &&
-             data.quoteNumber is string && data.quoteNumber.size() > 0 && data.quoteNumber.size() < 50 &&
-             data.totalAmount is number && data.totalAmount >= 0 &&
-             data.currency is string && data.currency.size() < 10 &&
+      return data.keys().hasAll(['quoteNumber', 'totalAmount', 'currency', 'status', 'organization']) &&
+             data.quoteNumber is string &&
+             data.totalAmount is number &&
+             data.currency is string &&
              data.status in ['draft', 'sent', 'accepted', 'rejected', 'expired', 'converted'] &&
-             data.organization is string && data.organization.size() > 0 &&
-             (!('items' in data) || data.items is list) &&
-             (!('subtotal' in data) || data.subtotal is number) &&
-             (!('freightEstimate' in data) || data.freightEstimate is number) &&
-             (!('insurance' in data) || data.insurance is number) &&
-             (!('incoterms' in data) || data.incoterms is string) &&
-             (!('paymentTerms' in data) || data.paymentTerms is string) &&
-             (!('packaging' in data) || data.packaging is string) &&
-             (!('portOfLoading' in data) || data.portOfLoading is string);
+             data.organization is string;
     }
 
-    function isValidSendHistory(data) {
-      return hasRequiredFields(['sentTo', 'sentVia', 'sentAt', 'sentBy', 'messageBody', 'organization']) &&
-             data.sentTo is string &&
-             data.sentVia in ['email', 'whatsapp'] &&
-             data.sentAt is timestamp &&
-             data.sentBy is string &&
-             data.messageBody is string &&
-             data.organization is string && data.organization.size() > 0;
-    }
-
-    function isValidPayment(data) {
-      return hasRequiredFields(['orderId', 'amount', 'currency', 'status', 'method', 'dueDate', 'organization']) &&
-             data.orderId is string &&
-             data.amount is number && data.amount >= 0 &&
-             data.currency is string && data.currency.size() < 10 &&
-             data.status in ['pending', 'completed', 'failed', 'refunded'] &&
-             data.method in ['bankTransfer', 'creditCard', 'letterOfCredit', 'other'] &&
+    function isValidTask(data) {
+      return data.keys().hasAll(['title', 'status', 'priority', 'dueDate', 'organization']) &&
+             data.title is string &&
+             data.status in ['open', 'inProgress', 'done', 'pending'] &&
+             data.priority in ['low', 'medium', 'high'] &&
              data.dueDate is timestamp &&
-             data.organization is string && data.organization.size() > 0;
-    }
-
-    function isValidShipmentException(data) {
-      return hasRequiredFields(['orderId', 'type', 'severity', 'status', 'organization']) &&
-             data.orderId is string &&
-             data.type in ['delay', 'damage', 'customsHold', 'documentationError', 'other'] &&
-             data.severity in ['low', 'medium', 'high', 'critical'] &&
-             data.status in ['open', 'investigating', 'resolved', 'closed'] &&
-             data.organization is string && data.organization.size() > 0;
-    }
-
-    function isValidInventoryItem(data) {
-      return hasRequiredFields(['name', 'quantity', 'unit', 'reorderLevel', 'organization']) &&
-             data.name is string && data.name.size() > 0 && data.name.size() < 200 &&
-             data.quantity is number &&
-             data.unit is string && data.unit.size() < 10 &&
-             data.reorderLevel is number &&
-             data.organization is string && data.organization.size() > 0;
-    }
-
-    function isValidMarketPrice(data) {
-      return hasRequiredFields(['product', 'commodity', 'region', 'price', 'currency', 'unit', 'trend', 'timestamp']) &&
-             data.product is string && data.product.size() > 0 && data.product.size() < 100 &&
-             data.commodity is string && data.commodity.size() > 0 && data.commodity.size() < 100 &&
-             data.region is string && data.region.size() > 0 && data.region.size() < 100 &&
-             data.price is number && data.price >= 0 &&
-             data.currency is string && data.currency.size() > 0 && data.currency.size() < 10 &&
-             data.unit is string && data.unit.size() > 0 && data.unit.size() < 10 &&
-             data.trend in ['up', 'down', 'stable'] &&
-             data.timestamp is timestamp;
-    }
-
-    function isValidSupplier(data) {
-      return hasRequiredFields(['name', 'email', 'organization']) &&
-             data.name is string && data.name.size() > 0 && data.name.size() < 200 &&
-             isValidEmail(data.email) &&
-             data.organization is string && data.organization.size() > 0 &&
-             (!('completedSteps' in data) || data.completedSteps is list);
-    }
-
-    function isValidAIUsage(data) {
-      return hasRequiredFields(['feature', 'inputTokens', 'outputTokens', 'totalTokens', 'estimatedCostUSD', 'estimatedCostINR', 'timestamp', 'userId']) &&
-             data.feature is string && data.feature.size() > 0 &&
-             data.inputTokens is number && data.inputTokens >= 0 &&
-             data.outputTokens is number && data.outputTokens >= 0 &&
-             data.totalTokens is number && data.totalTokens >= 0 &&
-             data.estimatedCostUSD is number && data.estimatedCostUSD >= 0 &&
-             data.estimatedCostINR is number && data.estimatedCostINR >= 0 &&
-             data.timestamp is timestamp &&
-             data.userId is string && data.userId.size() > 0;
-    }
-
-    function isValidGeneratedDocument(data) {
-      return hasRequiredFields(['orderId', 'documentType', 'generatedAt', 'generatedBy', 'htmlContent', 'status', 'organization']) &&
-             data.orderId is string &&
-             data.documentType in [
-               'proformaInvoice', 'commercialInvoice', 'packingList', 'billOfLading', 
-               'certificateOfOrigin', 'phytosanitaryCertificate', 'fssaiDeclaration', 
-               'shippingBill', 'gstInvoice', 'lcUtilization', 'qualityCertificate', 
-               'fumigationCertificate', 'contract', 'apeda', 'other'
-             ] &&
-             data.generatedAt is timestamp &&
-             data.generatedBy is string &&
-             data.htmlContent is string && data.htmlContent.size() > 0 && data.htmlContent.size() < 1048576 &&
-             data.status in ['draft', 'finalized'] &&
-             data.organization is string && data.organization.size() > 0;
-    }
-
-    function isValidCalendarEvent(data) {
-      return hasRequiredFields(['title', 'start', 'end', 'type', 'isCommon', 'userId', 'organization']) &&
-             data.title is string && data.title.size() > 0 &&
-             data.start is timestamp &&
-             data.end is timestamp &&
-             data.type in ['meeting', 'deadline', 'reminder', 'compliance', 'other'] &&
-             data.isCommon is bool &&
-             data.userId is string &&
              data.organization is string;
     }
 
-    function isValidChatMessage(data) {
-      return hasRequiredFields(['text', 'senderId', 'senderName', 'timestamp', 'organization']) &&
-             data.text is string && data.text.size() > 0 &&
-             data.senderId is string &&
-             data.senderName is string &&
-             data.timestamp is timestamp &&
-             data.organization is string;
-    }
-
-    function isValidDailyObjective(data) {
-      return hasRequiredFields(['userId', 'userName', 'date', 'objectives', 'organization']) &&
-             data.userId is string &&
-             data.userName is string &&
-             data.date is string &&
-             data.objectives is list &&
-             data.organization is string;
-    }
-
-    function isValidNotification(data) {
-      return hasRequiredFields(['title', 'message', 'type', 'userId', 'timestamp', 'organization']) &&
-             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
-             data.message is string && data.message.size() > 0 && data.message.size() < 1000 &&
-             data.type in ['info', 'success', 'warning', 'error', 'user_approval_request'] &&
-             data.userId is string && data.userId.size() > 0 &&
-             data.timestamp is timestamp &&
-             data.organization is string &&
-             (!('read' in data) || data.read is bool) &&
-             (!('relatedEntityId' in data) || data.relatedEntityId is string) &&
-             (!('relatedEntityType' in data) || data.relatedEntityType is string);
-    }
-
-    // ===============================================================
-    // Rules
-    // ===============================================================
-
-    match /users/{userId} {
-      allow read: if isOwner(userId) || belongsToOrg(resource.data.organization) || isAdmin();
-      allow create: if isAuthenticated() && isValidUser(request.resource.data) && isOwner(userId);
-      allow update: if isAuthenticated() && (
+    // --- Users ---
+    match /users/{uid} {
+      allow get: if isValidId(uid) && (isOwner(uid) || isAdmin() || (isSignedIn() && belongsToOrg(resource.data.organization)));
+      allow list: if isAdmin() || (isSignedIn() && exists(/databases/$(database)/documents/users/$(userId())) && resource.data.organization == getUserData().organization);
+      allow create: if isOwner(uid) && isValidUser(incoming());
+      allow update: if isSignedIn() && (
         isAdmin() || 
-        (isOwner(userId) && 
-         isValidUser(request.resource.data) &&
-         request.resource.data.role == resource.data.role &&
-         request.resource.data.status == resource.data.status &&
-         request.resource.data.organization == resource.data.organization &&
-         request.resource.data.createdAt == resource.data.createdAt
+        (isOwner(uid) && 
+         incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'avatarUrl', 'lastSeen', 'isOnline', 'presenceStatus', 'onboardingCompleted'])
         )
       );
       allow delete: if isAdmin();
     }
 
+    // --- Organizations ---
     match /organizations/{orgId} {
-      allow read: if isAuthenticated() && (isAdmin() || getUserData().organization == orgId);
-      allow write: if isAuthenticated() && (isAdmin() || getUserData().organization == orgId);
-
-      match /settings/{settingId} {
-        allow read, write: if isAuthenticated() && (isAdmin() || getUserData().organization == orgId);
-      }
+      allow get: if isValidId(orgId) && (isAdmin() || (exists(/databases/$(database)/documents/users/$(userId())) && getUserData().organization == orgId));
+      allow list: if isAdmin();
+      allow write: if isAdmin();
 
       match /ai_usage/{usageId} {
-        allow read: if isAuthenticated() && (isAdmin() || getUserData().organization == orgId);
-        allow create: if isAuthenticated() && (isAdmin() || getUserData().organization == orgId) && isValidAIUsage(request.resource.data);
-        allow delete: if isAdmin();
+        allow read: if isSignedIn() && (isAdmin() || (exists(/databases/$(database)/documents/users/$(userId())) && getUserData().organization == orgId));
+        allow create: if isSignedIn() && (isAdmin() || (exists(/databases/$(database)/documents/users/$(userId())) && getUserData().organization == orgId));
+      }
+
+      match /settings/integrations {
+        allow read, write: if isAdmin() || (isManager() && getUserData().organization == orgId);
       }
     }
 
+    // --- Leads ---
     match /leads/{leadId} {
-      allow read: if belongsToOrg(resource.data.organization);
-      allow create: if belongsToOrg(request.resource.data.organization) && isValidLead(request.resource.data);
-      allow update: if belongsToOrg(resource.data.organization) && isValidLead(request.resource.data) && 
-                    request.resource.data.organization == resource.data.organization;
+      allow get: if isValidId(leadId) && belongsToOrg(resource.data.organization);
+      allow list: if isAdmin() || (isSignedIn() && exists(/databases/$(database)/documents/users/$(userId())) && resource.data.organization == getUserData().organization);
+      allow create: if belongsToOrg(incoming().organization) && isValidLead(incoming());
+      allow update: if belongsToOrg(existing().organization) && (
+        isAdmin() || isManager() || (isVerified() && incoming().diff(existing()).affectedKeys().hasAny(['status', 'nextFollowUpAt', 'activityLog', 'riskScore', 'riskExplanation', 'smartScore', 'smartScoreExplanation']))
+      );
       allow delete: if isAdmin() || isManager();
     }
 
+    // --- Orders ---
     match /orders/{orderId} {
-      allow read: if belongsToOrg(resource.data.organization);
-      allow create: if belongsToOrg(request.resource.data.organization) && isValidOrder(request.resource.data);
-      allow update: if belongsToOrg(resource.data.organization) && isValidOrder(request.resource.data) && 
-                    request.resource.data.organization == resource.data.organization;
+      allow get: if isValidId(orderId) && belongsToOrg(resource.data.organization);
+      allow list: if isAdmin() || (isSignedIn() && exists(/databases/$(database)/documents/users/$(userId())) && resource.data.organization == getUserData().organization);
+      allow create: if belongsToOrg(incoming().organization) && isValidOrder(incoming());
+      allow update: if belongsToOrg(existing().organization);
       allow delete: if isAdmin() || isManager();
     }
 
+    // --- Companies ---
     match /companies/{companyId} {
-      allow read: if belongsToOrg(resource.data.organization);
-      allow create: if belongsToOrg(request.resource.data.organization) && isValidCompany(request.resource.data);
-      allow update: if belongsToOrg(resource.data.organization) && isValidCompany(request.resource.data) && 
-                    request.resource.data.organization == resource.data.organization;
+      allow get: if isValidId(companyId) && belongsToOrg(resource.data.organization);
+      allow list: if isAdmin() || (isSignedIn() && exists(/databases/$(database)/documents/users/$(userId())) && resource.data.organization == getUserData().organization);
+      allow create: if belongsToOrg(incoming().organization);
+      allow update: if belongsToOrg(existing().organization);
       allow delete: if isAdmin() || isManager();
     }
 
+    // --- Tasks ---
     match /tasks/{taskId} {
-      allow read: if belongsToOrg(resource.data.organization);
-      allow create: if belongsToOrg(request.resource.data.organization) && isValidTask(request.resource.data);
-      allow update: if belongsToOrg(resource.data.organization) && isValidTask(request.resource.data) && 
-                    request.resource.data.organization == resource.data.organization;
-      allow delete: if isAuthenticated() && (isOwner(resource.data.assigneeId) || isAdmin() || isManager());
+      allow get: if isValidId(taskId) && belongsToOrg(resource.data.organization);
+      allow list: if isAdmin() || (isSignedIn() && exists(/databases/$(database)/documents/users/$(userId())) && resource.data.organization == getUserData().organization);
+      allow create: if belongsToOrg(incoming().organization) && isValidTask(incoming());
+      allow update: if belongsToOrg(existing().organization);
+      allow delete: if isAdmin() || isManager() || isOwner(resource.data.assigneeId);
     }
 
-    match /documents/{documentId} {
-      allow read: if belongsToOrg(resource.data.organization);
-      allow create: if belongsToOrg(request.resource.data.organization) && isValidDocument(request.resource.data);
-      allow update: if belongsToOrg(resource.data.organization) && isValidDocument(request.resource.data) && 
-                    request.resource.data.organization == resource.data.organization;
-      allow delete: if isAdmin() || isManager();
-    }
-
-    match /generated_documents/{docId} {
-      allow read: if belongsToOrg(resource.data.organization);
-      allow create: if belongsToOrg(request.resource.data.organization) && isValidGeneratedDocument(request.resource.data);
-      allow update: if belongsToOrg(resource.data.organization) && isValidGeneratedDocument(request.resource.data) && 
-                    request.resource.data.organization == resource.data.organization;
-      allow delete: if isAdmin() || isManager();
-    }
-
-    match /send_history/{historyId} {
-      allow read: if belongsToOrg(resource.data.organization);
-      allow create: if belongsToOrg(request.resource.data.organization) && isValidSendHistory(request.resource.data);
-      allow update: if false;
-      allow delete: if isAdmin();
-    }
-
-    match /calendar_events/{eventId} {
-      allow read: if belongsToOrg(resource.data.organization) && (resource.data.isCommon || resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if belongsToOrg(request.resource.data.organization) && isValidCalendarEvent(request.resource.data);
-      allow update: if belongsToOrg(resource.data.organization) && isValidCalendarEvent(request.resource.data) && (resource.data.userId == request.auth.uid || isAdmin() || isManager());
-      allow delete: if belongsToOrg(resource.data.organization) && (resource.data.userId == request.auth.uid || isAdmin() || isManager());
-    }
-
-    match /messages/{messageId} {
-      allow read: if belongsToOrg(resource.data.organization);
-      allow create: if belongsToOrg(request.resource.data.organization);
-      allow update: if belongsToOrg(resource.data.organization);
-      allow delete: if isAdmin();
-    }
-
-    match /chat_messages/{messageId} {
-      allow read: if belongsToOrg(resource.data.organization);
-      allow create: if belongsToOrg(request.resource.data.organization) && isValidChatMessage(request.resource.data);
-      allow update: if false;
-      allow delete: if isAdmin() || isManager() || (resource.data.senderId == request.auth.uid);
-    }
-
-    match /daily_objectives/{objectiveId} {
-      allow read: if belongsToOrg(resource.data.organization);
-      allow create: if belongsToOrg(request.resource.data.organization) && isValidDailyObjective(request.resource.data);
-      allow update: if belongsToOrg(resource.data.organization) && isValidDailyObjective(request.resource.data) && (resource.data.userId == request.auth.uid || isAdmin() || isManager());
-      allow delete: if isAdmin() || isManager();
-    }
-
-    match /system_health/{healthId} {
-      allow read: if isAuthenticated();
-      allow create: if isAdmin();
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
-    }
-
-    match /notifications/{notificationId} {
-      allow read: if belongsToOrg(resource.data.organization) && (resource.data.userId == request.auth.uid || isAdmin() || isManager());
-      allow create: if belongsToOrg(request.resource.data.organization) && isValidNotification(request.resource.data);
-      allow update: if belongsToOrg(resource.data.organization) && (resource.data.userId == request.auth.uid || isAdmin() || isManager());
-      allow delete: if belongsToOrg(resource.data.organization) && (resource.data.userId == request.auth.uid || isAdmin() || isManager());
-    }
-
-    match /payments/{paymentId} {
-      allow read: if belongsToOrg(resource.data.organization);
-      allow create: if belongsToOrg(request.resource.data.organization) && isValidPayment(request.resource.data);
-      allow update: if belongsToOrg(resource.data.organization) && isValidPayment(request.resource.data) && 
-                    request.resource.data.organization == resource.data.organization;
-      allow delete: if isAdmin() || isManager();
-    }
-
-    match /suppliers/{supplierId} {
-      allow read: if belongsToOrg(resource.data.organization);
-      allow create: if belongsToOrg(request.resource.data.organization) && isValidSupplier(request.resource.data);
-      allow update: if belongsToOrg(resource.data.organization) && isValidSupplier(request.resource.data) && 
-                    request.resource.data.organization == resource.data.organization;
-      allow delete: if isAdmin() || isManager();
-    }
-
+    // --- Quotes ---
     match /quotes/{quoteId} {
-      allow read: if belongsToOrg(resource.data.organization);
-      allow create: if belongsToOrg(request.resource.data.organization) && isValidQuote(request.resource.data);
-      allow update: if belongsToOrg(resource.data.organization) && isValidQuote(request.resource.data) && 
-                    request.resource.data.organization == resource.data.organization;
+      allow get: if isValidId(quoteId) && belongsToOrg(resource.data.organization);
+      allow list: if isAdmin() || (isSignedIn() && exists(/databases/$(database)/documents/users/$(userId())) && resource.data.organization == getUserData().organization);
+      allow create: if belongsToOrg(incoming().organization) && isValidQuote(incoming());
+      allow update: if belongsToOrg(existing().organization);
       allow delete: if isAdmin() || isManager();
     }
 
-    match /shipment_exceptions/{exceptionId} {
-      allow read: if belongsToOrg(resource.data.organization);
-      allow create: if belongsToOrg(request.resource.data.organization) && isValidShipmentException(request.resource.data);
-      allow update: if belongsToOrg(resource.data.organization) && isValidShipmentException(request.resource.data) && 
-                    request.resource.data.organization == resource.data.organization;
-      allow delete: if isAdmin() || isManager();
-    }
-
-    match /exceptions/{exceptionId} {
-      allow read: if belongsToOrg(resource.data.organization);
-      allow create: if belongsToOrg(request.resource.data.organization) && isValidShipmentException(request.resource.data);
-      allow update: if belongsToOrg(resource.data.organization) && isValidShipmentException(request.resource.data) && 
-                    request.resource.data.organization == resource.data.organization;
-      allow delete: if isAdmin() || isManager();
-    }
-
-    match /inventory/{itemId} {
-      allow read: if belongsToOrg(resource.data.organization);
-      allow create: if belongsToOrg(request.resource.data.organization) && isValidInventoryItem(request.resource.data);
-      allow update: if belongsToOrg(resource.data.organization) && isValidInventoryItem(request.resource.data) && 
-                    request.resource.data.organization == resource.data.organization;
-      allow delete: if isAdmin() || isManager();
-    }
-
-    match /market_prices/{priceId} {
-      allow read: if isAuthenticated();
-      allow create: if (isAdmin() || isManager()) && isValidMarketPrice(request.resource.data);
-      allow update: if (isAdmin() || isManager()) && isValidMarketPrice(request.resource.data);
-      allow delete: if isAdmin();
+    // --- Audit & Logs ---
+    match /systemLogs/{logId} {
+      allow read: if isAdmin() || isManager();
+      allow create: if isSignedIn();
     }
 
     match /audit_logs/{logId} {
       allow read: if belongsToOrg(resource.data.organization);
-      allow create: if isAuthenticated();
-      allow update: if false;
-      allow delete: if false;
-    }
-
-    match /systemLogs/{logId} {
-      allow read: if isAdmin() || isManager();
-      allow create: if isAuthenticated();
-      allow update: if false;
-      allow delete: if false;
+      allow create: if isSignedIn();
     }
 
     match /documentVersions/{versionId} {
       allow read: if isAdmin() || isManager();
-      allow create: if isAuthenticated();
-      allow update: if false;
-      allow delete: if false;
+      allow create: if isSignedIn();
     }
 
     match /trash/{trashId} {
       allow read: if isAdmin() || isManager();
-      allow create: if isAuthenticated();
-      allow update: if false;
+      allow create: if isSignedIn();
       allow delete: if isAdmin();
     }
 
-    // Default deny
-    match /{path=**} {
-      allow read, write: if false;
+    // --- Market Prices (Global Read) ---
+    match /market_prices/{priceId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || isManager();
+    }
+
+    // --- Catch-all for other collections ---
+    match /{collection}/{docId} {
+      allow read: if collection in ['documents', 'inventory', 'suppliers', 'payments', 'shipment_exceptions', 'generated_documents', 'send_history', 'calendar_events', 'chat_messages', 'daily_objectives', 'system_health', 'messages', 'procurement_orders', 'transactions'] &&
+                   belongsToOrg(resource.data.organization);
+      allow create: if collection in ['documents', 'inventory', 'suppliers', 'payments', 'shipment_exceptions', 'generated_documents', 'send_history', 'calendar_events', 'chat_messages', 'daily_objectives', 'messages', 'procurement_orders', 'transactions'] &&
+                   belongsToOrg(incoming().organization);
+      allow update: if collection in ['documents', 'inventory', 'suppliers', 'payments', 'shipment_exceptions', 'generated_documents', 'calendar_events', 'daily_objectives', 'messages', 'procurement_orders', 'transactions'] &&
+                   belongsToOrg(existing().organization);
+      allow delete: if isAdmin() || isManager();
+    }
+    
+    // Notifications bound to userId
+    match /notifications/{notificationId} {
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow create: if isSignedIn();
+      allow update: if isOwner(resource.data.userId) && incoming().diff(existing()).affectedKeys().hasOnly(['read']);
+      allow delete: if isOwner(resource.data.userId) || isAdmin();
     }
   }
 }

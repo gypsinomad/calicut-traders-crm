@@ -37,8 +37,8 @@ import WorkflowManager from './components/WorkflowManager.tsx';
 import CalendarView from './components/CalendarView.tsx';
 import CollaborationSpace from './components/CollaborationSpace.tsx';
 import TaskList from './components/TaskList.tsx';
-// Assuming communications and other missing components exist or use placeholders
-// For now, I'll use Dashboard as a fallback for routes I'm unsure of but were in the sidebar
+import CommunicationsHub from './components/communications/CommunicationsHub.tsx';
+import ErrorBoundary from './components/ErrorBoundary.tsx';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, profile, loading } = useAuth();
@@ -67,7 +67,8 @@ export default function App() {
     <ThemeProvider>
       <LanguageProvider>
         <AuthProvider>
-          <Router>
+          <ErrorBoundary>
+            <Router>
             <Routes>
               <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
                 <Route index element={<Dashboard />} />
@@ -101,12 +102,12 @@ export default function App() {
                 <Route path="calendar" element={<CalendarView />} />
                 <Route path="collaboration" element={<CollaborationSpace />} />
                 <Route path="tasks" element={<TaskList />} />
-                {/* Fallback for missing communications if it should be there */}
-                <Route path="communications" element={<Dashboard />} />
+                <Route path="communications" element={<CommunicationsHub />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Route>
             </Routes>
           </Router>
+          </ErrorBoundary>
           <Toaster position="top-right" richColors />
         </AuthProvider>
       </LanguageProvider>

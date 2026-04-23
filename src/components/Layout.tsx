@@ -75,7 +75,7 @@ export default function Layout() {
 
   useEffect(() => {
     if (!profile?.organization) return;
-    const filter = [{ field: 'organization', operator: '==', value: profile.organization }];
+    const filter: any[] = [{ field: 'organization', operator: '==', value: profile.organization }];
 
     const unsubLeads = subscribeToCollection<Lead>('leads', setAllLeads, filter);
     const unsubOrders = subscribeToCollection<ExportOrder>('orders', setAllOrders, filter);

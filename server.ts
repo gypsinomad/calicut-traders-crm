@@ -37,8 +37,8 @@ async function startServer() {
   });
 
   const vertexAI = new VertexAI({ 
-    project: "spiceroute-manager-65f3b", 
-    location: "us-central1" 
+    project: process.env.GCP_PROJECT_ID || process.env.VERTEX_AI_PROJECT_ID || "spiceroute-manager-65f3b", 
+    location: process.env.VERTEX_AI_LOCATION || "us-central1" 
   });
 
   // Security Middleware for AI
@@ -46,11 +46,25 @@ async function startServer() {
     const token = req.headers.authorization?.split(" ")[1] || req.headers["x-ai-secret"];
     const secret = process.env.AI_API_SECRET;
 
-    if (!secret || token === secret) {
+    if (secret && token === secret) {
       return next();
     }
     
-    res.status(401).json({ error: "Unauthorized" });
+    // Fail securely: strictly require secret in production
+    if (process.env.NODE_ENV === 'production') {
+      if (!secret) {
+        console.error("[Security] AI_API_SECRET NOT SET IN PRODUCTION!");
+      }
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    
+    // In dev, allow if secret matches, or if secret is unset (with warning)
+    if (secret) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    
+    console.warn("[Security] AI_API_SECRET not set. Allowing access in development mode.");
+    return next();
   };
 
   // Dedicated AI Endpoint
@@ -78,14 +92,45 @@ async function startServer() {
     console.log("[Server] Initializing Vite middleware...");
     const vite = await createViteServer({
       server: { middlewareMode: true },
-      appType: "spa",
+      appType: "custom", // Handle index.html manually
+      root: process.cwd()
     });
     app.use(vite.middlewares);
-    console.log("[Server] Vite middleware ready");
+    
+    app.get("*", async (req, res, next) => {
+      const url = req.originalUrl;
+      
+      const urlPath = url.split('?')[0];
+      
+      // If it looks like a file (has . but not .html) or is a system cookie check, let it through
+      const hasExtension = urlPath.includes('.') && !urlPath.endsWith('.html');
+      const isApi = urlPath.startsWith('/api');
+      const isSystem = urlPath.includes('__cookie_check');
+      
+      if (hasExtension || isApi || isSystem) {
+        return next();
+      }
+
+      // Only handle HTML requests for navigation
+      if (req.method !== 'GET' || (req.headers.accept && !req.headers.accept.includes('text/html'))) {
+        return next();
+      }
+
+      try {
+        let template = await fs.readFile(path.resolve(__dirname, "index.html"), "utf-8");
+        template = await vite.transformIndexHtml(url, template);
+        res.status(200).set({ "Content-Type": "text/html" }).end(template);
+      } catch (e) {
+        vite.ssrFixStacktrace(e as Error);
+        next(e);
+      }
+    });
+    console.log("[Server] Vite middleware and dev routes ready");
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
-    app.get("*", (req, res) => {
+    // Aggressive catch-all ONLY for valid page requests (no file extension)
+    app.get(/^[^.]*$/, (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });
   }

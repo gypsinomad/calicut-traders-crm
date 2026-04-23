@@ -44,6 +44,7 @@ export default defineConfig(({mode}) => {
       })
     ],
     define: {
+      'process.env.NODE_ENV': JSON.stringify(mode),
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || ''),
       'process.env.GOOGLE_MAPS_PLATFORM_KEY': JSON.stringify(env.GOOGLE_MAPS_PLATFORM_KEY || ''),
       'process.env.AI_API_SECRET': JSON.stringify(env.AI_API_SECRET || ''),
@@ -52,6 +53,7 @@ export default defineConfig(({mode}) => {
       alias: {
         '@': path.resolve(__dirname, '.'),
       },
+      dedupe: ['react', 'react-dom'],
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.

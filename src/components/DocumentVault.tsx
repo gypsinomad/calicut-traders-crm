@@ -80,7 +80,7 @@ export default function DocumentVault() {
   useEffect(() => {
     if (!profile?.organization) return;
 
-    const filter = [{ field: 'organization', operator: '==', value: profile.organization }];
+    const filter: any[] = [{ field: 'organization', operator: '==', value: profile.organization }];
     const unsubscribe = subscribeToCollection<Document>('documents', (data) => {
       setDocuments(data);
       setLoading(false);

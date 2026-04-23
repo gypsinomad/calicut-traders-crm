@@ -15,6 +15,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { UserProfile, UserRole, UserStatus } from '../lib/types';
+import { ADMIN_EMAIL, DEFAULT_ORGANIZATION } from '../lib/constants';
 import { 
   Users, 
   Shield, 
@@ -74,7 +75,7 @@ export default function UserManagement() {
       })) as UserProfile[];
       
       // Filter in memory if not super admin
-      if (currentUserProfile.email !== 'akhilvenugopal@gmail.com') {
+      if (currentUserProfile.email !== ADMIN_EMAIL) {
         usersData = usersData.filter(u => 
           u.organization === currentUserProfile.organization || !u.organization
         );
@@ -94,7 +95,7 @@ export default function UserManagement() {
       console.error("Error fetching users:", error);
       
       // Fallback: if organization query fails, try to at least get pending users if super admin
-      if (currentUserProfile.email === 'akhilvenugopal@gmail.com') {
+      if (currentUserProfile.email === ADMIN_EMAIL) {
         try {
           const pendingQuery = query(collection(db, 'users'), where('status', '==', 'pending'));
           const pendingSnap = await getDocs(pendingQuery);
@@ -131,7 +132,7 @@ export default function UserManagement() {
       
       // Get the user's current data to check for organization
       const userToUpdate = users.find(u => u.uid === userId);
-      const targetOrg = orgId || userToUpdate?.organization || currentUserProfile?.organization || 'Calicut Traders';
+      const targetOrg = orgId || userToUpdate?.organization || currentUserProfile?.organization || DEFAULT_ORGANIZATION;
       
       if (newStatus === 'active') {
         updates.organization = targetOrg;
@@ -373,8 +374,8 @@ export default function UserManagement() {
                         {organizations.map(org => (
                           <option key={org.id} value={org.id}>{org.companyName}</option>
                         ))}
-                        {!organizations.find(o => o.id === 'Calicut Traders') && (
-                          <option value="Calicut Traders">Calicut Traders</option>
+                        {!organizations.find(o => o.id === DEFAULT_ORGANIZATION) && (
+                          <option value={DEFAULT_ORGANIZATION}>{DEFAULT_ORGANIZATION}</option>
                         )}
                       </select>
                     </div>

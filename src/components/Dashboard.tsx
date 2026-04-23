@@ -110,7 +110,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (!profile?.organization) return;
 
-    const filter = [{ field: 'organization', operator: '==', value: profile.organization }];
+    const filter: any[] = [{ field: 'organization', operator: '==', value: profile.organization }];
 
     const unsubOrders = subscribeToCollection<ExportOrder>('orders', (data) => {
       setOrders(data);
@@ -147,8 +147,8 @@ export default function Dashboard() {
     const unsubNotifications = subscribeToCollection<any>('notifications', (data) => {
       setNotifications(data);
     }, [
-      { field: 'userId', operator: '==', value: profile.uid },
-      { field: 'organization', operator: '==', value: profile.organization }
+      { field: 'userId', operator: '==' as any, value: profile.uid },
+      { field: 'organization', operator: '==' as any, value: profile.organization }
     ]);
 
     let unsubPendingUsers = () => {};

@@ -366,7 +366,7 @@ export const automationService = {
 
     // Check if a similar unread notification already exists to avoid spamming
     try {
-      const filters = [
+      const filters: any[] = [
         { field: 'userId', operator: '==', value: userId },
         { field: 'title', operator: '==', value: title },
         { field: 'read', operator: '==', value: false }

@@ -8,23 +8,14 @@ import {
   addDoc, 
   updateDoc, 
   deleteDoc,
-  Timestamp,
-  getDocFromServer,
+  serverTimestamp,
   getDocs,
   getDoc,
   WhereFilterOp
 } from 'firebase/firestore';
-import { db, auth } from '../firebase';
-export { db, auth };
-
-export enum OperationType {
-  CREATE = 'create',
-  UPDATE = 'update',
-  DELETE = 'delete',
-  LIST = 'list',
-  GET = 'get',
-  WRITE = 'write',
-}
+import { auth, db } from '../firebase';
+import { FirestoreOperation as OperationType, UserRole, DEFAULT_ORGANIZATION } from '../lib/constants';
+export { auth, db, OperationType };
 
 export interface FirestoreErrorInfo {
   error: string;
@@ -138,7 +129,7 @@ export const subscribeToCollection = <T>(
 
 export const createDocument = async <T extends object>(path: string, data: T) => {
   try {
-    const now = Timestamp.now();
+    const now = serverTimestamp();
     const docRef = await addDoc(collection(db, path), {
       ...data,
       createdAt: now,
@@ -167,7 +158,7 @@ export const createDocument = async <T extends object>(path: string, data: T) =>
 export const updateDocument = async <T extends object>(path: string, id: string, data: Partial<T>) => {
   try {
     const docRef = doc(db, path, id);
-    const now = Timestamp.now();
+    const now = serverTimestamp();
     
     // 1. Fetch current version for history
     const currentDoc = await getDoc(docRef);
@@ -206,7 +197,7 @@ export const updateDocument = async <T extends object>(path: string, id: string,
 export const deleteDocument = async (path: string, id: string) => {
   try {
     const docRef = doc(db, path, id);
-    const now = Timestamp.now();
+    const now = serverTimestamp();
 
     // 1. Fetch document before deletion
     const currentDoc = await getDoc(docRef);
@@ -247,7 +238,7 @@ export const restoreDocument = async (trashId: string) => {
     if (!trashDoc.exists()) throw new Error('Trash item not found');
     
     const { originalId, originalCollection, data } = trashDoc.data();
-    const now = Timestamp.now();
+    const now = serverTimestamp();
 
     // 1. Restore the document
     await addDoc(collection(db, originalCollection), {
@@ -273,13 +264,3 @@ export const restoreDocument = async (trashId: string) => {
     handleFirestoreError(error, OperationType.WRITE, `trash/${trashId}`);
   }
 };
-
-export async function testConnection() {
-  try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
-  } catch (error) {
-    if(error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("Please check your Firebase configuration. ");
-    }
-  }
-}

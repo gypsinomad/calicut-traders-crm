@@ -83,7 +83,7 @@ async function getAIProvider(orgId: string) {
   const provider = settings.provider || 'gemini';
   const providerSettings = settings.providers?.[provider] || { apiKey: '', model: '', enabled: true };
   
-  const apiKey = providerSettings.apiKey || (provider === 'gemini' ? process.env.GEMINI_API_KEY : '') || '';
+  const apiKey = providerSettings.apiKey || (provider === 'gemini' ? '' : '') || '';
   
   if (currentProvider !== provider || currentApiKey !== apiKey) {
     openaiInstance = null;
@@ -98,7 +98,7 @@ async function getAIProvider(orgId: string) {
         dangerouslyAllowBrowser: true 
       });
     } else if (provider === 'anthropic') {
-      anthropicInstance = new Anthropic({ apiKey });
+      anthropicInstance = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
     }
     
     currentProvider = provider;
@@ -194,7 +194,7 @@ export async function generateAIContent(feature: string, params: TradeAIParamete
         ? params.contents.map((c: any) => c.parts ? c : { role: 'user', parts: [{ text: typeof c === 'string' ? c : (c as any).text }] })
         : [{ role: 'user', parts: [{ text: typeof params.contents === 'string' ? params.contents : (params.contents as any).text }] }];
 
-      const aiSecretToken = (typeof process !== 'undefined' ? process.env?.AI_API_SECRET : '') || '';
+      const aiSecretToken = '';
 
       const serverResponse = await fetch('/api/ai/generate', {
         method: 'POST',

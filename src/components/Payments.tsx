@@ -167,7 +167,7 @@ export default function Payments() {
   useEffect(() => {
     if (!profile?.organization) return;
 
-    const filter = [{ field: 'organization', operator: '==', value: profile.organization }];
+    const filter: any[] = [{ field: 'organization', operator: '==', value: profile.organization }];
 
     const unsubPayments = subscribeToCollection<Payment>(
       'payments',

@@ -58,7 +58,7 @@ export default function QuoteList() {
   useEffect(() => {
     if (!profile?.organization) return;
     
-    const filter = [{ field: 'organization', operator: '==', value: profile.organization }];
+    const filter: any[] = [{ field: 'organization', operator: '==', value: profile.organization }];
     
     const unsubQuotes = subscribeToCollection<Quote>('quotes', (data) => {
       setQuotes(data);

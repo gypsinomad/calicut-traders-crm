@@ -11,17 +11,9 @@ import {
 import { auth, db, googleProvider } from '../firebase';
 import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, serverTimestamp, addDoc } from 'firebase/firestore';
 import { UserProfile, Notification } from '../lib/types';
+import { UserRole, UserStatus, DEFAULT_ORGANIZATION, ADMIN_EMAIL, FirestoreOperation as OperationType } from '../lib/constants';
 import { LogIn, LogOut, Loader2, ShieldAlert, Clock, RefreshCw, Bell } from 'lucide-react';
 import { toast } from 'sonner';
-
-enum OperationType {
-  CREATE = 'create',
-  UPDATE = 'update',
-  DELETE = 'delete',
-  LIST = 'list',
-  GET = 'get',
-  WRITE = 'write',
-}
 
 interface FirestoreErrorInfo {
   error: string;
@@ -98,17 +90,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             let needsUpdate = false;
 
             // Check if this is the default admin and needs a role upgrade or approval
-            if (currentUser.email === 'akhilvenugopal@gmail.com') {
-              if (data.role !== 'admin' || data.status !== 'active') {
-                updatedData.role = 'admin';
-                updatedData.status = 'active';
+            if (currentUser.email === ADMIN_EMAIL) {
+              if (data.role !== UserRole.ADMIN || data.status !== UserStatus.ACTIVE) {
+                updatedData.role = UserRole.ADMIN;
+                updatedData.status = UserStatus.ACTIVE;
                 needsUpdate = true;
               }
             }
 
             // Ensure organization exists - only for default admin if needed, otherwise let it be optional
-            if (currentUser.email === 'akhilvenugopal@gmail.com' && !data.organization) {
-              updatedData.organization = 'Calicut Traders';
+            if (currentUser.email === ADMIN_EMAIL && !data.organization) {
+              updatedData.organization = DEFAULT_ORGANIZATION;
               needsUpdate = true;
             }
 
@@ -119,7 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               setProfile(data);
             }
           } else {
-            const isAdmin = currentUser.email === 'akhilvenugopal@gmail.com';
+            const isAdmin = currentUser.email === ADMIN_EMAIL;
             const displayName = currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'User');
             
             const newProfile: UserProfile = {
@@ -127,12 +119,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               email: currentUser.email || '',
               displayName: displayName,
               photoURL: currentUser.photoURL || undefined,
-              role: isAdmin ? 'admin' : 'user',
-              status: isAdmin ? 'active' : 'pending',
+              role: isAdmin ? UserRole.ADMIN : UserRole.USER,
+              status: isAdmin ? UserStatus.ACTIVE : UserStatus.PENDING,
               createdAt: Timestamp.now(),
               approvalRequestedAt: Timestamp.now(),
               lastSeen: Timestamp.now(),
-              organization: isAdmin ? 'Calicut Traders' : undefined, // Only default admin gets an org by default
+              organization: isAdmin ? DEFAULT_ORGANIZATION : undefined, // Only default admin gets an org by default
               avatarUrl: currentUser.photoURL || undefined,
               isOnline: false,
               presenceStatus: 'offline'
@@ -146,7 +138,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 // Query all admins to notify them of the new registration
                 const adminsQuery = query(
                   collection(db, 'users'), 
-                  where('role', '==', 'admin')
+                  where('role', '==', UserRole.ADMIN)
                 );
                 const adminSnaps = await getDocs(adminsQuery);
                 
@@ -159,14 +151,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     timestamp: serverTimestamp(),
                     read: false,
                     userId: adminDoc.id,
-                    organization: adminData.organization || 'Calicut Traders',
+                    organization: adminData.organization || DEFAULT_ORGANIZATION,
                     relatedEntityId: newProfile.uid,
                     relatedEntityType: 'user'
                   });
                 });
                 
                 // Also ensure the default admin is notified if not already in the list
-                const defaultAdminEmail = 'akhilvenugopal@gmail.com';
+                const defaultAdminEmail = ADMIN_EMAIL;
                 if (!adminSnaps.docs.some(doc => doc.data().email === defaultAdminEmail)) {
                   const defaultAdminQuery = query(collection(db, 'users'), where('email', '==', defaultAdminEmail));
                   const defaultAdminSnap = await getDocs(defaultAdminQuery);
@@ -180,7 +172,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                       timestamp: serverTimestamp(),
                       read: false,
                       userId: defaultAdminDoc.id,
-                      organization: defaultAdminDoc.data().organization || 'Calicut Traders',
+                      organization: defaultAdminDoc.data().organization || DEFAULT_ORGANIZATION,
                       relatedEntityId: newProfile.uid,
                       relatedEntityType: 'user'
                     });
@@ -280,7 +272,7 @@ export function PendingApprovalScreen() {
       const profileSnap = await getDoc(profileRef);
       if (profileSnap.exists()) {
         const data = profileSnap.data() as UserProfile;
-        if (data.status === 'active') {
+        if (data.status === UserStatus.ACTIVE) {
           window.location.reload();
           return;
         }
@@ -307,7 +299,7 @@ export function PendingApprovalScreen() {
 
     setChecking(true);
     try {
-      const adminsQuery = query(collection(db, 'users'), where('role', '==', 'admin'));
+      const adminsQuery = query(collection(db, 'users'), where('role', '==', UserRole.ADMIN));
       const adminSnaps = await getDocs(adminsQuery);
       
       const notificationPromises = adminSnaps.docs.map(adminDoc => {
@@ -319,7 +311,7 @@ export function PendingApprovalScreen() {
           timestamp: serverTimestamp(),
           read: false,
           userId: adminDoc.id,
-          organization: adminData.organization || 'Calicut Traders',
+          organization: adminData.organization || DEFAULT_ORGANIZATION,
           relatedEntityId: user.uid,
           relatedEntityType: 'user'
         };
@@ -419,7 +411,7 @@ export function LoginScreen() {
           </div>
           <h1 className="text-2xl md:text-3xl font-black text-zinc-900 dark:text-zinc-100 mb-2 tracking-tight">Export CRM</h1>
           <p className="text-zinc-500 dark:text-zinc-400 font-medium text-sm md:text-base">
-            Calicut Traders - Export Management CRM
+            {DEFAULT_ORGANIZATION} - Export Management CRM
           </p>
         </div>
 

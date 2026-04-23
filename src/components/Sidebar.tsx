@@ -39,71 +39,72 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-const navSections = [
-  {
-    label: 'Sales & CRM',
-    items: [
-      { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-      { icon: Users, label: 'Leads', path: '/leads' },
-      { icon: FileSearch, label: 'Prospecting', path: '/prospecting' },
-      { icon: Zap, label: 'Signals', path: '/signals' },
-      { icon: FileText, label: 'Quotations', path: '/quotes' },
-      { icon: Kanban, label: 'Pipeline', path: '/pipeline' },
-      { icon: LayoutGrid, label: 'Buyer Pipeline', path: '/buyer-pipeline' },
-      { icon: Building2, label: 'Companies', path: '/companies' },
-    ]
-  },
-  {
-    label: 'Operations',
-    items: [
-      { icon: Ship, label: 'Export Orders', path: '/orders' },
-      { icon: Truck, label: 'Execution', path: '/execution' },
-      { icon: Navigation, label: 'Shipment Tracker', path: '/shipment-tracker' },
-      { icon: Package, label: 'Inventory', path: '/inventory' },
-      { icon: UserCircle, label: 'Procurement', path: '/procurement' },
-      { icon: UserCircle, label: 'Suppliers', path: '/suppliers' },
-    ]
-  },
-  {
-    label: 'Intelligence',
-    items: [
-      { icon: TrendingUp, label: 'Market Oracle', path: '/market' },
-      { icon: PieChart, label: 'Analytics', path: '/analytics' },
-      { icon: BarChart3, label: 'Reports', path: '/reports' },
-      { icon: ScanLine, label: 'Smart Scanner', path: '/scanner' },
-    ]
-  },
-  {
-    label: 'Communication',
-    items: [
-      { icon: Mail, label: 'Communications', path: '/communications' },
-      { icon: MessageSquare, label: 'Collaboration', path: '/collaboration' },
-      { icon: Calendar, label: 'Calendar', path: '/calendar' },
-      { icon: CheckSquare, label: 'Tasks', path: '/tasks' },
-      { icon: Activity, label: 'Workflows', path: '/workflows' },
-    ]
-  },
-  {
-    label: 'System',
-    items: [
-      { icon: DollarSign, label: 'Finance', path: '/finance' },
-      { icon: DollarSign, label: 'Payments', path: '/payments' },
-      { icon: AlertTriangle, label: 'Exceptions', path: '/exceptions' },
-      { icon: Shield, label: 'Document Vault', path: '/documents' },
-      { icon: FileCheck, label: 'Export Docs', path: '/documents-manager' },
-      { icon: Users, label: 'User Management', path: '/users' },
-      { icon: Activity, label: 'Audit Trail', path: '/audit' },
-      { icon: Activity, label: 'System Health', path: '/health' },
-      { icon: Settings, label: 'Settings', path: '/settings' },
-    ]
-  }
-];
-
+import { APP_NAME, ROUTES, UserRole, UserStatus } from '../lib/constants';
 import { useTranslation } from '../contexts/LanguageContext.tsx';
 import { TranslatedText } from './TranslatedText.tsx';
 import { useAuth } from './Auth.tsx';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
+
+const navSections = [
+  {
+    label: 'Sales & CRM',
+    items: [
+      { icon: LayoutDashboard, label: 'Dashboard', path: ROUTES.DASHBOARD },
+      { icon: Users, label: 'Leads', path: ROUTES.LEADS },
+      { icon: FileSearch, label: 'Prospecting', path: ROUTES.PROSPECTING },
+      { icon: Zap, label: 'Signals', path: ROUTES.SIGNALS },
+      { icon: FileText, label: 'Quotations', path: ROUTES.QUOTES },
+      { icon: Kanban, label: 'Pipeline', path: ROUTES.PIPELINE },
+      { icon: LayoutGrid, label: 'Buyer Pipeline', path: ROUTES.BUYER_PIPELINE },
+      { icon: Building2, label: 'Companies', path: ROUTES.COMPANIES },
+    ]
+  },
+  {
+    label: 'Operations',
+    items: [
+      { icon: Ship, label: 'Export Orders', path: ROUTES.ORDERS },
+      { icon: Truck, label: 'Execution', path: ROUTES.EXECUTION },
+      { icon: Navigation, label: 'Shipment Tracker', path: ROUTES.TRACKER },
+      { icon: Package, label: 'Inventory', path: ROUTES.INVENTORY },
+      { icon: UserCircle, label: 'Procurement', path: ROUTES.PROCUREMENT },
+      { icon: UserCircle, label: 'Suppliers', path: ROUTES.SUPPLIERS },
+    ]
+  },
+  {
+    label: 'Intelligence',
+    items: [
+      { icon: TrendingUp, label: 'Market Oracle', path: ROUTES.MARKET },
+      { icon: PieChart, label: 'Analytics', path: ROUTES.ANALYTICS },
+      { icon: BarChart3, label: 'Reports', path: ROUTES.REPORTS },
+      { icon: ScanLine, label: 'Smart Scanner', path: ROUTES.SCANNER },
+    ]
+  },
+  {
+    label: 'Communication',
+    items: [
+      { icon: Mail, label: 'Communications', path: ROUTES.COMMUNICATIONS },
+      { icon: MessageSquare, label: 'Collaboration', path: ROUTES.COLLABORATION },
+      { icon: Calendar, label: 'Calendar', path: ROUTES.CALENDAR },
+      { icon: CheckSquare, label: 'Tasks', path: ROUTES.TASKS },
+      { icon: Activity, label: 'Workflows', path: ROUTES.WORKFLOWS },
+    ]
+  },
+  {
+    label: 'System',
+    items: [
+      { icon: DollarSign, label: 'Finance', path: ROUTES.FINANCE },
+      { icon: DollarSign, label: 'Payments', path: ROUTES.PAYMENTS },
+      { icon: AlertTriangle, label: 'Exceptions', path: ROUTES.EXCEPTIONS },
+      { icon: Shield, label: 'Document Vault', path: ROUTES.DOCUMENTS },
+      { icon: FileCheck, label: 'Export Docs', path: ROUTES.DOC_MANAGER },
+      { icon: Users, label: 'User Management', path: ROUTES.USERS },
+      { icon: Activity, label: 'Audit Trail', path: ROUTES.AUDIT },
+      { icon: Activity, label: 'System Health', path: ROUTES.HEALTH },
+      { icon: Settings, label: 'Settings', path: ROUTES.SETTINGS },
+    ]
+  }
+];
 
 export default function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose?: () => void }) {
   const { isRTL } = useTranslation();
@@ -135,7 +136,7 @@ export default function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose
     const q = query(
       collection(db, 'users'),
       where('organization', '==', profile.organization),
-      where('status', '==', 'pending')
+      where('status', '==', UserStatus.PENDING)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -148,8 +149,8 @@ export default function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose
   }, [profile?.role, profile?.organization]);
 
   const isItemVisible = (path: string) => {
-    if (path === '/users') return profile?.role === 'admin';
-    if (path === '/audit' || path === '/health') return profile?.role === 'admin';
+    if (path === ROUTES.USERS) return profile?.role === UserRole.ADMIN;
+    if (path === ROUTES.AUDIT || path === ROUTES.HEALTH) return profile?.role === UserRole.ADMIN;
     return true;
   };
 
@@ -165,7 +166,7 @@ export default function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose
         <div>
           <h1 className="text-2xl font-serif font-bold text-white dark:text-zinc-100 flex items-center gap-2">
             <Ship className="text-[#d97706] dark:text-amber-500" />
-            <TranslatedText>Calicut Traders</TranslatedText>
+            <TranslatedText>{APP_NAME}</TranslatedText>
           </h1>
           <TranslatedText as="p" className="text-[10px] font-medium text-emerald-300/50 dark:text-zinc-500 uppercase tracking-[0.2em] mt-1">Trade Management</TranslatedText>
         </div>
@@ -204,12 +205,12 @@ export default function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose
                   "group-hover:text-[#d97706] dark:group-hover:text-amber-500"
                 )} />
                 <TranslatedText as="span" className="text-xs font-medium tracking-tight flex-1">{item.label}</TranslatedText>
-                {item.path === '/communications' && unreadMessagesCount > 0 && (
+                {item.path === ROUTES.COMMUNICATIONS && unreadMessagesCount > 0 && (
                   <span className="px-1.5 py-0.5 rounded-full bg-[#d97706] dark:bg-amber-600 text-white text-[10px] font-bold">
                     {unreadMessagesCount}
                   </span>
                 )}
-                {item.path === '/users' && pendingUsersCount > 0 && (
+                {item.path === ROUTES.USERS && pendingUsersCount > 0 && (
                   <span className="px-1.5 py-0.5 rounded-full bg-amber-500 dark:bg-amber-600 text-white text-[10px] font-bold animate-pulse">
                     {pendingUsersCount}
                   </span>
