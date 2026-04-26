@@ -43,6 +43,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { UserProfile, UserRole } from '../lib/types.ts';
 import { toast } from 'sonner';
 import { Timestamp } from 'firebase/firestore';
+import { hasPermission } from '../lib/permissions';
 
 const SettingItem = ({ icon: Icon, title, description, badge, onClick }: any) => (
   <button 
@@ -315,15 +316,15 @@ export default function Settings() {
             { id: 'general', label: 'General', icon: Building2 },
             { id: 'account', label: 'Account', icon: User },
             { id: 'notifications', label: 'Notifications', icon: Bell },
-            { id: 'whatsapp', label: 'WhatsApp', icon: MessageSquare },
-            { id: 'security', label: 'Security', icon: Lock },
-            profile?.role === 'admin' && { id: 'users', label: 'User Management', icon: Users },
+            hasPermission(profile?.role, 'settings.integrations.write') && { id: 'whatsapp', label: 'WhatsApp', icon: MessageSquare },
+            hasPermission(profile?.role, 'settings.security.write') && { id: 'security', label: 'Security', icon: Lock },
+            hasPermission(profile?.role, 'users.write') && { id: 'users', label: 'User Management', icon: Users },
             { id: 'language', label: 'Language', icon: Globe },
-            { id: 'automation', label: 'Automation', icon: Zap },
-            { id: 'ai_usage', label: 'AI Usage', icon: Cpu },
+            hasPermission(profile?.role, 'settings.automation.write') && { id: 'automation', label: 'Automation', icon: Zap },
+            hasPermission(profile?.role, 'settings.ai.write') && { id: 'ai_usage', label: 'AI Usage', icon: Cpu },
             { id: 'mobile_app', label: 'Mobile App', icon: Smartphone },
-            { id: 'integrations', label: 'Integrations', icon: Plug },
-            { id: 'data', label: 'Data & Storage', icon: Database },
+            hasPermission(profile?.role, 'settings.integrations.write') && { id: 'integrations', label: 'Integrations', icon: Plug },
+            hasPermission(profile?.role, 'settings.data.write') && { id: 'data', label: 'Data & Storage', icon: Database },
           ].filter((item): item is any => !!item).map((item) => (
             <button
               key={item.id}
@@ -473,13 +474,19 @@ export default function Settings() {
                   </div>
                 </div>
                 <div className="p-6 bg-zinc-50 border-t border-zinc-100 flex justify-end">
-                  <button 
-                    onClick={handleSaveGeneral}
-                    disabled={loading}
-                    className="px-6 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 active:scale-95 disabled:opacity-50"
-                  >
-                    Save Organization Settings
-                  </button>
+                  {hasPermission(profile?.role, 'settings.general.write') ? (
+                    <button 
+                      onClick={handleSaveGeneral}
+                      disabled={loading}
+                      className="px-6 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 active:scale-95 disabled:opacity-50"
+                    >
+                      Save Organization Settings
+                    </button>
+                  ) : (
+                    <p className="text-xs text-zinc-500 italic flex items-center gap-2">
+                       <Shield size={14} /> Read-only: Settings managed by Administrator
+                    </p>
+                  )}
                 </div>
               </section>
             </div>

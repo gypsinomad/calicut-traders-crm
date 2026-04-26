@@ -103,20 +103,20 @@ export default function MarketOracle() {
   };
 
   const filteredPrices = prices.filter(p => 
-    p.product.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.region.toLowerCase().includes(searchTerm.toLowerCase())
+    (p.product ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (p.region ?? '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const chartData = []; // In a real app, this would be fetched from historical indices
 
   return (
     <div className="space-y-6">
-      <header className="flex items-center justify-between">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold text-zinc-900">Market Price Oracle</h2>
-          <p className="text-zinc-500 mt-1">Real-time global product indices and AI predictions</p>
+          <h2 className="text-2xl md:text-3xl font-bold text-zinc-900">Market Price Oracle</h2>
+          <p className="text-zinc-500 mt-1 text-sm md:text-base">Real-time global product indices and AI predictions</p>
         </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-full text-xs font-bold uppercase tracking-wider border border-emerald-100">
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-full text-[10px] font-bold uppercase tracking-wider border border-emerald-100 w-fit">
           <Globe size={14} />
           Live Global Feed
         </div>
@@ -236,7 +236,7 @@ export default function MarketOracle() {
                   }`}
                 >
                   <div className="p-6">
-                    <div className="flex items-start justify-between mb-6">
+                    <div className="flex flex-col sm:flex-row items-start justify-between mb-6 gap-4">
                       <div>
                         <h3 className="text-xl font-black text-zinc-900 tracking-tight">{price.product}</h3>
                         <div className="flex items-center gap-2 text-zinc-500 mt-1">
@@ -244,7 +244,7 @@ export default function MarketOracle() {
                           <span className="text-sm font-medium">{price.region}</span>
                         </div>
                       </div>
-                      <div className="text-right">
+                      <div className="sm:text-right">
                         <p className="text-2xl font-black text-zinc-900">{price.price} <span className="text-sm font-bold text-zinc-400">{price.currency}/{price.unit}</span></p>
                         <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-1">Last Updated: {formatDate(price.timestamp)}</p>
                       </div>

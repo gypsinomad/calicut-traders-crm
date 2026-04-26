@@ -82,6 +82,12 @@ export default function OrderList() {
   useEffect(() => {
     if (!profile?.organization) return;
 
+    const constraints: any[] = [{ field: 'organization', operator: '==', value: profile.organization }];
+    
+    if (profile.role === 'standard') {
+      constraints.push({ field: 'assignedUserId', operator: '==', value: profile.uid });
+    }
+
     const unsubscribe = subscribeToCollection<ExportOrder>(
       'orders', 
       (data) => {
@@ -94,7 +100,7 @@ export default function OrderList() {
           }
         }
       }, 
-      [{ field: 'organization', operator: '==', value: profile.organization }]
+      constraints
     );
 
     return () => unsubscribe();
@@ -431,12 +437,12 @@ export default function OrderList() {
 
   return (
     <div className="space-y-10 pb-12">
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+      <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
         <div>
-          <h2 className="text-5xl font-serif font-bold text-zinc-900 dark:text-white tracking-tight text-balance">Export Orders</h2>
-          <p className="text-zinc-500 dark:text-zinc-400 mt-2 text-lg font-serif italic">Track and manage your global export shipments.</p>
+          <h2 className="text-3xl md:text-5xl font-serif font-bold text-zinc-900 dark:text-white tracking-tight text-balance">Export Orders</h2>
+          <p className="text-zinc-500 dark:text-zinc-400 mt-2 text-base md:text-lg font-serif italic whitespace-normal md:whitespace-nowrap overflow-hidden text-ellipsis">Track and manage your global export shipments.</p>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 md:gap-4 overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
           <button 
             onClick={() => setShowCalculator(true)}
             className="px-6 py-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-2xl text-sm font-bold hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all shadow-sm flex items-center gap-2"
@@ -663,82 +669,82 @@ export default function OrderList() {
                   </button>
                 </div>
 
-                <div className="flex items-start justify-between pl-12" onClick={() => setSelectedOrder(order)}>
-                  <div className="flex items-start gap-6 cursor-pointer">
-                    <div className="p-4 bg-[#fcfaf7] dark:bg-zinc-800 rounded-2xl text-[#064e3b] dark:text-emerald-500 group-hover:bg-[#064e3b] group-hover:text-white transition-all duration-500 shadow-inner">
-                      <Ship size={28} />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-serif font-bold text-zinc-900 dark:text-white group-hover:text-[#064e3b] dark:group-hover:text-emerald-400 transition-colors tracking-tight">
-                        {order.orderNumber} · {order.customerName}
-                      </h3>
-                      <div className="flex items-center gap-6 mt-3">
-                        <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
-                          <DollarSign size={16} className="text-emerald-600 dark:text-emerald-500" />
-                          <span className="text-sm font-bold text-zinc-700 dark:text-zinc-300">{formatCurrency(order.totalAmount)}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
-                          <Ship size={16} className="text-blue-600 dark:text-blue-500" />
-                          <span className="text-sm font-bold text-zinc-700 dark:text-zinc-300">{order.incoterms}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
-                          <Globe size={16} className="text-indigo-600 dark:text-indigo-500" />
-                          <span className="text-sm font-bold text-zinc-700 dark:text-zinc-300">{order.destinationCountry}</span>
+                  <div className="flex flex-col sm:flex-row items-start justify-between pl-4 sm:pl-12 gap-6" onClick={() => setSelectedOrder(order)}>
+                    <div className="flex items-start gap-4 sm:gap-6 cursor-pointer w-full">
+                      <div className="p-3 sm:p-4 bg-[#fcfaf7] dark:bg-zinc-800 rounded-2xl text-[#064e3b] dark:text-emerald-500 group-hover:bg-[#064e3b] group-hover:text-white transition-all duration-500 shadow-inner shrink-0">
+                        <Ship size={24} className="sm:w-7 sm:h-7" />
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="text-lg sm:text-xl font-serif font-bold text-zinc-900 dark:text-white group-hover:text-[#064e3b] dark:group-hover:text-emerald-400 transition-colors tracking-tight line-clamp-1">
+                          {order.orderNumber} · {order.customerName}
+                        </h3>
+                        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-3">
+                          <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
+                            <DollarSign size={14} className="text-emerald-600 dark:text-emerald-500" />
+                            <span className="text-xs sm:text-sm font-bold text-zinc-700 dark:text-zinc-300">{formatCurrency(order.totalAmount)}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
+                            <Ship size={14} className="text-blue-600 dark:text-blue-500" />
+                            <span className="text-xs sm:text-sm font-bold text-zinc-700 dark:text-zinc-300">{order.incoterms}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
+                            <Globe size={14} className="text-indigo-600 dark:text-indigo-500" />
+                            <span className="text-xs sm:text-sm font-bold text-zinc-700 dark:text-zinc-300 line-clamp-1">{order.destinationCountry}</span>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <span className={cn(
-                      "inline-flex items-center px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border",
-                      getStatusColor(order.status)
-                    )}>
-                      {order.status}
-                    </span>
-                    <div className="flex items-center gap-2 text-zinc-400 dark:text-zinc-500 mt-3 justify-end">
-                      <Clock size={14} />
-                      <span className="text-[10px] font-black uppercase tracking-widest">{formatDate(order.createdAt)}</span>
+                    <div className="flex sm:flex-col items-center sm:items-end justify-between w-full sm:w-auto pt-4 sm:pt-0 border-t sm:border-t-0 border-zinc-100 dark:border-zinc-800">
+                      <span className={cn(
+                        "inline-flex items-center px-3 sm:px-4 py-1 sm:py-1.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-widest border shadow-sm",
+                        getStatusColor(order.status)
+                      )}>
+                        {order.status}
+                      </span>
+                      <div className="flex items-center gap-2 text-zinc-400 dark:text-zinc-500 mt-0 sm:mt-3">
+                        <Clock size={12} />
+                        <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest">{formatDate(order.createdAt)}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="mt-8 flex items-center justify-between pt-8 border-t border-zinc-100 dark:border-zinc-800 pl-12">
+                <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row sm:items-center justify-between pt-6 sm:pt-8 border-t border-zinc-100 dark:border-zinc-800 pl-4 sm:pl-12 gap-6">
                   <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Commodity Profile:</span>
-                    <span className="px-3 py-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg text-xs font-bold font-serif italic">
+                    <span className="text-[9px] sm:text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Commodity:</span>
+                    <span className="px-3 py-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg text-[10px] sm:text-xs font-bold font-serif italic">
                       {order.commodity} ({order.quantity} {order.unit})
                     </span>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-end md:justify-start gap-2 sm:gap-3">
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
                         checkCompliance(order);
                       }}
                       disabled={checkingCompliance === order.id}
-                      className="p-3 text-[#064e3b] dark:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-2xl transition-all disabled:opacity-50"
+                      className="p-2 sm:p-3 text-[#064e3b] dark:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-xl sm:rounded-2xl transition-all disabled:opacity-50 border border-zinc-100 dark:border-zinc-800 sm:border-0 shadow-sm sm:shadow-none"
                       title="Check Compliance"
                     >
-                      {checkingCompliance === order.id ? <RefreshCw size={20} className="animate-spin" /> : <Zap size={20} />}
+                      {checkingCompliance === order.id ? <RefreshCw size={18} className="animate-spin sm:w-5 sm:h-5" /> : <Zap size={18} className="sm:w-5 sm:h-5" />}
                     </button>
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
                         setEditingOrder(order);
                       }}
-                      className="p-3 text-zinc-400 dark:text-zinc-500 hover:text-[#064e3b] dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-2xl transition-all"
+                      className="p-2 sm:p-3 text-zinc-400 dark:text-zinc-500 hover:text-[#064e3b] dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-xl sm:rounded-2xl transition-all border border-zinc-100 dark:border-zinc-800 sm:border-0 shadow-sm sm:shadow-none"
                       title="Edit Order"
                     >
-                      <Edit2 size={20} />
+                      <Edit2 size={18} className="sm:w-5 sm:h-5" />
                     </button>
                     {deleteConfirmId === order.id ? (
-                      <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-2 duration-200">
+                      <div className="flex items-center gap-1 sm:gap-2 animate-in fade-in slide-in-from-right-2 duration-200">
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
                             handleDeleteOrder(order.id);
                           }}
-                          className="px-3 py-1 bg-rose-600 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg hover:bg-rose-700 transition-colors shadow-sm"
+                          className="px-2 sm:px-3 py-1 bg-rose-600 text-white text-[9px] sm:text-[10px] font-bold uppercase tracking-wider rounded-lg hover:bg-rose-700 transition-colors shadow-sm"
                         >
                           Del
                         </button>
@@ -747,7 +753,7 @@ export default function OrderList() {
                             e.stopPropagation();
                             setDeleteConfirmId(null);
                           }}
-                          className="px-3 py-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 text-[10px] font-bold uppercase tracking-wider rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+                          className="px-2 sm:px-3 py-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
                         >
                           X
                         </button>
@@ -758,15 +764,15 @@ export default function OrderList() {
                           e.stopPropagation();
                           setDeleteConfirmId(order.id);
                         }}
-                        className="p-3 text-zinc-400 dark:text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-2xl transition-all"
+                        className="p-2 sm:p-3 text-zinc-400 dark:text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl sm:rounded-2xl transition-all border border-zinc-100 dark:border-zinc-800 sm:border-0 shadow-sm sm:shadow-none"
                         title="Delete Order"
                       >
-                        <Trash2 size={20} />
+                        <Trash2 size={18} className="sm:w-5 sm:h-5" />
                       </button>
                     )}
                     <button 
                       onClick={() => setSelectedOrder(order)}
-                      className="px-8 py-2.5 bg-[#064e3b] text-white rounded-2xl text-sm font-bold hover:bg-[#065f46] transition-all shadow-lg shadow-emerald-900/10"
+                      className="px-4 sm:px-8 py-2 sm:py-2.5 bg-[#064e3b] text-white rounded-xl sm:rounded-2xl text-xs sm:text-sm font-bold hover:bg-[#065f46] transition-all shadow-lg shadow-emerald-900/10 whitespace-nowrap ml-1 sm:ml-0"
                     >
                       View Details
                     </button>

@@ -139,15 +139,15 @@ export default function Layout() {
 
       <div className="flex-1 flex flex-col min-w-0 w-full">
         <AIStatusBanner />
-        <header className="h-20 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-b border-zinc-200/50 dark:border-zinc-800/50 flex items-center justify-between px-6 md:px-10 shrink-0 z-10">
-          <div className="flex items-center gap-6 flex-1 max-w-2xl">
+        <header className="h-16 md:h-20 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-b border-zinc-200/50 dark:border-zinc-800/50 flex items-center justify-between px-4 md:px-10 shrink-0 z-10 transition-all">
+          <div className="flex items-center gap-3 md:gap-6 flex-1 max-w-2xl">
             <button 
               onClick={() => setSidebarOpen(true)}
-              className="p-2.5 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl md:hidden transition-colors"
+              className="p-2 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl md:hidden transition-colors"
             >
               <Menu size={20} />
             </button>
-            <div className="hidden sm:block relative w-full group" ref={searchRef}>
+            <div className="hidden md:block relative w-full group" ref={searchRef}>
               <Search className={`${isRTL ? 'right-4' : 'left-4'} absolute top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-[#064e3b] dark:group-focus-within:text-emerald-400 transition-colors`} size={18} />
               <input 
                 type="text" 
@@ -239,49 +239,54 @@ export default function Layout() {
               </AnimatePresence>
             </div>
           </div>
-          <div className="flex items-center gap-2 md:gap-4">
+          <div className="flex items-center gap-1.5 md:gap-4">
             <button
               onClick={toggleTheme}
-              className="p-2 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+              className="p-2 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors hidden sm:flex"
               title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
             >
-              {theme === 'dark' ? <Sun size={20} className="text-amber-500" /> : <Moon size={20} />}
+              {theme === 'dark' ? <Sun size={18} className="text-amber-500" /> : <Moon size={18} />}
             </button>
             {deferredPrompt && (
               <button
                 onClick={handleInstallClick}
-                className="flex items-center gap-2 px-2 md:px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-900/20"
+                className="flex items-center gap-2 px-3 py-1.5 bg-emerald-600 text-white rounded-xl text-[10px] font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-900/20"
               >
-                <Download size={16} />
-                <span className="hidden md:inline">Install App</span>
+                <Download size={14} />
+                <span className="hidden lg:inline">Install</span>
               </button>
             )}
-            <div className="sm:hidden">
-              <button className="p-2 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg">
-                <Search size={20} />
+            <div className="md:hidden">
+              <button 
+                onClick={() => setSidebarOpen(true)}
+                className="p-2 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg"
+              >
+                <Search size={18} />
               </button>
             </div>
             <NotificationCenter />
-            <AICostBadge />
-            <div className="h-8 w-[1px] bg-zinc-200 dark:bg-zinc-800 mx-1 md:mx-2" />
-              <div className="flex items-center gap-2 md:gap-3 pl-2 relative" ref={profileRef}>
+            <div className="hidden xs:block">
+              <AICostBadge />
+            </div>
+            <div className="h-6 w-[1px] bg-zinc-200 dark:bg-zinc-800 mx-1 md:mx-2" />
+              <div className="flex items-center gap-2 md:gap-3 pl-1.5 relative" ref={profileRef}>
                 <button 
                   onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-                  className="flex items-center gap-2 md:gap-3 hover:bg-zinc-50 dark:hover:bg-zinc-800 p-1 rounded-xl transition-colors"
+                  className="flex items-center gap-2 md:gap-3 hover:bg-zinc-50 dark:hover:bg-zinc-800 p-0.5 md:p-1 rounded-xl transition-colors"
                 >
-                  <div className={`${isRTL ? 'text-left' : 'text-right'} hidden sm:block`}>
+                  <div className={`${isRTL ? 'text-left' : 'text-right'} hidden md:block`}>
                     <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100">{profile?.displayName || 'User'}</p>
                     <p className="text-[10px] text-zinc-500 dark:text-zinc-400 uppercase tracking-wider font-medium">{profile?.role || 'Member'}</p>
                   </div>
                   <div className="relative">
-                    <div className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-zinc-600 dark:text-zinc-400 overflow-hidden">
+                    <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-zinc-600 dark:text-zinc-400 overflow-hidden">
                       {profile?.photoURL || profile?.avatarUrl ? (
                         <img src={profile.photoURL || profile.avatarUrl} alt={profile.displayName} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                       ) : (
-                        <User size={20} />
+                        <User size={16} />
                       )}
                     </div>
-                    <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-zinc-900 ${getPresenceColor(profile?.presenceStatus || 'offline')}`} />
+                    <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 md:w-3.5 md:h-3.5 rounded-full border-2 border-white dark:border-zinc-900 ${getPresenceColor(profile?.presenceStatus || 'offline')}`} />
                   </div>
                 </button>
                 

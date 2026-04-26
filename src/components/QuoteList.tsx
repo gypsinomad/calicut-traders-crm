@@ -60,14 +60,20 @@ export default function QuoteList() {
     
     const filter: any[] = [{ field: 'organization', operator: '==', value: profile.organization }];
     
+    if (profile.role === 'standard') {
+      filter.push({ field: 'assignedUserId', operator: '==', value: profile.uid });
+    }
+    
     const unsubQuotes = subscribeToCollection<Quote>('quotes', (data) => {
       setQuotes(data);
       setLoading(false);
     }, filter, 'createdAt', 'desc');
 
+    const leadFilter = [...filter];
+    // For leads in QuoteList, standard users also need the filter
     const unsubLeads = subscribeToCollection<Lead>('leads', (data) => {
       setLeads(data);
-    }, filter);
+    }, leadFilter);
 
     return () => {
       unsubQuotes();

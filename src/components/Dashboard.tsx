@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   TrendingUp, 
   Users, 
@@ -172,7 +172,7 @@ export default function Dashboard() {
       unsubNotifications();
       unsubPendingUsers();
     };
-  }, [profile]);
+  }, [profile?.organization, profile?.uid]);
 
   const generateBriefing = async () => {
     if (!profile) return;
@@ -229,7 +229,8 @@ export default function Dashboard() {
     }
   }, [loading]);
 
-  const totalRevenue = orders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+  const totalRevenue = useMemo(() => orders.reduce((sum, order) => sum + (order.totalAmount || 0), 0), [orders]);
+  
   const handleDownloadReport = () => {
     const csvContent = [
       ['Dashboard Report', formatDate(new Date())],
@@ -258,65 +259,68 @@ export default function Dashboard() {
     const d = date instanceof Date ? date : new Date(date.seconds * 1000);
     return d.toLocaleDateString();
   };
-  const activeLeads = leads.filter(l => l.status !== 'converted' && l.status !== 'lost').length;
-  const activeOrders = orders.filter(o => o.stage !== 'draft' && o.stage !== 'cancelled').length;
-  const pendingTasks = tasks.filter(t => t.status !== 'done').length;
-  const pendingQuotes = quotes.filter(q => q.status === 'sent' || q.status === 'draft').length;
-  const pendingQuotesValue = quotes
+
+  const activeLeads = useMemo(() => leads.filter(l => l.status !== 'converted' && l.status !== 'lost').length, [leads]);
+  const activeOrders = useMemo(() => orders.filter(o => o.stage !== 'draft' && o.stage !== 'cancelled').length, [orders]);
+  const pendingTasks = useMemo(() => tasks.filter(t => t.status !== 'done').length, [tasks]);
+  const pendingQuotes = useMemo(() => quotes.filter(q => q.status === 'sent' || q.status === 'draft').length, [quotes]);
+  const pendingQuotesValue = useMemo(() => quotes
     .filter(q => q.status === 'sent' || q.status === 'draft')
-    .reduce((sum, q) => sum + (q.totalAmount || 0), 0);
+    .reduce((sum, q) => sum + (q.totalAmount || 0), 0), [quotes]);
   
-  const lowStockItems = inventory.filter(item => item.quantity <= item.reorderLevel);
-  const expiredItems = inventory.filter(item => item.expiryDate && new Date(item.expiryDate.seconds * 1000) < new Date());
+  const lowStockItems = useMemo(() => inventory.filter(item => item.quantity <= item.reorderLevel), [inventory]);
+  const expiredItems = useMemo(() => inventory.filter(item => item.expiryDate && new Date(item.expiryDate.seconds * 1000) < new Date()), [inventory]);
 
-  const outstandingPayments = orders
+  const outstandingPayments = useMemo(() => orders
     .filter(o => o.stage !== 'paymentReceived' && o.stage !== 'cancelled')
-    .reduce((sum, o) => sum + (o.totalAmount || o.totalValue || 0), 0);
+    .reduce((sum, o) => sum + (o.totalAmount || o.totalValue || 0), 0), [orders]);
 
-  const complianceRate = orders.length > 0 
+  const complianceRate = useMemo(() => orders.length > 0 
     ? (orders.reduce((acc, o) => {
         const total = o.docsTotal || 5;
         const completed = o.docsCompleted || (o.documents?.length || 0);
         return acc + Math.min(completed / total, 1);
       }, 0) / orders.length) * 100 
-    : 0;
+    : 0, [orders]);
 
-  const expiringCerts = orders.reduce((acc, o) => {
+  const expiringCerts = useMemo(() => orders.reduce((acc, o) => {
     const expiring = o.certificates?.filter(c => {
       if (!c.expiryDate) return false;
       const days = (new Date(c.expiryDate.seconds * 1000).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24);
       return days > 0 && days <= 30;
     }).length || 0;
     return acc + expiring;
-  }, 0);
+  }, 0), [orders]);
 
   // Real chart data based on orders
-  const last6Months = Array.from({ length: 6 }, (_, i) => {
-    const d = new Date();
-    d.setDate(1); // Avoid month rollover issues on 30th/31st
-    d.setMonth(d.getMonth() - i);
-    return {
-      month: d.toLocaleString('default', { month: 'short' }),
-      year: d.getFullYear()
-    };
-  }).reverse();
+  const chartData = useMemo(() => {
+    const last6 = Array.from({ length: 6 }, (_, i) => {
+      const d = new Date();
+      d.setDate(1); 
+      d.setMonth(d.getMonth() - i);
+      return {
+        month: d.toLocaleString('default', { month: 'short' }),
+        year: d.getFullYear()
+      };
+    }).reverse();
 
-  const chartData = last6Months.map(({ month, year }) => {
-    const monthlyOrders = orders.filter(o => {
-      const d = new Date(o.createdAt.seconds * 1000);
-      return d.toLocaleString('default', { month: 'short' }) === month && d.getFullYear() === year;
-    });
-    return {
-      name: month,
-      revenue: monthlyOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0),
-      leads: leads.filter(l => {
-        const d = new Date(l.createdAt.seconds * 1000);
+    return last6.map(({ month, year }) => {
+      const monthlyOrders = orders.filter(o => {
+        const d = new Date(o.createdAt.seconds * 1000);
         return d.toLocaleString('default', { month: 'short' }) === month && d.getFullYear() === year;
-      }).length
-    };
-  });
+      });
+      return {
+        name: month,
+        revenue: monthlyOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0),
+        leads: leads.filter(l => {
+          const d = new Date(l.createdAt.seconds * 1000);
+          return d.toLocaleString('default', { month: 'short' }) === month && d.getFullYear() === year;
+        }).length
+      };
+    });
+  }, [orders, leads]);
 
-  const revenueByMarket = orders.reduce((acc: any[], order) => {
+  const revenueByMarket = useMemo(() => orders.reduce((acc: any[], order) => {
     const existing = acc.find(item => item.name === order.destinationCountry);
     if (existing) {
       existing.value += (order.totalAmount || 0);
@@ -324,7 +328,7 @@ export default function Dashboard() {
       acc.push({ name: order.destinationCountry, value: (order.totalAmount || 0) });
     }
     return acc;
-  }, []);
+  }, []), [orders]);
 
   const COLORS = ['#064e3b', '#059669', '#10b981', '#34d399', '#6ee7b7'];
 
@@ -338,7 +342,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6 md:space-y-10 pb-12">
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+      <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
         <div>
           <h2 className="text-3xl md:text-5xl font-serif font-bold text-zinc-900 dark:text-white tracking-tight">Executive Overview</h2>
           <p className="text-zinc-500 dark:text-zinc-400 mt-2 text-base md:text-lg font-serif italic">Welcome back, {profile?.displayName || 'User'} — Here is your business at a glance.</p>
@@ -388,7 +392,7 @@ export default function Dashboard() {
         </motion.div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 md:gap-8">
+      <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 md:gap-8">
         {(userRole === 'admin' || userRole === 'manager') && (
           <StatCard 
             title="Outstanding Payments" 
@@ -626,32 +630,32 @@ export default function Dashboard() {
             <Link to="/orders" className="text-[10px] font-black text-[#064e3b] uppercase tracking-widest hover:underline">View All</Link>
           </div>
           <div className="space-y-8">
-            {orders.slice(0, 3).map((order, i) => (
-              <div key={`order-${i}`} className="flex items-start gap-6 p-6 rounded-[2rem] hover:bg-[#fcfaf7] transition-all border border-transparent hover:border-zinc-100 group">
-                <div className="p-4 rounded-2xl bg-emerald-50 text-[#064e3b] group-hover:bg-[#064e3b] group-hover:text-white transition-all duration-500 shadow-inner">
-                  <Ship size={24} />
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <p className="text-lg font-serif font-bold text-zinc-900 group-hover:text-[#064e3b] transition-colors">New Order: #{order.orderNumber}</p>
-                    <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">{formatDate(order.createdAt)}</span>
+              {orders.slice(0, 3).map((order, i) => (
+                <div key={`order-${i}`} className="flex flex-col sm:flex-row items-start gap-4 md:gap-6 p-4 md:p-6 rounded-[2rem] hover:bg-[#fcfaf7] transition-all border border-transparent hover:border-zinc-100 group">
+                  <div className="p-4 rounded-2xl bg-emerald-50 text-[#064e3b] group-hover:bg-[#064e3b] group-hover:text-white transition-all duration-500 shadow-inner w-fit">
+                    <Ship size={24} />
                   </div>
-                  <p className="text-sm text-zinc-500 mt-2 font-serif italic">{order.customerName} placed an order for {order.quantity}{order.unit} of {order.commodity}.</p>
-                  <div className="flex items-center gap-4 mt-4">
-                    <span className={cn(
-                      "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border",
-                      order.status === 'Confirmed' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-zinc-50 text-zinc-600 border-zinc-100'
-                    )}>
-                      {order.status}
-                    </span>
-                    <div className="flex items-center gap-2 text-zinc-400">
-                      <Globe size={12} />
-                      <span className="text-[10px] font-black uppercase tracking-widest">{order.destinationCountry}</span>
+                  <div className="flex-1 w-full">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm md:text-lg font-serif font-bold text-zinc-900 group-hover:text-[#064e3b] transition-colors line-clamp-1">New Order: #{order.orderNumber}</p>
+                      <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest whitespace-nowrap">{formatDate(order.createdAt)}</span>
+                    </div>
+                    <p className="text-xs md:text-sm text-zinc-500 mt-2 font-serif italic line-clamp-2 md:line-clamp-none">{order.customerName} placed an order for {order.quantity}{order.unit} of {order.commodity}.</p>
+                    <div className="flex flex-wrap items-center gap-3 md:gap-4 mt-4">
+                      <span className={cn(
+                        "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border",
+                        order.status === 'Confirmed' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-zinc-50 text-zinc-600 border-zinc-100'
+                      )}>
+                        {order.status}
+                      </span>
+                      <div className="flex items-center gap-2 text-zinc-400">
+                        <Globe size={12} />
+                        <span className="text-[10px] font-black uppercase tracking-widest">{order.destinationCountry}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
             {leads.slice(0, 2).map((lead, i) => (
               <div key={`lead-${i}`} className="flex items-start gap-6 p-6 rounded-[2rem] hover:bg-[#fcfaf7] transition-all border border-transparent hover:border-zinc-100 group">
                 <div className="p-4 rounded-2xl bg-blue-50 text-blue-700 group-hover:bg-blue-700 group-hover:text-white transition-all duration-500 shadow-inner">

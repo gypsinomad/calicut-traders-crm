@@ -58,10 +58,21 @@ export default function TaskList() {
       setTeamMembers(data);
     }, [{ field: 'organization', operator: '==', value: profile.organization }]);
 
+    const taskConstraints: any[] = [{ field: 'organization', operator: '==', value: profile.organization }];
+    
+    if (profile.role === 'standard') {
+      // Standard users only see tasks assigned to them OR created by them
+      // Firestore doesn't support OR across different fields in a simple query without complex indexes/logic
+      // but usually we want to see what we need to work on. 
+      // The rules allow (isManager() || resource.data.assigneeId == userId() || resource.data.creatorId == userId())
+      // For simplicity, we'll filter by assigneeId if standard.
+      taskConstraints.push({ field: 'assigneeId', operator: '==', value: profile.uid });
+    }
+
     const unsubscribeTasks = subscribeToCollection<Task>('tasks', (data) => {
       setTasks(data);
       setLoading(false);
-    }, undefined, 'dueDate', 'asc');
+    }, taskConstraints, 'dueDate', 'asc');
 
     return () => {
       unsubscribeUsers();

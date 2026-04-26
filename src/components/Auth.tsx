@@ -89,6 +89,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             let updatedData = { ...data };
             let needsUpdate = false;
 
+            // Role Migration Logic
+            const currentRole = data.role as string;
+            if (currentRole === 'staff' || currentRole === 'user') {
+              updatedData.role = UserRole.STANDARD;
+              needsUpdate = true;
+            } else if (currentRole === 'admin') {
+              updatedData.role = UserRole.ADMIN; // Ensure latest string
+            } else if (currentRole === 'manager') {
+              updatedData.role = UserRole.MANAGER; // Ensure latest string
+            } else if (!currentRole) {
+              updatedData.role = UserRole.STANDARD; // Default to standard
+              needsUpdate = true;
+            }
+
             // Check if this is the default admin and needs a role upgrade or approval
             if (currentUser.email === ADMIN_EMAIL) {
               if (data.role !== UserRole.ADMIN || data.status !== UserStatus.ACTIVE) {
@@ -119,7 +133,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               email: currentUser.email || '',
               displayName: displayName,
               photoURL: currentUser.photoURL || undefined,
-              role: isAdmin ? UserRole.ADMIN : UserRole.USER,
+              role: isAdmin ? UserRole.ADMIN : UserRole.STANDARD,
               status: isAdmin ? UserStatus.ACTIVE : UserStatus.PENDING,
               createdAt: Timestamp.now(),
               approvalRequestedAt: Timestamp.now(),

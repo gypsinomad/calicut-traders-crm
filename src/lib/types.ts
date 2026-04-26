@@ -1,6 +1,6 @@
 import { Timestamp } from 'firebase/firestore';
 
-export type UserRole = 'admin' | 'manager' | 'staff' | 'user';
+export type UserRole = 'admin' | 'partner' | 'manager' | 'standard';
 export type UserStatus = 'pending' | 'active' | 'suspended';
 export type UserPresenceStatus = 'online' | 'away' | 'offline' | 'dnd';
 

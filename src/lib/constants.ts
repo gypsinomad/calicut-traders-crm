@@ -8,7 +8,9 @@ export const ADMIN_EMAIL = 'akhilvenugopal@gmail.com';
 
 export enum UserRole {
   ADMIN = 'admin',
-  USER = 'user',
+  PARTNER = 'partner',
+  MANAGER = 'manager',
+  STANDARD = 'standard',
 }
 
 export enum UserStatus {

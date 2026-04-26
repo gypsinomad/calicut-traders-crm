@@ -433,6 +433,49 @@
           }
         }
       }
+    },
+    "GeneralSettings": {
+      "title": "General Settings",
+      "description": "Organization-wide general preferences",
+      "type": "object",
+      "properties": {
+        "timezone": { "type": "string" },
+        "currency": { "type": "string" },
+        "dateFormat": { "type": "string" },
+        "language": { "type": "string" }
+      }
+    },
+    "AutomationSettings": {
+      "title": "Automation Settings",
+      "description": "Organization-wide automation preferences",
+      "type": "object",
+      "properties": {
+        "autoBackups": { "type": "boolean" },
+        "weeklyReports": { "type": "boolean" },
+        "slackAlerts": { "type": "boolean" }
+      }
+    },
+    "ProviderSettings": {
+      "title": "AI Provider Settings",
+      "description": "Configuration for a specific AI provider",
+      "type": "object",
+      "properties": {
+        "apiKey": { "type": "string" },
+        "model": { "type": "string" },
+        "enabled": { "type": "boolean" },
+        "baseUrl": { "type": "string" }
+      }
+    },
+    "AISettings": {
+      "title": "AI Settings",
+      "description": "Organization-wide AI configuration",
+      "type": "object",
+      "properties": {
+        "provider": { "type": "string" },
+        "providers": { "type": "object" },
+        "spendingCapINR": { "type": "number" },
+        "enabled": { "type": "boolean" }
+      }
     }
   },
   "firestore": {
@@ -453,6 +496,9 @@
     "/organizations/{orgId}": { "schema": "Organization", "description": "Organization profiles" },
     "/organizations/{orgId}/ai_usage/{usageId}": { "schema": "AIUsage", "description": "AI usage logs" },
     "/organizations/{orgId}/settings/integrations": { "schema": "IntegrationSettings", "description": "Integration credentials" },
+    "/organizations/{orgId}/settings/general": { "schema": "GeneralSettings", "description": "General preferences" },
+    "/organizations/{orgId}/settings/automation": { "schema": "AutomationSettings", "description": "Automation preferences" },
+    "/organizations/{orgId}/settings/ai": { "schema": "AISettings", "description": "AI configuration" },
     "/generated_documents/{docId}": { "schema": "GeneratedDocument", "description": "System-generated documents" },
     "/send_history/{historyId}": { "schema": "SendHistory", "description": "Document and quote send history" },
     "/calendar_events/{eventId}": { "schema": "CalendarEvent", "description": "Calendar events" },

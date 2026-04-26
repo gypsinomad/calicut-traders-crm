@@ -39,10 +39,11 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-import { APP_NAME, ROUTES, UserRole, UserStatus } from '../lib/constants';
+import { APP_NAME, ROUTES, UserStatus } from '../lib/constants';
 import { useTranslation } from '../contexts/LanguageContext.tsx';
 import { TranslatedText } from './TranslatedText.tsx';
 import { useAuth } from './Auth.tsx';
+import { hasPermission, Permission } from '../lib/permissions';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 
@@ -51,56 +52,56 @@ const navSections = [
     label: 'Sales & CRM',
     items: [
       { icon: LayoutDashboard, label: 'Dashboard', path: ROUTES.DASHBOARD },
-      { icon: Users, label: 'Leads', path: ROUTES.LEADS },
-      { icon: FileSearch, label: 'Prospecting', path: ROUTES.PROSPECTING },
-      { icon: Zap, label: 'Signals', path: ROUTES.SIGNALS },
-      { icon: FileText, label: 'Quotations', path: ROUTES.QUOTES },
-      { icon: Kanban, label: 'Pipeline', path: ROUTES.PIPELINE },
-      { icon: LayoutGrid, label: 'Buyer Pipeline', path: ROUTES.BUYER_PIPELINE },
-      { icon: Building2, label: 'Companies', path: ROUTES.COMPANIES },
+      { icon: Users, label: 'Leads', path: ROUTES.LEADS, permission: 'sales.read' as Permission },
+      { icon: FileSearch, label: 'Prospecting', path: ROUTES.PROSPECTING, permission: 'sales.read' as Permission },
+      { icon: Zap, label: 'Signals', path: ROUTES.SIGNALS, permission: 'sales.read' as Permission },
+      { icon: FileText, label: 'Quotations', path: ROUTES.QUOTES, permission: 'sales.read' as Permission },
+      { icon: Kanban, label: 'Pipeline', path: ROUTES.PIPELINE, permission: 'operations.read' as Permission },
+      { icon: LayoutGrid, label: 'Buyer Pipeline', path: ROUTES.BUYER_PIPELINE, permission: 'sales.read' as Permission },
+      { icon: Building2, label: 'Companies', path: ROUTES.COMPANIES, permission: 'sales.read' as Permission },
     ]
   },
   {
     label: 'Operations',
     items: [
-      { icon: Ship, label: 'Export Orders', path: ROUTES.ORDERS },
-      { icon: Truck, label: 'Execution', path: ROUTES.EXECUTION },
-      { icon: Navigation, label: 'Shipment Tracker', path: ROUTES.TRACKER },
-      { icon: Package, label: 'Inventory', path: ROUTES.INVENTORY },
-      { icon: UserCircle, label: 'Procurement', path: ROUTES.PROCUREMENT },
-      { icon: UserCircle, label: 'Suppliers', path: ROUTES.SUPPLIERS },
+      { icon: Ship, label: 'Export Orders', path: ROUTES.ORDERS, permission: 'operations.read' as Permission },
+      { icon: Truck, label: 'Execution', path: ROUTES.EXECUTION, permission: 'operations.read' as Permission },
+      { icon: Navigation, label: 'Shipment Tracker', path: ROUTES.TRACKER, permission: 'operations.read' as Permission },
+      { icon: Package, label: 'Inventory', path: ROUTES.INVENTORY, permission: 'operations.read' as Permission },
+      { icon: UserCircle, label: 'Procurement', path: ROUTES.PROCUREMENT, permission: 'operations.read' as Permission },
+      { icon: UserCircle, label: 'Suppliers', path: ROUTES.SUPPLIERS, permission: 'operations.read' as Permission },
     ]
   },
   {
     label: 'Intelligence',
     items: [
-      { icon: TrendingUp, label: 'Market Oracle', path: ROUTES.MARKET },
-      { icon: PieChart, label: 'Analytics', path: ROUTES.ANALYTICS },
-      { icon: BarChart3, label: 'Reports', path: ROUTES.REPORTS },
-      { icon: ScanLine, label: 'Smart Scanner', path: ROUTES.SCANNER },
+      { icon: TrendingUp, label: 'Market Oracle', path: ROUTES.MARKET, permission: 'intelligence.read' as Permission },
+      { icon: PieChart, label: 'Analytics', path: ROUTES.ANALYTICS, permission: 'intelligence.read' as Permission },
+      { icon: BarChart3, label: 'Reports', path: ROUTES.REPORTS, permission: 'intelligence.read' as Permission },
+      { icon: ScanLine, label: 'Smart Scanner', path: ROUTES.SCANNER, permission: 'intelligence.read' as Permission },
     ]
   },
   {
     label: 'Communication',
     items: [
-      { icon: Mail, label: 'Communications', path: ROUTES.COMMUNICATIONS },
-      { icon: MessageSquare, label: 'Collaboration', path: ROUTES.COLLABORATION },
-      { icon: Calendar, label: 'Calendar', path: ROUTES.CALENDAR },
-      { icon: CheckSquare, label: 'Tasks', path: ROUTES.TASKS },
-      { icon: Activity, label: 'Workflows', path: ROUTES.WORKFLOWS },
+      { icon: Mail, label: 'Communications', path: ROUTES.COMMUNICATIONS, permission: 'communication.read' as Permission },
+      { icon: MessageSquare, label: 'Collaboration', path: ROUTES.COLLABORATION, permission: 'communication.read' as Permission },
+      { icon: Calendar, label: 'Calendar', path: ROUTES.CALENDAR, permission: 'communication.read' as Permission },
+      { icon: CheckSquare, label: 'Tasks', path: ROUTES.TASKS, permission: 'communication.read' as Permission },
+      { icon: Activity, label: 'Workflows', path: ROUTES.WORKFLOWS, permission: 'communication.read' as Permission },
     ]
   },
   {
     label: 'System',
     items: [
-      { icon: DollarSign, label: 'Finance', path: ROUTES.FINANCE },
-      { icon: DollarSign, label: 'Payments', path: ROUTES.PAYMENTS },
-      { icon: AlertTriangle, label: 'Exceptions', path: ROUTES.EXCEPTIONS },
-      { icon: Shield, label: 'Document Vault', path: ROUTES.DOCUMENTS },
-      { icon: FileCheck, label: 'Export Docs', path: ROUTES.DOC_MANAGER },
-      { icon: Users, label: 'User Management', path: ROUTES.USERS },
-      { icon: Activity, label: 'Audit Trail', path: ROUTES.AUDIT },
-      { icon: Activity, label: 'System Health', path: ROUTES.HEALTH },
+      { icon: DollarSign, label: 'Finance', path: ROUTES.FINANCE, permission: 'finance.read' as Permission },
+      { icon: DollarSign, label: 'Payments', path: ROUTES.PAYMENTS, permission: 'finance.read' as Permission },
+      { icon: AlertTriangle, label: 'Exceptions', path: ROUTES.EXCEPTIONS, permission: 'operations.read' as Permission },
+      { icon: Shield, label: 'Document Vault', path: ROUTES.DOCUMENTS, permission: 'operations.read' as Permission },
+      { icon: FileCheck, label: 'Export Docs', path: ROUTES.DOC_MANAGER, permission: 'operations.read' as Permission },
+      { icon: Users, label: 'User Management', path: ROUTES.USERS, permission: 'users.read' as Permission },
+      { icon: Activity, label: 'Audit Trail', path: ROUTES.AUDIT, permission: 'audit.read' as Permission },
+      { icon: Activity, label: 'System Health', path: ROUTES.HEALTH, permission: 'health.read' as Permission },
       { icon: Settings, label: 'Settings', path: ROUTES.SETTINGS },
     ]
   }
@@ -148,10 +149,9 @@ export default function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose
     return () => unsubscribe();
   }, [profile?.role, profile?.organization]);
 
-  const isItemVisible = (path: string) => {
-    if (path === ROUTES.USERS) return profile?.role === UserRole.ADMIN;
-    if (path === ROUTES.AUDIT || path === ROUTES.HEALTH) return profile?.role === UserRole.ADMIN;
-    return true;
+  const isItemVisible = (item: any) => {
+    if (!item.permission) return true;
+    return hasPermission(profile?.role, item.permission);
   };
 
   return (
@@ -184,7 +184,7 @@ export default function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose
             <h3 className="px-4 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300/30 dark:text-zinc-600 mb-2">
               <TranslatedText>{section.label}</TranslatedText>
             </h3>
-            {section.items.filter(item => isItemVisible(item.path)).map((item) => (
+            {section.items.filter(item => isItemVisible(item)).map((item) => (
               <NavLink
                 key={item.path}
                 to={item.path}

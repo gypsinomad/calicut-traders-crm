@@ -534,32 +534,33 @@ export default function InventoryManager() {
         </motion.div>
       )}
 
-      <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="bg-white dark:bg-zinc-900 md:rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
+        {/* Desktop Table View */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-zinc-50 border-b border-zinc-200">
+              <tr className="bg-zinc-50 dark:bg-zinc-800/50 border-b border-zinc-200 dark:border-zinc-800">
                 <th className="px-4 py-4 w-10">
                   <button 
                     onClick={toggleSelectAll}
-                    className="p-1 rounded-md hover:bg-zinc-200 transition-colors"
+                    className="p-1 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
                   >
                     {selectedItemIds.length === filteredItems.length && filteredItems.length > 0 ? (
                       <CheckSquare className="text-emerald-600" size={20} />
                     ) : (
-                      <Square className="text-zinc-300" size={20} />
+                      <Square className="text-zinc-300 dark:text-zinc-600" size={20} />
                     )}
                   </button>
                 </th>
-                <th className="px-6 py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider">Item Name</th>
-                <th className="px-6 py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider hidden sm:table-cell">Batch</th>
-                <th className="px-6 py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider">Quantity</th>
-                <th className="px-6 py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider hidden md:table-cell">Expiry</th>
-                <th className="px-6 py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider">Action</th>
+                <th className="px-6 py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider text-nowrap">Item Name</th>
+                <th className="px-6 py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider text-nowrap">Batch</th>
+                <th className="px-6 py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider text-nowrap">Quantity</th>
+                <th className="px-6 py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider text-nowrap">Expiry</th>
+                <th className="px-6 py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider text-nowrap">Status</th>
+                <th className="px-6 py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider text-nowrap">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-100">
+            <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
               {loading ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-12 text-center">
@@ -578,58 +579,52 @@ export default function InventoryManager() {
                   const isLow = item.quantity <= item.reorderLevel;
 
                   return (
-                    <tr key={item.id} className={`hover:bg-zinc-50/50 transition-colors ${selectedItemIds.includes(item.id) ? 'bg-emerald-50/30' : ''}`}>
+                    <tr key={item.id} className={`hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors ${selectedItemIds.includes(item.id) ? 'bg-emerald-50/30 dark:bg-emerald-900/10' : ''}`}>
                       <td className="px-4 py-4">
                         <button 
                           onClick={() => toggleSelect(item.id)}
-                          className="p-1 rounded-md hover:bg-zinc-200 transition-colors"
+                          className="p-1 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
                         >
                           {selectedItemIds.includes(item.id) ? (
                             <CheckSquare className="text-emerald-600" size={20} />
                           ) : (
-                            <Square className="text-zinc-300" size={20} />
+                            <Square className="text-zinc-300 dark:text-zinc-600" size={20} />
                           )}
                         </button>
                       </td>
                       <td className="px-6 py-4">
                         <div>
-                          <p className="text-sm font-bold text-zinc-900">{item.name}</p>
+                          <p className="text-sm font-bold text-zinc-900 dark:text-white">{item.name}</p>
                           <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider mt-0.5">{item.category}</p>
                         </div>
                       </td>
-                      <td className="px-6 py-4 hidden sm:table-cell">
+                      <td className="px-6 py-4">
                         <span className="text-sm text-zinc-500 font-mono">{item.batchNumber}</span>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
-                          <span className={`text-sm font-bold ${isLow ? 'text-amber-600' : 'text-zinc-900'}`}>
+                          <span className={`text-sm font-bold ${isLow ? 'text-amber-600' : 'text-zinc-900 dark:text-zinc-300'}`}>
                             {item.quantity} {item.unit}
                           </span>
                           {isLow && <ArrowDownRight size={14} className="text-amber-600" />}
                         </div>
-                        {item.prediction && (
-                          <div className="mt-1 flex items-center gap-1 text-[10px] text-emerald-600 font-bold">
-                            <Sparkles size={10} />
-                            Out in ~{item.prediction.predictedDays}d
-                          </div>
-                        )}
                       </td>
-                      <td className="px-6 py-4 hidden md:table-cell">
+                      <td className="px-6 py-4">
                         <span className={`text-sm ${isExpired ? 'text-rose-600 font-bold' : 'text-zinc-600'}`}>
                           {item.expiryDate?.toDate?.() ? formatDate(item.expiryDate) : 'N/A'}
                         </span>
                       </td>
                       <td className="px-6 py-4">
                         {isExpired ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-50 text-rose-600 border border-rose-100">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-50 dark:bg-rose-900/20 text-rose-600 border border-rose-100 dark:border-rose-800">
                             Expired
                           </span>
                         ) : isLow ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-50 text-amber-600 border border-amber-100">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-50 dark:bg-amber-900/20 text-amber-600 border border-amber-100 dark:border-amber-800">
                             Low Stock
                           </span>
                         ) : (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-600 border border-emerald-100">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 border border-emerald-100 dark:border-emerald-800">
                             Healthy
                           </span>
                         )}
@@ -639,71 +634,25 @@ export default function InventoryManager() {
                           <button 
                             onClick={() => predictStockOut(item)}
                             disabled={predicting === item.id}
-                            className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-50"
-                            title={isAIAvailable() ? "Predict Stock Out with AI" : "Predict Stock Out with Smart Rules"}
+                            className="p-2 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors disabled:opacity-50"
                           >
                             {predicting === item.id ? <RefreshCw size={18} className="animate-spin" /> : (isAIAvailable() ? <Sparkles size={18} /> : <Zap size={18} />)}
                           </button>
-                          {isExpired && (
-                            <>
-                              {compostConfirmId === item.id ? (
-                                <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-2 duration-200">
-                                  <button 
-                                    onClick={() => handleCompost(item)}
-                                    className="px-3 py-1 bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg hover:bg-emerald-700 transition-colors shadow-sm"
-                                  >
-                                    Confirm
-                                  </button>
-                                  <button 
-                                    onClick={() => setCompostConfirmId(null)}
-                                    className="px-3 py-1 bg-zinc-100 text-zinc-600 text-[10px] font-bold uppercase tracking-wider rounded-lg hover:bg-zinc-200 transition-colors"
-                                  >
-                                    X
-                                  </button>
-                                </div>
-                              ) : (
-                                <button 
-                                  onClick={() => setCompostConfirmId(item.id)}
-                                  className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                                  title="Send to Composting"
-                                >
-                                  <Leaf size={18} />
-                                </button>
-                              )}
-                            </>
-                          )}
                           <button 
                             onClick={() => {
                               setEditingItem(item);
                               setEditExpiryDateStr(item.expiryDate?.toDate?.() ? item.expiryDate.toDate().toISOString().split('T')[0] : '');
                             }}
-                            className="p-2 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors"
+                            className="p-2 text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
                           >
                             <Edit2 size={18} />
                           </button>
-                          {deleteConfirmId === item.id ? (
-                            <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-2 duration-200">
-                              <button 
-                                onClick={() => handleDeleteItem(item.id)}
-                                className="px-3 py-1 bg-rose-600 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg hover:bg-rose-700 transition-colors shadow-sm"
-                              >
-                                Del
-                              </button>
-                              <button 
-                                onClick={() => setDeleteConfirmId(null)}
-                                className="px-3 py-1 bg-zinc-100 text-zinc-600 text-[10px] font-bold uppercase tracking-wider rounded-lg hover:bg-zinc-200 transition-colors"
-                              >
-                                X
-                              </button>
-                            </div>
-                          ) : (
-                            <button 
-                              onClick={() => setDeleteConfirmId(item.id)}
-                              className="p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                            >
-                              <Trash2 size={18} />
-                            </button>
-                          )}
+                          <button 
+                            onClick={() => setDeleteConfirmId(item.id)}
+                            className="p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors"
+                          >
+                            <Trash2 size={18} />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -712,6 +661,110 @@ export default function InventoryManager() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Card View */}
+        <div className="md:hidden divide-y divide-zinc-100 dark:divide-zinc-800">
+          {loading ? (
+            <div className="p-8 text-center">
+              <RefreshCw className="animate-spin mx-auto text-zinc-400" size={24} />
+            </div>
+          ) : filteredItems.length === 0 ? (
+            <div className="p-8 text-center text-zinc-400 text-sm">
+              No inventory items found
+            </div>
+          ) : (
+            filteredItems.map((item) => {
+              const isExpired = item.expiryDate?.toDate?.() && item.expiryDate.toDate() < new Date();
+              const isLow = item.quantity <= item.reorderLevel;
+
+              return (
+                <div key={`mobile-${item.id}`} className="p-4 space-y-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-3">
+                      <button 
+                        onClick={() => toggleSelect(item.id)}
+                        className="p-1 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors shrink-0"
+                      >
+                        {selectedItemIds.includes(item.id) ? (
+                          <CheckSquare className="text-emerald-600" size={20} />
+                        ) : (
+                          <Square className="text-zinc-300 dark:text-zinc-600" size={20} />
+                        )}
+                      </button>
+                      <div>
+                        <p className="text-sm font-bold text-zinc-900 dark:text-white">{item.name}</p>
+                        <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">{item.category} • {item.batchNumber}</p>
+                      </div>
+                    </div>
+                    {isExpired ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-rose-50 text-rose-600 border border-rose-100">
+                        Expired
+                      </span>
+                    ) : isLow ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-50 text-amber-600 border border-amber-100">
+                        Low
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-600 border border-emerald-100">
+                        Healthy
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4 pl-8">
+                    <div>
+                      <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1">Quantity</p>
+                      <p className={`text-sm font-bold ${isLow ? 'text-amber-600' : 'text-zinc-900 dark:text-zinc-300'}`}>
+                        {item.quantity} {item.unit}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1">Expiry</p>
+                      <p className={`text-xs ${isExpired ? 'text-rose-600 font-bold' : 'text-zinc-600'}`}>
+                        {item.expiryDate?.toDate?.() ? formatDate(item.expiryDate) : 'N/A'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pl-8 pt-2">
+                    <button 
+                      onClick={() => predictStockOut(item)}
+                      disabled={predicting === item.id}
+                      className="p-2.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 rounded-lg transition-colors border border-emerald-100 dark:border-emerald-800"
+                    >
+                      {predicting === item.id ? <RefreshCw size={16} className="animate-spin" /> : (isAIAvailable() ? <Sparkles size={16} /> : <Zap size={16} />)}
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setEditingItem(item);
+                        setEditExpiryDateStr(item.expiryDate?.toDate?.() ? item.expiryDate.toDate().toISOString().split('T')[0] : '');
+                      }}
+                      className="p-2.5 bg-zinc-50 dark:bg-zinc-800 text-zinc-500 rounded-lg border border-zinc-200 dark:border-zinc-700"
+                    >
+                      <Edit2 size={16} />
+                    </button>
+                    <button 
+                      onClick={() => setDeleteConfirmId(item.id)}
+                      className="p-2.5 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-lg border border-rose-100 dark:border-rose-800"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+
+                  {deleteConfirmId === item.id && (
+                    <div className="mt-2 p-3 bg-rose-50 dark:bg-rose-900/20 rounded-xl flex items-center justify-between animate-in slide-in-from-top-2">
+                      <span className="text-xs font-bold text-rose-700">Delete item?</span>
+                      <div className="flex gap-2">
+                        <button onClick={() => handleDeleteItem(item.id)} className="px-3 py-1 bg-rose-600 text-white text-[10px] font-bold uppercase rounded-lg">Yes</button>
+                        <button onClick={() => setDeleteConfirmId(null)} className="px-3 py-1 bg-white text-zinc-500 text-[10px] font-bold uppercase rounded-lg">No</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
 

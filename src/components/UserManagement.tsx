@@ -392,10 +392,10 @@ export default function UserManagement() {
                         disabled={u.uid === currentUserProfile?.uid}
                         className="text-sm bg-transparent border-none p-0 focus:ring-0 cursor-pointer font-bold text-zinc-700 hover:text-emerald-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        <option value="user">User</option>
-                        <option value="staff">Staff</option>
-                        <option value="manager">Manager</option>
                         <option value="admin">Admin</option>
+                        <option value="partner">Partner</option>
+                        <option value="manager">Manager</option>
+                        <option value="standard">Standard</option>
                       </select>
                     </div>
                   </td>

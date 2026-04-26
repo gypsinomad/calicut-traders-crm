@@ -69,13 +69,19 @@ export default function LeadList() {
   useEffect(() => {
     if (!profile?.organization) return;
 
+    const constraints: any[] = [{ field: 'organization', operator: '==', value: profile.organization }];
+    
+    if (profile.role === 'standard') {
+      constraints.push({ field: 'assignedUserId', operator: '==', value: profile.uid });
+    }
+
     const unsubscribe = subscribeToCollection<Lead>(
       'leads', 
       (data) => {
         setLeads(data);
         setLoading(false);
       }, 
-      [{ field: 'organization', operator: '==', value: profile.organization }]
+      constraints
     );
 
     return () => unsubscribe();

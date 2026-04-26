@@ -6,7 +6,9 @@ import {
   Timestamp,
   deleteDoc,
   doc,
-  getDoc
+  getDoc,
+  query,
+  where
 } from 'firebase/firestore';
 
 const INPUT_COST_PER_1M = 0.075;
@@ -39,14 +41,17 @@ export interface AIUsageSummary {
   }[];
 }
 
-export async function trackAICall(feature: string, inputTokens: number, outputTokens: number) {
+export async function trackAICall(feature: string, inputTokens: number, outputTokens: number, profile?: any) {
   const user = auth.currentUser;
   if (!user) return;
 
   try {
-    // Get orgId from user profile
-    const profileSnap = await getDoc(doc(db, 'users', user.uid));
-    const orgId = profileSnap.exists() ? profileSnap.data().organization : 'default';
+    let orgId = profile?.organization;
+    
+    if (!orgId) {
+      const profileSnap = await getDoc(doc(db, 'users', user.uid));
+      orgId = profileSnap.exists() ? profileSnap.data().organization : 'default';
+    }
 
     const totalTokens = inputTokens + outputTokens;
     const estimatedCostUSD = (inputTokens / 1000000 * INPUT_COST_PER_1M) + (outputTokens / 1000000 * OUTPUT_COST_PER_1M);
@@ -90,7 +95,17 @@ export async function getAIUsageSummary(orgId?: string): Promise<AIUsageSummary>
 
     if (!targetOrgId) return defaultSummary;
 
-    const usageSnap = await getDocs(collection(db, `organizations/${targetOrgId}/ai_usage`));
+    // PERFORMANCE OPTIMIZATION: Only fetch records for the current month
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfTimestamp = Timestamp.fromDate(startOfMonth);
+
+    const usageQuery = query(
+      collection(db, `organizations/${targetOrgId}/ai_usage`),
+      where('timestamp', '>=', startOfTimestamp)
+    );
+    
+    const usageSnap = await getDocs(usageQuery);
     const records = usageSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as AIUsageRecord));
 
     const featureMap: Record<string, { totalCalls: number; totalTokens: number; totalCostUSD: number; totalCostINR: number }> = {};
