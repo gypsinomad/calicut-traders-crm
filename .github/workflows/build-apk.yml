@@ -38,6 +38,14 @@ jobs:
       - name: Build web assets
         run: npm run build
 
+      - name: Add Android platform
+        run: |
+          if [ ! -d "android" ]; then
+            npx cap add android
+          else
+            echo "Android platform already present"
+          fi
+
       - name: Sync Capacitor
         run: npx cap sync android
 
@@ -89,10 +97,10 @@ jobs:
           body: |
             ## Calicut Traders CRM Android Release
             Built from commit ${{ github.sha }}
-            
+
             ### Download
             Download the APK from the assets below and install on your Android device.
-            
+
             > Enable "Install from unknown sources" in Android settings if needed.
           files: ${{ steps.find_apk.outputs.apk_path }}
           draft: false
