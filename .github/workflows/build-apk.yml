@@ -9,6 +9,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    env:
+      KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'release' }}
+      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'android123' }}
+      STORE_PASSWORD: ${{ secrets.STORE_PASSWORD || 'android123' }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -36,107 +41,83 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
-      - name: Setup Android signing
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+      - name: Setup keystore
         run: |
           KEYSTORE_PATH="$GITHUB_WORKSPACE/android/app/keystore.jks"
 
-          if [ -n "$KEYSTORE_BASE64" ]; then
-            echo "Decoding keystore from secret..."
-            echo "$KEYSTORE_BASE64" | base64 -d > "$KEYSTORE_PATH"
-            echo "Keystore decoded successfully"
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "Decoding keystore from KEYSTORE_BASE64 secret..."
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > "$KEYSTORE_PATH"
           else
-            echo "No keystore secret found, generating new keystore..."
-            ALIAS=${KEY_ALIAS:-release}
-            STOREPASS=${STORE_PASSWORD:-android123}
-            KEYPASS=${KEY_PASSWORD:-android123}
+            echo "Generating new keystore with alias=$KEY_ALIAS..."
             keytool -genkeypair \
               -v \
               -keystore "$KEYSTORE_PATH" \
-              -alias "$ALIAS" \
+              -alias "$KEY_ALIAS" \
               -keyalg RSA \
               -keysize 2048 \
               -validity 10000 \
-              -storepass "$STOREPASS" \
-              -keypass "$KEYPASS" \
+              -storepass "$STORE_PASSWORD" \
+              -keypass "$KEY_PASSWORD" \
               -dname "CN=Calicut Traders, OU=Dev, O=CalicutTraders, L=Kozhikode, ST=Kerala, C=IN"
-            echo "Generated new keystore with alias: $ALIAS"
           fi
 
-          echo "Verifying keystore..."
-          keytool -list -keystore "$KEYSTORE_PATH" \
-            -storepass "${STORE_PASSWORD:-android123}" \
-            -alias "${KEY_ALIAS:-release}" 2>&1 | head -5 || true
+          echo "Verifying keystore:"
+          keytool -list -v -keystore "$KEYSTORE_PATH" -storepass "$STORE_PASSWORD" 2>&1 | grep -E 'Alias|Entry type|Valid' | head -10
 
-          echo "Writing signing.properties..."
-          cat > "$GITHUB_WORKSPACE/android/signing.properties" << EOF
-          storeFile=keystore.jks
-          storePassword=${STORE_PASSWORD:-android123}
-          keyAlias=${KEY_ALIAS:-release}
-          keyPassword=${KEY_PASSWORD:-android123}
-          EOF
-          echo "Signing setup complete"
-
-      - name: Patch build.gradle for signing
+      - name: Configure build.gradle signing
         run: |
           GRADLE_FILE="$GITHUB_WORKSPACE/android/app/build.gradle"
-          SIGNING_PROPS="$GITHUB_WORKSPACE/android/signing.properties"
 
-          python3 - << 'PYEOF'
+          # Write signing config into build.gradle using Python
+          python3 << PYEOF
           import re
 
-          gradle_path = '${{ github.workspace }}/android/app/build.gradle'
-          props_path = '${{ github.workspace }}/android/signing.properties'
-
-          with open(props_path) as f:
-              props = {}
-              for line in f:
-                  line = line.strip()
-                  if '=' in line:
-                      k, v = line.split('=', 1)
-                      props[k.strip()] = v.strip()
-
-          store_file = props.get('storeFile', 'keystore.jks')
-          store_password = props.get('storePassword', 'android123')
-          key_alias = props.get('keyAlias', 'release')
-          key_password = props.get('keyPassword', 'android123')
-
-          signing_config = f"""
-              signingConfigs {{
-                  release {{
-                      storeFile file('{store_file}')
-                      storePassword '{store_password}'
-                      keyAlias '{key_alias}'
-                      keyPassword '{key_password}'
-                  }}
-              }}
-          """
+          gradle_path = "$GITHUB_WORKSPACE/android/app/build.gradle"
+          store_file = "keystore.jks"
+          store_pass = "$STORE_PASSWORD"
+          key_alias = "$KEY_ALIAS"
+          key_pass = "$KEY_PASSWORD"
 
           with open(gradle_path) as f:
               content = f.read()
 
-          if 'signingConfigs' not in content:
-              content = content.replace('android {', 'android {' + signing_config, 1)
+          signing_block = """
+              signingConfigs {
+                  release {
+                      storeFile file('""" + store_file + """')
+                      storePassword '""" + store_pass + """'
+                      keyAlias '""" + key_alias + """'
+                      keyPassword '""" + key_pass + """'
+                  }
+              }
+          """
 
-          content = re.sub(
-              r'buildTypes\s*\{[^}]*release\s*\{',
-              'buildTypes {\n        release {\n            signingConfig signingConfigs.release',
-              content
-          )
+          # Only insert if not already present
+          if "signingConfigs" not in content:
+              content = content.replace("android {", "android {" + signing_block, 1)
+              print("Inserted signingConfigs block")
 
-          with open(gradle_path, 'w') as f:
+          # Set release buildType to use signing config
+          if "signingConfig signingConfigs.release" not in content:
+              content = re.sub(
+                  r'(buildTypes\s*\{[^}]*?release\s*\{)',
+                  r'\1\n            signingConfig signingConfigs.release',
+                  content,
+                  flags=re.DOTALL
+              )
+              print("Added signingConfig to release buildType")
+
+          with open(gradle_path, "w") as f:
               f.write(content)
 
-          print('build.gradle patched successfully')
+          print("build.gradle updated successfully")
+          print("Signing alias:", key_alias)
           PYEOF
 
       - name: Build Release APK
         working-directory: android
-        run: ./gradlew assembleRelease --stacktrace
+        run: ./gradlew assembleRelease --stacktrace 2>&1 | tail -50
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
