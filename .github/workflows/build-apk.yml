@@ -21,7 +21,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -37,6 +37,12 @@ jobs:
 
       - name: Install Capacitor CLI
         run: npm install -g @capacitor/cli
+
+      - name: Add Android platform if missing
+        run: |
+          if [ ! -d "android" ]; then
+            npx cap add android
+          fi
 
       - name: Sync Capacitor
         run: npx cap sync android
@@ -63,61 +69,57 @@ jobs:
           fi
 
           echo "Verifying keystore:"
-          keytool -list -v -keystore "$KEYSTORE_PATH" -storepass "$STORE_PASSWORD" 2>&1 | grep -E 'Alias|Entry type|Valid' | head -10
+          keytool -list -v -keystore "$KEYSTORE_PATH" \
+            -storepass "$STORE_PASSWORD" 2>&1 | grep -E 'Alias|Valid' | head -5
 
       - name: Configure build.gradle signing
         run: |
-          GRADLE_FILE="$GITHUB_WORKSPACE/android/app/build.gradle"
-
-          # Write signing config into build.gradle using Python
           python3 << PYEOF
-          import re
+          import re, os
 
-          gradle_path = "$GITHUB_WORKSPACE/android/app/build.gradle"
-          store_file = "keystore.jks"
-          store_pass = "$STORE_PASSWORD"
-          key_alias = "$KEY_ALIAS"
-          key_pass = "$KEY_PASSWORD"
+          gradle_path = os.path.join(os.environ['GITHUB_WORKSPACE'], 'android', 'app', 'build.gradle')
+          store_pass = os.environ['STORE_PASSWORD']
+          key_alias = os.environ['KEY_ALIAS']
+          key_pass = os.environ['KEY_PASSWORD']
 
           with open(gradle_path) as f:
               content = f.read()
 
-          signing_block = """
-              signingConfigs {
-                  release {
-                      storeFile file('""" + store_file + """')
-                      storePassword '""" + store_pass + """'
-                      keyAlias '""" + key_alias + """'
-                      keyPassword '""" + key_pass + """'
-                  }
-              }
-          """
+          signing_block = (
+              "\n    signingConfigs {\n"
+              "        release {\n"
+              "            storeFile file('keystore.jks')\n"
+              "            storePassword '" + store_pass + "'\n"
+              "            keyAlias '" + key_alias + "'\n"
+              "            keyPassword '" + key_pass + "'\n"
+              "        }\n"
+              "    }\n"
+          )
 
-          # Only insert if not already present
-          if "signingConfigs" not in content:
-              content = content.replace("android {", "android {" + signing_block, 1)
-              print("Inserted signingConfigs block")
+          if 'signingConfigs' not in content:
+              content = content.replace('android {', 'android {' + signing_block, 1)
+              print('Inserted signingConfigs block')
 
-          # Set release buildType to use signing config
-          if "signingConfig signingConfigs.release" not in content:
+          if 'signingConfig signingConfigs.release' not in content:
               content = re.sub(
-                  r'(buildTypes\s*\{[^}]*?release\s*\{)',
+                  r'(release\s*\{)',
                   r'\1\n            signingConfig signingConfigs.release',
-                  content,
-                  flags=re.DOTALL
+                  content, count=1
               )
-              print("Added signingConfig to release buildType")
+              print('Added signingConfig to release buildType')
 
-          with open(gradle_path, "w") as f:
+          with open(gradle_path, 'w') as f:
               f.write(content)
 
-          print("build.gradle updated successfully")
-          print("Signing alias:", key_alias)
+          print('build.gradle patched. Alias: ' + key_alias)
           PYEOF
 
       - name: Build Release APK
         working-directory: android
-        run: ./gradlew assembleRelease --stacktrace 2>&1 | tail -50
+        run: ./gradlew assembleRelease --stacktrace
+
+      - name: Find APK
+        run: find android -name '*.apk' 2>/dev/null
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
