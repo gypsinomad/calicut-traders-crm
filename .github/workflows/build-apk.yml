@@ -17,7 +17,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-                  
+
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
@@ -46,6 +46,9 @@ jobs:
       - name: Install Capacitor CLI
         run: npm install -g @capacitor/cli
 
+      - name: Add Android platform
+        run: npx cap add android
+
       - name: Capacitor sync Android
         run: npx cap sync android
 
@@ -54,30 +57,30 @@ jobs:
 
       - name: Decode Keystore
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/release.keystore
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
 
       - name: Build Release APK
-        working-directory: android
-        run: ./gradlew assembleRelease
-        env:
-          KEYSTORE_PATH: release.keystore
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+        run: |
+          cd android
+          ./gradlew assembleRelease \
+            -Pandroid.injected.signing.store.file=$GITHUB_WORKSPACE/android/app/keystore.jks \
+            -Pandroid.injected.signing.store.password=${{ secrets.STORE_PASSWORD }} \
+            -Pandroid.injected.signing.key.alias=${{ secrets.KEY_ALIAS }} \
+            -Pandroid.injected.signing.key.password=${{ secrets.KEY_PASSWORD }}
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: calicut-traders-crm-release
-          path: android/app/build/outputs/apk/release/*.apk
-          retention-days: 30
+          path: android/app/build/outputs/apk/release/app-release.apk
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/main'
         with:
           tag_name: v${{ github.run_number }}
           name: Release v${{ github.run_number }}
-          files: android/app/build/outputs/apk/release/*.apk
+          files: android/app/build/outputs/apk/release/app-release.apk
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
