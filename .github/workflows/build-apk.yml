@@ -59,47 +59,51 @@ jobs:
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > $GITHUB_WORKSPACE/keystore.jks
           echo "Keystore file size: $(wc -c < $GITHUB_WORKSPACE/keystore.jks) bytes"
-          echo "Listing keystore aliases:"
-          keytool -list -keystore $GITHUB_WORKSPACE/keystore.jks -storepass "${{ secrets.STORE_PASSWORD }}" 2>&1 | grep -E '(Alias|alias|Entry|entry|Keystore|error)' | head -20 || echo "keytool list failed - check STORE_PASSWORD"
+          echo "Listing keystore:"
+          keytool -list -keystore $GITHUB_WORKSPACE/keystore.jks -storepass "${{ secrets.STORE_PASSWORD }}" 2>&1 | head -15 || echo "WARN: keytool list failed"
 
       - name: Patch build.gradle with signing config
         run: |
-          GRADLE_FILE="android/app/build.gradle"
           KEYSTORE_PATH="$GITHUB_WORKSPACE/keystore.jks"
-          # Write the signing configuration using sed to inject before the closing brace of android {}
-          python3 - << 'PYEOF'
-          import re, os
-          gradle = open('android/app/build.gradle').read()
-          signing_config = """
+          python3 << PYEOF
+          gradle_path = 'android/app/build.gradle'
+          keystore_path = '$KEYSTORE_PATH'
+          store_pw = '${{ secrets.STORE_PASSWORD }}'
+          key_alias = '${{ secrets.KEY_ALIAS }}'
+          key_pw = '${{ secrets.KEY_PASSWORD }}'
+
+          with open(gradle_path, 'r') as f:
+              content = f.read()
+
+          signing_block = '''
               signingConfigs {
                   release {
-                      storeFile file(System.getenv('STORE_FILE'))
-                      storePassword System.getenv('STORE_PASSWORD')
-                      keyAlias System.getenv('KEY_ALIAS')
-                      keyPassword System.getenv('KEY_PASSWORD')
+                      storeFile file("%s")
+                      storePassword "%s"
+                      keyAlias "%s"
+                      keyPassword "%s"
                   }
-              }"""
-          # Insert signingConfigs before buildTypes
-          gradle = gradle.replace('    buildTypes {', signing_config + '\n    buildTypes {')
-          # Apply signingConfig to release buildType
-          gradle = gradle.replace(
-              'release {\n',
-              'release {\n            signingConfig signingConfigs.release\n',
-              1
-          )
-          open('android/app/build.gradle', 'w').write(gradle)
-          print('build.gradle patched successfully')
+              }
+          ''' % (keystore_path, store_pw, key_alias, key_pw)
+
+          # Insert before buildTypes
+          content = content.replace('    buildTypes {', signing_block + '\n    buildTypes {')
+
+          # Add signingConfig to release
+          release_idx = content.find('release {', content.find('buildTypes {'))
+          if release_idx != -1:
+              content = content[:release_idx + len('release {')] + '\n            signingConfig signingConfigs.release' + content[release_idx + len('release {'):]
+
+          with open(gradle_path, 'w') as f:
+              f.write(content)
+
+          print('build.gradle patched with hardcoded signing config')
           PYEOF
 
       - name: Build Release APK
         run: |
           cd android
           ./gradlew assembleRelease
-        env:
-          STORE_FILE: ${{ github.workspace }}/keystore.jks
-          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
