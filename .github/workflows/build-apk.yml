@@ -8,7 +8,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     permissions:
       contents: write
 
@@ -44,36 +43,38 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
-      - name: Generate signing keystore and build APK
+      - name: Generate fresh signing keystore
         run: |
-          KEYSTORE_B64="${{ secrets.KEYSTORE_BASE64 }}"
-          if [ -n "$KEYSTORE_B64" ]; then
-            echo "$KEYSTORE_B64" | base64 -d > android/app/release.keystore
-            KEY_ALIAS="${{ secrets.KEY_ALIAS }}"
-            KEY_PASSWORD="${{ secrets.KEY_PASSWORD }}"
-            STORE_PASSWORD="${{ secrets.STORE_PASSWORD }}"
-            [ -z "$KEY_ALIAS" ] && KEY_ALIAS=release
-            [ -z "$KEY_PASSWORD" ] && KEY_PASSWORD=android123
-            [ -z "$STORE_PASSWORD" ] && STORE_PASSWORD=android123
-          else
-            KEY_ALIAS=calicut
-            KEY_PASSWORD=android123
-            STORE_PASSWORD=android123
-            keytool -genkeypair -v \
-              -keystore android/app/release.keystore \
-              -alias $KEY_ALIAS \
-              -keyalg RSA -keysize 2048 -validity 10000 \
-              -storepass $STORE_PASSWORD \
-              -keypass $KEY_PASSWORD \
-              -dname "CN=CalicutTraders, OU=Dev, O=CalicutTraders, L=Kozhikode, S=Kerala, C=IN"
-            echo "Generated PKCS12 keystore with alias: $KEY_ALIAS"
-          fi
-
+          KEY_ALIAS=calicut
+          KEY_PASSWORD=calicut123
+          STORE_PASSWORD=calicut123
           KEYSTORE_PATH=$(pwd)/android/app/release.keystore
-          echo "Keystore path: $KEYSTORE_PATH"
-          echo "Key alias: $KEY_ALIAS"
 
-          cd android
+          echo "Generating fresh keystore..."
+          keytool -genkeypair -v \
+            -keystore "$KEYSTORE_PATH" \
+            -alias "$KEY_ALIAS" \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -storepass "$STORE_PASSWORD" \
+            -keypass "$KEY_PASSWORD" \
+            -dname "CN=CalicutTraders, OU=Dev, O=CalicutTraders, L=Kozhikode, S=Kerala, C=IN"
+
+          echo "Verifying keystore:"
+          keytool -list -v \
+            -keystore "$KEYSTORE_PATH" \
+            -storepass "$STORE_PASSWORD" \
+            -alias "$KEY_ALIAS" | head -5
+
+          echo "KEY_ALIAS=$KEY_ALIAS" >> $GITHUB_ENV
+          echo "KEY_PASSWORD=$KEY_PASSWORD" >> $GITHUB_ENV
+          echo "STORE_PASSWORD=$STORE_PASSWORD" >> $GITHUB_ENV
+          echo "KEYSTORE_PATH=$KEYSTORE_PATH" >> $GITHUB_ENV
+
+      - name: Build Release APK
+        working-directory: android
+        run: |
           chmod +x gradlew
           ./gradlew assembleRelease \
             -Pandroid.injected.signing.store.file=$KEYSTORE_PATH \
@@ -102,10 +103,8 @@ jobs:
           body: |
             ## Calicut Traders CRM Android Release
             Built from commit ${{ github.sha }}
-
             ### Download
             Download the APK from the assets below and install on your Android device.
-
             > Enable "Install from unknown sources" in Android settings if needed.
           files: ${{ steps.find_apk.outputs.apk_path }}
           draft: false
