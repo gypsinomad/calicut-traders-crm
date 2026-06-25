@@ -44,41 +44,42 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
-      - name: Generate signing keystore
+      - name: Generate signing keystore and build APK
         run: |
           KEYSTORE_B64="${{ secrets.KEYSTORE_BASE64 }}"
           if [ -n "$KEYSTORE_B64" ]; then
             echo "$KEYSTORE_B64" | base64 -d > android/app/release.keystore
-            echo "SIGNING_STORE_TYPE=pkcs12" >> $GITHUB_ENV
-            echo "Using keystore from KEYSTORE_BASE64 secret"
+            KEY_ALIAS="${{ secrets.KEY_ALIAS }}"
+            KEY_PASSWORD="${{ secrets.KEY_PASSWORD }}"
+            STORE_PASSWORD="${{ secrets.STORE_PASSWORD }}"
+            [ -z "$KEY_ALIAS" ] && KEY_ALIAS=release
+            [ -z "$KEY_PASSWORD" ] && KEY_PASSWORD=android123
+            [ -z "$STORE_PASSWORD" ] && STORE_PASSWORD=android123
           else
+            KEY_ALIAS=calicut
+            KEY_PASSWORD=android123
+            STORE_PASSWORD=android123
             keytool -genkeypair -v \
               -keystore android/app/release.keystore \
-              -alias release \
+              -alias $KEY_ALIAS \
               -keyalg RSA -keysize 2048 -validity 10000 \
-              -storepass android123 \
-              -keypass android123 \
-              -dname "CN=Calicut Traders CRM, OU=Dev, O=CalicutTraders, L=Kozhikode, S=Kerala, C=IN"
-            echo "SIGNING_STORE_TYPE=pkcs12" >> $GITHUB_ENV
-            echo "Generated new PKCS12 keystore with alias: release"
+              -storepass $STORE_PASSWORD \
+              -keypass $KEY_PASSWORD \
+              -dname "CN=CalicutTraders, OU=Dev, O=CalicutTraders, L=Kozhikode, S=Kerala, C=IN"
+            echo "Generated PKCS12 keystore with alias: $KEY_ALIAS"
           fi
 
-      - name: Build Release APK
-        run: |
+          KEYSTORE_PATH=$(pwd)/android/app/release.keystore
+          echo "Keystore path: $KEYSTORE_PATH"
+          echo "Key alias: $KEY_ALIAS"
+
           cd android
           chmod +x gradlew
-          KEYSTORE_PATH="$(pwd)/app/release.keystore"
-          KEY_ALIAS="${{ secrets.KEY_ALIAS }}"
-          KEY_PASSWORD="${{ secrets.KEY_PASSWORD }}"
-          STORE_PASSWORD="${{ secrets.STORE_PASSWORD }}"
-          [ -z "$KEY_ALIAS" ] && KEY_ALIAS="release"
-          [ -z "$KEY_PASSWORD" ] && KEY_PASSWORD="android123"
-          [ -z "$STORE_PASSWORD" ] && STORE_PASSWORD="android123"
           ./gradlew assembleRelease \
-            -Pandroid.injected.signing.store.file="$KEYSTORE_PATH" \
-            -Pandroid.injected.signing.store.password="$STORE_PASSWORD" \
-            -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
-            -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
+            -Pandroid.injected.signing.store.file=$KEYSTORE_PATH \
+            -Pandroid.injected.signing.store.password=$STORE_PASSWORD \
+            -Pandroid.injected.signing.key.alias=$KEY_ALIAS \
+            -Pandroid.injected.signing.key.password=$KEY_PASSWORD
 
       - name: Find APK
         id: find_apk
