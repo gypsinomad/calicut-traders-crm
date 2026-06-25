@@ -1,0 +1,35 @@
+src/services/db.ts:    let q = query(collection(db, path));
+src/services/db.ts:  let q = query(collection(db, path));
+src/services/db.ts:    const docRef = await addDoc(collection(db, path), {
+src/services/db.ts:    await addDoc(collection(db, 'systemLogs'), {
+src/services/db.ts:      await addDoc(collection(db, 'documentVersions'), {
+src/services/db.ts:    await addDoc(collection(db, 'systemLogs'), {
+src/services/db.ts:      await addDoc(collection(db, 'trash'), {
+src/services/db.ts:    await addDoc(collection(db, 'systemLogs'), {
+src/services/db.ts:    await addDoc(collection(db, originalCollection), {
+src/services/db.ts:    await addDoc(collection(db, 'systemLogs'), {
+src/components/communications/UnifiedInbox.tsx:      collection(db, 'messages'),
+src/components/HealthMonitoring.tsx:      collection(db, 'system_health'),
+src/components/UserManagement.tsx:        const orgsSnap = await getDocs(collection(db, 'organizations'));
+src/components/UserManagement.tsx:    const q = query(collection(db, 'users'));
+src/components/UserManagement.tsx:          const pendingQuery = query(collection(db, 'users'), where('status', '==', 'pending'));
+src/components/UserManagement.tsx:            collection(db, 'notifications'), 
+src/components/UserManagement.tsx:        await addDoc(collection(db, 'notifications'), {
+src/components/PaymentList.tsx:      collection(db, 'payments'),
+src/components/Sidebar.tsx:      collection(db, 'messages'),
+src/components/Sidebar.tsx:      collection(db, 'users'),
+src/components/ShipmentExceptions.tsx:      collection(db, 'shipment_exceptions'),
+src/components/SmartScanner.tsx:      await addDoc(collection(db, collectionName), payload);
+src/components/Procurement.tsx:      collection(db, 'procurement_orders'),
+src/components/NotificationCenter.tsx:      collection(db, 'notifications'),
+src/components/FinanceOS.tsx:      collection(db, 'transactions'),
+src/components/Auth.tsx:                  collection(db, 'users'), 
+src/components/Auth.tsx:                  return addDoc(collection(db, 'notifications'), {
+src/components/Auth.tsx:                  const defaultAdminQuery = query(collection(db, 'users'), where('email', '==', defaultAdminEmail));
+src/components/Auth.tsx:                    await addDoc(collection(db, 'notifications'), {
+src/components/Auth.tsx:      const adminsQuery = query(collection(db, 'users'), where('role', '==', UserRole.ADMIN));
+src/components/Auth.tsx:        return addDoc(collection(db, 'notifications'), notification);
+src/components/DocumentVault.tsx:      collection(db, 'generated_documents'),
+src/lib/aiUsageTracker.ts:    await addDoc(collection(db, `organizations/${orgId}/ai_usage`), usageData);
+src/lib/aiUsageTracker.ts:    const usageSnap = await getDocs(collection(db, `organizations/${targetOrgId}/ai_usage`));
+src/lib/aiUsageTracker.ts:    const usageSnap = await getDocs(collection(db, `organizations/${targetOrgId}/ai_usage`));

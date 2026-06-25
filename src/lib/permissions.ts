@@ -1,58 +1,106 @@
-import { UserRole } from './constants';
+import { UserRole } from './types';
 
-export enum Permission {
-  VIEW_LEADS = 'VIEW_LEADS',
-  CREATE_LEADS = 'CREATE_LEADS',
-  EDIT_LEADS = 'EDIT_LEADS',
-  DELETE_LEADS = 'DELETE_LEADS',
-  VIEW_QUOTES = 'VIEW_QUOTES',
-  CREATE_QUOTES = 'CREATE_QUOTES',
-  VIEW_ORDERS = 'VIEW_ORDERS',
-  CREATE_ORDERS = 'CREATE_ORDERS',
-  VIEW_SHIPMENTS = 'VIEW_SHIPMENTS',
-  MANAGE_SHIPMENTS = 'MANAGE_SHIPMENTS',
-  VIEW_FINANCE = 'VIEW_FINANCE',
-  MANAGE_FINANCE = 'MANAGE_FINANCE',
-  VIEW_REPORTS = 'VIEW_REPORTS',
-  MANAGE_USERS = 'MANAGE_USERS',
-  VIEW_AUDIT = 'VIEW_AUDIT',
-  MANAGE_SETTINGS = 'MANAGE_SETTINGS',
-  VIEW_INVENTORY = 'VIEW_INVENTORY',
-  MANAGE_INVENTORY = 'MANAGE_INVENTORY',
-  VIEW_DOCUMENTS = 'VIEW_DOCUMENTS',
-  MANAGE_DOCUMENTS = 'MANAGE_DOCUMENTS',
-}
+export type Permission = 
+  | 'sales.read'
+  | 'sales.write'
+  | 'operations.read'
+  | 'operations.write'
+  | 'communication.read'
+  | 'communication.write'
+  | 'intelligence.read'
+  | 'intelligence.write'
+  | 'finance.read'
+  | 'finance.write'
+  | 'approvals.manage'
+  | 'users.read'
+  | 'users.write'
+  | 'settings.general.write'
+  | 'settings.security.write'
+  | 'settings.integrations.write'
+  | 'settings.automation.write'
+  | 'settings.ai.write'
+  | 'settings.data.write'
+  | 'audit.read'
+  | 'health.read'
+  | 'roles.assign'
+  | 'rules.manage';
 
-const rolePermissions: Record<UserRole, Permission[]> = {
-  [UserRole.SUPER_ADMIN]: Object.values(Permission),
-  [UserRole.ADMIN]: Object.values(Permission),
-  [UserRole.MANAGER]: [
-    Permission.VIEW_LEADS, Permission.CREATE_LEADS, Permission.EDIT_LEADS,
-    Permission.VIEW_QUOTES, Permission.CREATE_QUOTES,
-    Permission.VIEW_ORDERS, Permission.CREATE_ORDERS,
-    Permission.VIEW_SHIPMENTS, Permission.MANAGE_SHIPMENTS,
-    Permission.VIEW_FINANCE, Permission.VIEW_REPORTS,
-    Permission.VIEW_INVENTORY, Permission.VIEW_DOCUMENTS,
+const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
+  admin: [
+    'sales.read', 'sales.write',
+    'operations.read', 'operations.write',
+    'communication.read', 'communication.write',
+    'intelligence.read', 'intelligence.write',
+    'finance.read', 'finance.write',
+    'approvals.manage',
+    'users.read', 'users.write',
+    'settings.general.write', 'settings.security.write', 'settings.integrations.write', 'settings.automation.write', 'settings.ai.write', 'settings.data.write',
+    'audit.read', 'health.read',
+    'roles.assign', 'rules.manage'
   ],
-  [UserRole.SALES_REP]: [
-    Permission.VIEW_LEADS, Permission.CREATE_LEADS, Permission.EDIT_LEADS,
-    Permission.VIEW_QUOTES, Permission.CREATE_QUOTES,
-    Permission.VIEW_ORDERS,
+  partner: [
+    'sales.read', 'sales.write',
+    'operations.read', 'operations.write',
+    'communication.read', 'communication.write',
+    'intelligence.read', 'intelligence.write',
+    'finance.read', 'finance.write',
+    'approvals.manage'
   ],
-  [UserRole.LOGISTICS]: [
-    Permission.VIEW_ORDERS, Permission.VIEW_SHIPMENTS, Permission.MANAGE_SHIPMENTS,
-    Permission.VIEW_INVENTORY, Permission.VIEW_DOCUMENTS,
+  manager: [
+    'sales.read', 'sales.write',
+    'operations.read', 'operations.write',
+    'communication.read', 'communication.write',
+    'intelligence.read',
+    'finance.read',
+    'approvals.manage'
   ],
-  [UserRole.FINANCE]: [
-    Permission.VIEW_FINANCE, Permission.MANAGE_FINANCE, Permission.VIEW_REPORTS,
-    Permission.VIEW_ORDERS,
-  ],
-  [UserRole.VIEWER]: [
-    Permission.VIEW_LEADS, Permission.VIEW_QUOTES, Permission.VIEW_ORDERS,
-    Permission.VIEW_SHIPMENTS, Permission.VIEW_REPORTS,
-  ],
+  standard: [
+    'sales.read', 'sales.write',
+    'operations.read', 'operations.write',
+    'communication.read', 'communication.write'
+  ]
 };
 
-export function hasPermission(role: UserRole, permission: Permission): boolean {
-  return rolePermissions[role]?.includes(permission) ?? false;
+export function hasPermission(role: UserRole | undefined, permission: Permission): boolean {
+  if (!role) return false;
+  return ROLE_PERMISSIONS[role]?.includes(permission) || false;
+}
+
+export function hasAnyRole(currentRole: UserRole | undefined, roles: UserRole[]): boolean {
+  if (!currentRole) return false;
+  return roles.includes(currentRole);
+}
+
+export function canApprove(role: UserRole | undefined): boolean {
+  return hasPermission(role, 'approvals.manage');
+}
+
+export function isStandard(role: UserRole | undefined): boolean {
+  return role === 'standard';
+}
+
+export function isManager(role: UserRole | undefined): boolean {
+  return role === 'manager';
+}
+
+export function isPartner(role: UserRole | undefined): boolean {
+  return role === 'partner';
+}
+
+export function isAdmin(role: UserRole | undefined): boolean {
+  return role === 'admin';
+}
+
+export function getRoleHierarchy(role: UserRole | undefined): number {
+  switch (role) {
+    case 'admin': return 4;
+    case 'partner': return 3;
+    case 'manager': return 2;
+    case 'standard': return 1;
+    default: return 0;
+  }
+}
+
+export function canManageUsers(role: UserRole | undefined): boolean {
+  return hasPermission(role, 'users.write');
 }

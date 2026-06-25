@@ -1,69 +1,64 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import React from 'react';
+import { AlertCircle, RefreshCw } from 'lucide-react';
 
 interface Props {
-  children: ReactNode;
-  fallback?: ReactNode;
+  children: React.ReactNode;
 }
 
 interface State {
   hasError: boolean;
   error: Error | null;
-  errorInfo: ErrorInfo | null;
 }
 
-class ErrorBoundary extends Component<Props, State> {
-  public state: State = {
-    hasError: false,
-    error: null,
-    errorInfo: null,
-  };
-
-  public static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error, errorInfo: null };
+export default class ErrorBoundary extends React.Component<Props, State> {
+  constructor(props: Props) {
+    super(props);
+    this.state = {
+      hasError: false,
+      error: null
+    };
   }
 
-  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
-    this.setState({ errorInfo });
+  public static getDerivedStateFromError(error: Error): State {
+    return { hasError: true, error };
+  }
+
+  public componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('Uncaught error:', error, errorInfo);
   }
 
   public render() {
-    if (this.state.hasError) {
-      if (this.props.fallback) {
-        return this.props.fallback;
-      }
+    const { hasError, error } = this.state;
+    const { children } = this.props;
 
+    if (hasError) {
       return (
-        <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-8 text-center">
-            <div className="w-16 h-16 bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <AlertTriangle className="text-red-400" size={32} />
+        <div className="min-h-screen bg-zinc-50 flex items-center justify-center p-4">
+          <div className="max-w-md w-full bg-white p-8 rounded-2xl border border-zinc-200 shadow-xl text-center">
+            <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-6">
+              <AlertCircle size={32} />
             </div>
-            <h2 className="text-xl font-bold text-white mb-2">Something went wrong</h2>
-            <p className="text-zinc-400 text-sm mb-2">
-              {this.state.error?.message || 'An unexpected error occurred'}
+            <h2 className="text-2xl font-bold text-zinc-900 mb-2">Something went wrong</h2>
+            <p className="text-zinc-500 mb-8">
+              We encountered an unexpected error. Please try refreshing the page.
             </p>
-            <p className="text-zinc-600 text-xs mb-6">
-              Please try refreshing the page. If the problem persists, contact support.
-            </p>
-            <button
-              onClick={() => {
-                this.setState({ hasError: false, error: null, errorInfo: null });
-                window.location.reload();
-              }}
-              className="flex items-center gap-2 mx-auto px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-medium transition-colors"
+            {error && (
+              <pre className="bg-zinc-50 p-4 rounded-xl text-left text-xs text-zinc-600 overflow-auto max-h-40 mb-8 border border-zinc-100">
+                {error.message}
+              </pre>
+            )}
+            <button 
+              onClick={() => window.location.reload()}
+              className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-zinc-900 text-white rounded-xl font-bold hover:bg-zinc-800 transition-all"
             >
-              <RefreshCw size={16} />
-              Reload App
+              <RefreshCw size={18} />
+              Refresh Page
             </button>
           </div>
         </div>
       );
     }
 
-    return this.props.children;
+    return children;
   }
 }
-
-export default ErrorBoundary;

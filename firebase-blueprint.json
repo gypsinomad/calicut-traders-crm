@@ -1,0 +1,509 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Information about a user of the system",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "The unique ID of the user" },
+        "displayName": { "type": "string", "description": "The user's full name" },
+        "email": { "type": "string", "format": "email", "description": "The user's email address" },
+        "photoURL": { "type": "string", "description": "The user's profile photo URL" },
+        "role": { "type": "string", "enum": ["admin", "manager", "staff", "user"], "description": "The user's role in the organization" },
+        "status": { "type": "string", "enum": ["pending", "active", "suspended"], "description": "The user's approval status" },
+        "organization": { "type": "string", "description": "The organization the user belongs to" },
+        "onboardingCompleted": { "type": "boolean", "description": "Whether the user has completed onboarding" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the profile was created" },
+        "approvalRequestedAt": { "type": "string", "format": "date-time", "description": "When the user requested approval" },
+        "lastSeen": { "type": "string", "format": "date-time", "description": "Last time the user was active" },
+        "isOnline": { "type": "boolean", "description": "Whether the user is currently online" },
+        "presenceStatus": { "type": "string", "enum": ["online", "away", "offline", "dnd"], "description": "Detailed presence status" }
+      },
+      "required": ["uid", "displayName", "email", "role", "status", "organization", "createdAt", "lastSeen", "isOnline", "presenceStatus"]
+    },
+    "Lead": {
+      "title": "Lead",
+      "description": "A potential export lead",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "fullName": { "type": "string" },
+        "companyName": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "status": { "type": "string", "enum": ["new", "contacted", "qualified", "quoted", "converted", "lost"] },
+        "source": { "type": "string", "enum": ["manual", "website", "whatsapp", "tradeShow", "referral"] },
+        "priority": { "type": "string", "enum": ["hot", "warm", "cold"] },
+        "productInterest": { "type": "string" },
+        "destinationCountry": { "type": "string" },
+        "incotermsPreference": { "type": "string" },
+        "assignedUserId": { "type": "string" },
+        "nextFollowUpAt": { "type": "string", "format": "date-time" },
+        "organization": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["fullName", "companyName", "email", "phone", "status", "source", "organization"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "An export order",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "orderNumber": { "type": "string" },
+        "customerName": { "type": "string" },
+        "commodity": { "type": "string" },
+        "quantity": { "type": "number" },
+        "unit": { "type": "string" },
+        "stage": { "type": "string", "enum": ["leadReceived", "quotationSent", "orderConfirmed", "exportDocumentation", "shipmentReady", "shippedDelivered", "cancelled"] },
+        "totalAmount": { "type": "number" },
+        "destination": { "type": "string" },
+        "destinationCountry": { "type": "string" },
+        "assignedUserId": { "type": "string" },
+        "organization": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["orderNumber", "customerName", "commodity", "quantity", "unit", "stage", "totalAmount", "totalValue", "organization"]
+    },
+    "InventoryItem": {
+      "title": "Inventory Item",
+      "description": "Product stock management",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "quantity": { "type": "number" },
+        "unit": { "type": "string" },
+        "expiryDate": { "type": "string", "format": "date-time" },
+        "reorderLevel": { "type": "number" },
+        "batchNumber": { "type": "string" },
+        "organization": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "quantity", "unit", "reorderLevel", "organization"]
+    },
+    "MarketPrice": {
+      "title": "Market Price",
+      "description": "Real-time product prices by region",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "product": { "type": "string" },
+        "commodity": { "type": "string" },
+        "region": { "type": "string" },
+        "price": { "type": "number" },
+        "currency": { "type": "string" },
+        "unit": { "type": "string" },
+        "trend": { "type": "string", "enum": ["up", "down", "stable"] },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["product", "commodity", "region", "price", "currency", "unit", "trend", "timestamp"]
+    },
+    "Supplier": {
+      "title": "Supplier",
+      "description": "Vendor and quality certification data",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "contactPerson": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "certificates": { "type": "array", "items": { "type": "string" } },
+        "rating": { "type": "number" },
+        "riskScore": { "type": "number" },
+        "organization": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "email", "organization"]
+    },
+    "Company": {
+      "title": "Company",
+      "description": "A partner or customer company",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "legalName": { "type": "string" },
+        "displayName": { "type": "string" },
+        "type": { "type": "string", "enum": ["customer", "supplier", "partner", "agent"] },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "organization": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["legalName", "displayName", "type", "email", "phone", "organization"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "A task for a user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "status": { "type": "string", "enum": ["open", "inProgress", "done", "pending"] },
+        "priority": { "type": "string", "enum": ["low", "medium", "high"] },
+        "dueDate": { "type": "string", "format": "date-time" },
+        "assigneeId": { "type": "string" },
+        "organization": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "status", "priority", "dueDate", "organization"]
+    },
+    "Document": {
+      "title": "Document",
+      "description": "An export document",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "uploaded", "verified", "finalized", "rejected"] },
+        "fileUrl": { "type": "string" },
+        "uploadedBy": { "type": "string" },
+        "organization": { "type": "string" },
+        "uploadedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "type", "status", "organization"]
+    },
+    "Quote": {
+      "title": "Quote",
+      "description": "Export price quote",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "quoteNumber": { "type": "string" },
+        "leadId": { "type": "string" },
+        "companyId": { "type": "string" },
+        "companyName": { "type": "string" },
+        "contactName": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "whatsappNumber": { "type": "string" },
+        "destinationCountry": { "type": "string" },
+        "items": { "type": "array", "items": { "type": "object" } },
+        "subtotal": { "type": "number" },
+        "freightEstimate": { "type": "number" },
+        "insurance": { "type": "number" },
+        "totalAmount": { "type": "number" },
+        "currency": { "type": "string" },
+        "incoterms": { "type": "string" },
+        "paymentTerms": { "type": "string" },
+        "packaging": { "type": "string" },
+        "portOfLoading": { "type": "string" },
+        "status": { "type": "string", "enum": ["draft", "sent", "accepted", "rejected", "expired", "converted"] },
+        "validUntil": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string" },
+        "organization": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "specialNotes": { "type": "string" },
+        "sentAt": { "type": "string", "format": "date-time" },
+        "sentVia": { "type": "string", "enum": ["email", "whatsapp"] },
+        "orderId": { "type": "string" }
+      },
+      "required": ["quoteNumber", "totalAmount", "currency", "status", "organization"]
+    },
+    "SendHistory": {
+      "title": "Send History",
+      "description": "Tracking of documents and quotes sent to buyers",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "documentId": { "type": "string" },
+        "quoteId": { "type": "string" },
+        "sentTo": { "type": "string" },
+        "sentVia": { "type": "string", "enum": ["email", "whatsapp"] },
+        "sentAt": { "type": "string", "format": "date-time" },
+        "sentBy": { "type": "string" },
+        "messageBody": { "type": "string" },
+        "organization": { "type": "string" }
+      },
+      "required": ["sentTo", "sentVia", "sentAt", "sentBy", "messageBody", "organization"]
+    },
+    "Payment": {
+      "title": "Payment",
+      "description": "Financial transaction record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "orderId": { "type": "string" },
+        "amount": { "type": "number" },
+        "currency": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "completed", "failed", "refunded"] },
+        "method": { "type": "string", "enum": ["bankTransfer", "creditCard", "letterOfCredit", "other"] },
+        "transactionId": { "type": "string" },
+        "dueDate": { "type": "string", "format": "date-time" },
+        "paidAt": { "type": "string", "format": "date-time" },
+        "organization": { "type": "string" }
+      },
+      "required": ["orderId", "amount", "currency", "status", "method", "dueDate", "organization"]
+    },
+    "ShipmentException": {
+      "title": "Shipment Exception",
+      "description": "Logistics issues and delays",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "orderId": { "type": "string" },
+        "type": { "type": "string", "enum": ["delay", "damage", "customsHold", "documentationError", "other"] },
+        "severity": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+        "status": { "type": "string", "enum": ["open", "investigating", "resolved", "closed"] },
+        "description": { "type": "string" },
+        "reportedBy": { "type": "string" },
+        "organization": { "type": "string" },
+        "reportedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["orderId", "type", "severity", "status", "organization"]
+    },
+    "AuditLog": {
+      "title": "Audit Log",
+      "description": "System activity audit trail",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "action": { "type": "string" },
+        "entityType": { "type": "string" },
+        "entityId": { "type": "string" },
+        "organization": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "action", "entityType", "timestamp", "organization"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "User notifications",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["info", "success", "warning", "error"] },
+        "read": { "type": "boolean" },
+        "userId": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "message", "type", "userId", "timestamp"]
+    },
+    "Organization": {
+      "title": "Organization",
+      "description": "Export organization profile and onboarding status",
+      "type": "object",
+      "properties": {
+        "companyName": { "type": "string" },
+        "taxId": { "type": "string" },
+        "address": { "type": "string" },
+        "primaryRegion": { "type": "string" },
+        "defaultIncoterms": { "type": "string" },
+        "currency": { "type": "string" },
+        "sanctionScreening": { "type": "string" },
+        "autoDocGen": { "type": "string" },
+        "riskAlerts": { "type": "string" },
+        "onboardingCompleted": { "type": "boolean" },
+        "createdBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["onboardingCompleted", "createdBy", "createdAt"]
+    },
+    "AIUsage": {
+      "title": "AI Usage",
+      "description": "Tracking of AI model consumption and costs",
+      "type": "object",
+      "properties": {
+        "feature": { "type": "string" },
+        "inputTokens": { "type": "number" },
+        "outputTokens": { "type": "number" },
+        "totalTokens": { "type": "number" },
+        "estimatedCostUSD": { "type": "number" },
+        "estimatedCostINR": { "type": "number" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "userId": { "type": "string" }
+      },
+      "required": ["feature", "inputTokens", "outputTokens", "totalTokens", "estimatedCostUSD", "estimatedCostINR", "timestamp", "userId"]
+    },
+    "GeneratedDocument": {
+      "title": "Generated Document",
+      "description": "A document generated by the system",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "orderId": { "type": "string" },
+        "documentType": { "type": "string" },
+        "generatedAt": { "type": "string", "format": "date-time" },
+        "generatedBy": { "type": "string" },
+        "htmlContent": { "type": "string" },
+        "status": { "type": "string", "enum": ["draft", "finalized"] },
+        "organization": { "type": "string" }
+      },
+      "required": ["orderId", "documentType", "generatedAt", "generatedBy", "htmlContent", "status", "organization"]
+    },
+    "CalendarEvent": {
+      "title": "Calendar Event",
+      "description": "A meeting, deadline, or reminder",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "start": { "type": "string", "format": "date-time" },
+        "end": { "type": "string", "format": "date-time" },
+        "type": { "type": "string", "enum": ["meeting", "deadline", "reminder", "compliance", "other"] },
+        "isCommon": { "type": "boolean" },
+        "userId": { "type": "string" },
+        "organization": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "start", "end", "type", "isCommon", "userId", "organization"]
+    },
+    "ChatMessage": {
+      "title": "Chat Message",
+      "description": "A message in the collaborative space",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "text": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderPhoto": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "organization": { "type": "string" },
+        "channelId": { "type": "string" }
+      },
+      "required": ["text", "senderId", "senderName", "timestamp", "organization"]
+    },
+    "DailyObjective": {
+      "title": "Daily Objective",
+      "description": "Daily goals for team members",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "date": { "type": "string" },
+        "objectives": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "text": { "type": "string" },
+              "completed": { "type": "boolean" }
+            }
+          }
+        },
+        "organization": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "userName", "date", "objectives", "organization"]
+    },
+    "SystemHealth": {
+      "title": "System Health",
+      "description": "Real-time status of system components",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "serviceName": { "type": "string" },
+        "status": { "type": "string", "enum": ["healthy", "degraded", "down"] },
+        "latency": { "type": "number" },
+        "lastChecked": { "type": "string", "format": "date-time" },
+        "message": { "type": "string" },
+        "organization": { "type": "string" }
+      },
+      "required": ["serviceName", "status", "latency", "lastChecked", "organization"]
+    },
+    "IntegrationSettings": {
+      "title": "Integration Settings",
+      "description": "External API integration credentials",
+      "type": "object",
+      "properties": {
+        "shipping": {
+          "type": "object",
+          "properties": {
+            "provider": { "type": "string" },
+            "apiKey": { "type": "string" },
+            "baseUrl": { "type": "string" }
+          }
+        },
+        "whatsapp": {
+          "type": "object",
+          "properties": {
+            "token": { "type": "string" },
+            "phoneNumberId": { "type": "string" },
+            "businessAccountId": { "type": "string" }
+          }
+        }
+      }
+    },
+    "GeneralSettings": {
+      "title": "General Settings",
+      "description": "Organization-wide general preferences",
+      "type": "object",
+      "properties": {
+        "timezone": { "type": "string" },
+        "currency": { "type": "string" },
+        "dateFormat": { "type": "string" },
+        "language": { "type": "string" }
+      }
+    },
+    "AutomationSettings": {
+      "title": "Automation Settings",
+      "description": "Organization-wide automation preferences",
+      "type": "object",
+      "properties": {
+        "autoBackups": { "type": "boolean" },
+        "weeklyReports": { "type": "boolean" },
+        "slackAlerts": { "type": "boolean" }
+      }
+    },
+    "ProviderSettings": {
+      "title": "AI Provider Settings",
+      "description": "Configuration for a specific AI provider",
+      "type": "object",
+      "properties": {
+        "apiKey": { "type": "string" },
+        "model": { "type": "string" },
+        "enabled": { "type": "boolean" },
+        "baseUrl": { "type": "string" }
+      }
+    },
+    "AISettings": {
+      "title": "AI Settings",
+      "description": "Organization-wide AI configuration",
+      "type": "object",
+      "properties": {
+        "provider": { "type": "string" },
+        "providers": { "type": "object" },
+        "spendingCapINR": { "type": "number" },
+        "enabled": { "type": "boolean" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{uid}": { "schema": "User", "description": "User profile documents" },
+    "/leads/{leadId}": { "schema": "Lead", "description": "Export leads" },
+    "/orders/{orderId}": { "schema": "Order", "description": "Export orders" },
+    "/companies/{companyId}": { "schema": "Company", "description": "Partner companies" },
+    "/tasks/{taskId}": { "schema": "Task", "description": "System tasks" },
+    "/documents/{documentId}": { "schema": "Document", "description": "Export documents" },
+    "/inventory/{itemId}": { "schema": "InventoryItem", "description": "Stock items" },
+    "/market_prices/{priceId}": { "schema": "MarketPrice", "description": "Product prices" },
+    "/suppliers/{supplierId}": { "schema": "Supplier", "description": "Vendor data" },
+    "/quotes/{quoteId}": { "schema": "Quote", "description": "Export price quotes" },
+    "/payments/{paymentId}": { "schema": "Payment", "description": "Financial transaction records" },
+    "/shipment_exceptions/{exceptionId}": { "schema": "ShipmentException", "description": "Logistics issues" },
+    "/audit_logs/{logId}": { "schema": "AuditLog", "description": "System activity logs" },
+    "/notifications/{notificationId}": { "schema": "Notification", "description": "User notifications" },
+    "/organizations/{orgId}": { "schema": "Organization", "description": "Organization profiles" },
+    "/organizations/{orgId}/ai_usage/{usageId}": { "schema": "AIUsage", "description": "AI usage logs" },
+    "/organizations/{orgId}/settings/integrations": { "schema": "IntegrationSettings", "description": "Integration credentials" },
+    "/organizations/{orgId}/settings/general": { "schema": "GeneralSettings", "description": "General preferences" },
+    "/organizations/{orgId}/settings/automation": { "schema": "AutomationSettings", "description": "Automation preferences" },
+    "/organizations/{orgId}/settings/ai": { "schema": "AISettings", "description": "AI configuration" },
+    "/generated_documents/{docId}": { "schema": "GeneratedDocument", "description": "System-generated documents" },
+    "/send_history/{historyId}": { "schema": "SendHistory", "description": "Document and quote send history" },
+    "/calendar_events/{eventId}": { "schema": "CalendarEvent", "description": "Calendar events" },
+    "/chat_messages/{messageId}": { "schema": "ChatMessage", "description": "Collaborative chat messages" },
+    "/daily_objectives/{objectiveId}": { "schema": "DailyObjective", "description": "Daily team objectives" },
+    "/system_health/{healthId}": { "schema": "SystemHealth", "description": "System health monitoring" }
+  }
+}

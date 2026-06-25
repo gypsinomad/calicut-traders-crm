@@ -6,32 +6,21 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   server: {
     androidScheme: 'https',
-    cleartext: false,
+  },
+  android: {
+    backgroundColor: '#0f172a',
   },
   plugins: {
     SplashScreen: {
       launchShowDuration: 2000,
-      launchAutoHide: true,
-      backgroundColor: '#111827',
+      backgroundColor: '#0f172a',
       androidSplashResourceName: 'splash',
-      androidScaleType: 'CENTER_CROP',
       showSpinner: false,
-      splashFullScreen: true,
-      splashImmersive: true,
     },
     StatusBar: {
       style: 'DARK',
-      backgroundColor: '#059669',
+      backgroundColor: '#0f172a',
     },
-    PushNotifications: {
-      presentationOptions: ['badge', 'sound', 'alert'],
-    },
-  },
-  android: {
-    backgroundColor: '#111827',
-    allowMixedContent: false,
-    captureInput: true,
-    webContentsDebuggingEnabled: false,
   },
 };
 

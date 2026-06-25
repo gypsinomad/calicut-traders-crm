@@ -1,0 +1,605 @@
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { 
+  onAuthStateChanged, 
+  signInWithPopup, 
+  signOut, 
+  User,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  updateProfile
+} from 'firebase/auth';
+import { auth, db, googleProvider, isFirebaseReadOnly, subscribeToFirebaseStatus, setFirebaseReadOnly } from '../firebase';
+import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, serverTimestamp, addDoc } from 'firebase/firestore';
+import { UserProfile, Notification } from '../lib/types';
+import { UserRole, UserStatus, DEFAULT_ORGANIZATION, ADMIN_EMAIL, FirestoreOperation as OperationType } from '../lib/constants';
+import { LogIn, LogOut, Loader2, ShieldAlert, Clock, RefreshCw, Bell } from 'lucide-react';
+import { toast } from 'sonner';
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId: string | undefined;
+    email: string | null | undefined;
+    emailVerified: boolean | undefined;
+    isAnonymous: boolean | undefined;
+    tenantId: string | null | undefined;
+    providerInfo: {
+      providerId: string;
+      displayName: string | null;
+      email: string | null;
+      photoUrl: string | null;
+    }[];
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData.map(provider => ({
+        providerId: provider.providerId,
+        displayName: provider.displayName,
+        email: provider.email,
+        photoUrl: provider.photoURL
+      })) || []
+    },
+    operationType,
+    path
+  }
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
+
+interface AuthContextType {
+  user: User | null;
+  profile: UserProfile | null;
+  loading: boolean;
+  signIn: () => Promise<void>;
+  signInWithEmail: (email: string, pass: string) => Promise<void>;
+  signUpWithEmail: (email: string, pass: string, name: string) => Promise<void>;
+  logout: () => Promise<void>;
+  firebaseConfigError: string | null;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [firebaseConfigError, setFirebaseConfigError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const unsubStatus = subscribeToFirebaseStatus((err, readOnly) => {
+      if (readOnly && err) {
+        setFirebaseConfigError(err);
+      }
+    });
+
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      
+      if (currentUser) {
+        const path = `users/${currentUser.uid}`;
+        try {
+          const profileRef = doc(db, 'users', currentUser.uid);
+          const profileSnap = await getDoc(profileRef);
+          
+          if (profileSnap.exists()) {
+            const data = profileSnap.data() as UserProfile;
+            let updatedData = { ...data };
+            let needsUpdate = false;
+
+            // Role Migration Logic
+            const currentRole = data.role as string;
+            if (currentRole === 'staff' || currentRole === 'user') {
+              updatedData.role = UserRole.STANDARD;
+              needsUpdate = true;
+            } else if (currentRole === 'admin') {
+              updatedData.role = UserRole.ADMIN; // Ensure latest string
+            } else if (currentRole === 'manager') {
+              updatedData.role = UserRole.MANAGER; // Ensure latest string
+            } else if (!currentRole) {
+              updatedData.role = UserRole.STANDARD; // Default to standard
+              needsUpdate = true;
+            }
+
+            // Check if this is the default admin and needs a role upgrade or approval
+            if (currentUser.email === ADMIN_EMAIL) {
+              if (data.role !== UserRole.ADMIN || data.status !== UserStatus.ACTIVE) {
+                updatedData.role = UserRole.ADMIN;
+                updatedData.status = UserStatus.ACTIVE;
+                needsUpdate = true;
+              }
+            }
+
+            // Ensure organization exists - only for default admin if needed, otherwise let it be optional
+            if (currentUser.email === ADMIN_EMAIL && !data.organization) {
+              updatedData.organization = DEFAULT_ORGANIZATION;
+              needsUpdate = true;
+            }
+
+            if (needsUpdate) {
+              try {
+                await setDoc(profileRef, updatedData, { merge: true });
+              } catch (profileWriteErr) {
+                console.warn("[Auth] Failed to update profile database, continuing in read-only:", profileWriteErr);
+              }
+              setProfile(updatedData);
+            } else {
+              setProfile(data);
+            }
+          } else {
+            const isAdmin = currentUser.email === ADMIN_EMAIL;
+            const displayName = currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'User');
+            
+            const newProfile: UserProfile = {
+              uid: currentUser.uid,
+              email: currentUser.email || '',
+              displayName: displayName,
+              photoURL: currentUser.photoURL || undefined,
+              role: isAdmin ? UserRole.ADMIN : UserRole.STANDARD,
+              status: isAdmin ? UserStatus.ACTIVE : UserStatus.PENDING,
+              createdAt: Timestamp.now(),
+              approvalRequestedAt: Timestamp.now(),
+              lastSeen: Timestamp.now(),
+              organization: isAdmin ? DEFAULT_ORGANIZATION : undefined, // Only default admin gets an org by default
+              avatarUrl: currentUser.photoURL || undefined,
+              isOnline: false,
+              presenceStatus: 'offline'
+            };
+            try {
+              await setDoc(profileRef, newProfile);
+            } catch (profileWriteErr) {
+              console.warn("[Auth] Failed to create profile database, continuing in read-only:", profileWriteErr);
+            }
+            setProfile(newProfile);
+
+            // Notify admins about new user
+            if (!isAdmin) {
+              try {
+                // Query all admins to notify them of the new registration
+                const adminsQuery = query(
+                  collection(db, 'users'), 
+                  where('role', '==', UserRole.ADMIN)
+                );
+                const adminSnaps = await getDocs(adminsQuery);
+                
+                const notificationPromises = adminSnaps.docs.map(adminDoc => {
+                  const adminData = adminDoc.data();
+                  return addDoc(collection(db, 'notifications'), {
+                    title: 'New User Registration',
+                    message: `${newProfile.displayName} (${newProfile.email}) is awaiting approval.`,
+                    type: 'user_approval_request',
+                    timestamp: serverTimestamp(),
+                    read: false,
+                    userId: adminDoc.id,
+                    organization: adminData.organization || DEFAULT_ORGANIZATION,
+                    relatedEntityId: newProfile.uid,
+                    relatedEntityType: 'user'
+                  });
+                });
+                
+                // Also ensure the default admin is notified if not already in the list
+                const defaultAdminEmail = ADMIN_EMAIL;
+                if (!adminSnaps.docs.some(doc => doc.data().email === defaultAdminEmail)) {
+                  const defaultAdminQuery = query(collection(db, 'users'), where('email', '==', defaultAdminEmail));
+                  const defaultAdminSnap = await getDocs(defaultAdminQuery);
+                  
+                  if (!defaultAdminSnap.empty) {
+                    const defaultAdminDoc = defaultAdminSnap.docs[0];
+                    await addDoc(collection(db, 'notifications'), {
+                      title: 'New User Registration',
+                      message: `${newProfile.displayName} (${newProfile.email}) is awaiting approval.`,
+                      type: 'user_approval_request',
+                      timestamp: serverTimestamp(),
+                      read: false,
+                      userId: defaultAdminDoc.id,
+                      organization: defaultAdminDoc.data().organization || DEFAULT_ORGANIZATION,
+                      relatedEntityId: newProfile.uid,
+                      relatedEntityType: 'user'
+                    });
+                  }
+                }
+
+                await Promise.all(notificationPromises);
+              } catch (notifyError) {
+                console.error("Error notifying admins of new user:", notifyError);
+              }
+            }
+          }
+        } catch (error: any) {
+          console.error("[Firestore] Profile read error, switching to read-only profile fallback:", error);
+          const isAdmin = currentUser.email === ADMIN_EMAIL;
+          const fallbackProfile: UserProfile = {
+            uid: currentUser.uid,
+            email: currentUser.email || 'offline-user@calicut-traders.com',
+            displayName: currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'Offline User'),
+            role: isAdmin ? UserRole.ADMIN : UserRole.STANDARD,
+            status: UserStatus.ACTIVE,
+            createdAt: Timestamp.now(),
+            approvalRequestedAt: Timestamp.now(),
+            lastSeen: Timestamp.now(),
+            isOnline: true,
+            presenceStatus: 'online'
+          };
+          setProfile(fallbackProfile);
+          setFirebaseConfigError("Database connection failed (API key issue or permission restrictions). Switched to Read-only Fallback Mode.");
+        }
+      } else {
+        setProfile(null);
+      }
+      
+      setLoading(false);
+    }, (error: any) => {
+      console.error("Auth observer error:", error);
+      if (error?.message?.includes('expired') || error?.code?.includes('expired') || error?.message?.includes('API key') || error?.code === 'auth/api-key-expired') {
+        setFirebaseConfigError("The Firebase API key has expired. Please contact the administrator/support to renew the settings.");
+      }
+      setLoading(false);
+    });
+
+    return () => {
+      unsubStatus();
+      unsubscribe();
+    };
+  }, []);
+
+  const checkIsApiKeyError = (error: any) => {
+    const errorCode = (error?.code || 'unknown').toLowerCase();
+    const errorMessage = (error?.message || String(error)).toLowerCase();
+    return (
+      errorCode === 'auth/api-key-expired' || 
+      errorCode === 'invalid-api-key' || 
+      errorCode === 'auth/invalid-api-key' ||
+      errorMessage.includes('expired') || 
+      errorMessage.includes('api key') || 
+      errorMessage.includes('api_key') || 
+      errorMessage.includes('invalid') ||
+      errorCode.includes('api-keys-are-not-supported') ||
+      errorMessage.includes('api-keys-are-not-supported') ||
+      errorMessage.includes('api-keys') ||
+      errorMessage.includes('expected-oauth2-access-token') ||
+      errorMessage.includes('oauth2-access-token') ||
+      errorMessage.includes('oauth2') ||
+      errorMessage.includes('assert-a-principal') ||
+      errorMessage.includes('assert a principal') ||
+      errorMessage.includes('principal')
+    );
+  };
+
+  const signIn = async () => {
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (error: any) {
+      console.error('Sign in error:', error);
+      if (checkIsApiKeyError(error)) {
+        setFirebaseReadOnly(true);
+        setFirebaseConfigError("The Firebase configuration or API key is not fully supported or active. The system has automatically fallen back to read-only preview mode.");
+        toast.info("Switched to Read-only Fallback Mode. Please verify your credentials or configuration.");
+      } else {
+        toast.error('Failed to sign in with Google');
+      }
+    }
+  };
+
+  const signInWithEmail = async (email: string, pass: string) => {
+    try {
+      setLoading(true);
+      await signInWithEmailAndPassword(auth, email, pass);
+    } catch (error: any) {
+      console.error('Email sign in error:', error);
+      if (checkIsApiKeyError(error)) {
+        setFirebaseReadOnly(true);
+        setFirebaseConfigError("The Firebase configuration or API key is not fully supported or active. The system has automatically fallen back to read-only preview mode.");
+        toast.info("Switched to Read-only Fallback Mode. Please verify your credentials or configuration.");
+      } else {
+        toast.error(error.message || 'Failed to sign in with email');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const signUpWithEmail = async (email: string, pass: string, name: string) => {
+    try {
+      setLoading(true);
+      const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
+      await updateProfile(userCredential.user, { displayName: name });
+    } catch (error: any) {
+      console.error('Email sign up error:', error);
+      if (checkIsApiKeyError(error)) {
+        setFirebaseReadOnly(true);
+        setFirebaseConfigError("The Firebase configuration or API key is not fully supported or active. The system has automatically fallen back to read-only preview mode.");
+        toast.info("Switched to Read-only Fallback Mode. Please verify your credentials or configuration.");
+      } else {
+        toast.error(error.message || 'Failed to sign up');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error('Sign out error:', error);
+    }
+  };
+
+  return (
+    <AuthContext.Provider value={{ user, profile, loading, signIn, signInWithEmail, signUpWithEmail, logout, firebaseConfigError }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+}
+
+export function PendingApprovalScreen() {
+  const { logout, user, profile } = useAuth();
+  const [checking, setChecking] = useState(false);
+  const [lastNotified, setLastNotified] = useState(() => {
+    const saved = localStorage.getItem(`last_notified_${user?.uid}`);
+    return saved ? parseInt(saved, 10) : 0;
+  });
+
+  const checkStatus = async (showToast = true) => {
+    if (!user) return;
+    setChecking(true);
+    try {
+      const profileRef = doc(db, 'users', user.uid);
+      const profileSnap = await getDoc(profileRef);
+      if (profileSnap.exists()) {
+        const data = profileSnap.data() as UserProfile;
+        if (data.status === UserStatus.ACTIVE) {
+          window.location.reload();
+          return;
+        }
+      }
+      if (showToast) {
+        toast.info('Status checked. Your account is still pending approval.');
+      }
+    } catch (error) {
+      console.error('Error checking status:', error);
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  const notifyAdmins = async () => {
+    if (!user) return;
+    
+    const now = Date.now();
+    if (now - lastNotified < 300000) { // 5 minutes
+      const minutesLeft = Math.ceil((300000 - (now - lastNotified)) / 60000);
+      toast.info(`Admin can be re-notified in ${minutesLeft} minute${minutesLeft !== 1 ? 's' : ''}.`);
+      return;
+    }
+
+    setChecking(true);
+    try {
+      const adminsQuery = query(collection(db, 'users'), where('role', '==', UserRole.ADMIN));
+      const adminSnaps = await getDocs(adminsQuery);
+      
+      const notificationPromises = adminSnaps.docs.map(adminDoc => {
+        const adminData = adminDoc.data();
+        const notification = {
+          title: 'Approval Requested',
+          message: `${profile?.displayName || user.email} is waiting for approval and requested a status update.`,
+          type: 'warning',
+          timestamp: serverTimestamp(),
+          read: false,
+          userId: adminDoc.id,
+          organization: adminData.organization || DEFAULT_ORGANIZATION,
+          relatedEntityId: user.uid,
+          relatedEntityType: 'user'
+        };
+        return addDoc(collection(db, 'notifications'), notification);
+      });
+      await Promise.all(notificationPromises);
+      setLastNotified(now);
+      localStorage.setItem(`last_notified_${user.uid}`, now.toString());
+      toast.success('Admins have been notified of your request.');
+    } catch (error) {
+      console.error('Error notifying admins:', error);
+      toast.error('Failed to notify admins.');
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  useEffect(() => {
+    // Initial check on mount
+    checkStatus(false);
+  }, [user]);
+
+  return (
+    <div className="min-h-screen bg-zinc-50 flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-white p-10 rounded-3xl border border-zinc-200 shadow-2xl text-center">
+        <div className="w-20 h-20 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-8 rotate-3 shadow-inner">
+          <Clock size={40} />
+        </div>
+        <h1 className="text-3xl font-black text-zinc-900 mb-2 tracking-tight">Approval Pending</h1>
+        <p className="text-zinc-500 mb-8 font-medium">
+          Your account is pending admin approval. You'll be notified once approved.
+        </p>
+        
+        <div className="bg-zinc-50 p-4 rounded-2xl border border-zinc-100 mb-8 text-left">
+          <div className="flex items-start gap-3">
+            <ShieldAlert className="text-zinc-400 shrink-0 mt-0.5" size={18} />
+            <p className="text-xs text-zinc-500 leading-relaxed">
+              We take security seriously. Once an admin verifies your identity and assigns you to an organization, you'll receive access to the platform.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3">
+          <button
+            onClick={() => checkStatus(true)}
+            disabled={checking}
+            className="w-full flex items-center justify-center gap-3 px-8 py-4 bg-zinc-900 text-white rounded-2xl font-bold hover:bg-zinc-800 transition-all shadow-lg disabled:opacity-50"
+          >
+            {checking ? <Loader2 className="animate-spin" size={20} /> : <RefreshCw size={20} />}
+            Check Status
+          </button>
+
+          <button
+            onClick={notifyAdmins}
+            disabled={checking}
+            className="w-full flex items-center justify-center gap-3 px-8 py-4 bg-white border border-zinc-200 text-zinc-900 rounded-2xl font-bold hover:bg-zinc-50 transition-all shadow-sm disabled:opacity-50"
+          >
+            <Bell size={20} />
+            Notify Admin
+          </button>
+
+          <button
+            onClick={logout}
+            className="w-full flex items-center justify-center gap-3 px-8 py-4 bg-zinc-100 text-zinc-900 rounded-2xl font-bold hover:bg-zinc-200 transition-all"
+          >
+            <LogOut size={20} />
+            Sign Out
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function LoginScreen() {
+  const { signIn, signInWithEmail, signUpWithEmail, loading, firebaseConfigError } = useAuth();
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isSignUp) {
+      await signUpWithEmail(email, password, name);
+    } else {
+      await signInWithEmail(email, password);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center p-4 md:p-8">
+      <div className="max-w-md w-full bg-white dark:bg-zinc-900 p-8 md:p-10 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-2xl">
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 md:w-20 md:h-20 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-2xl flex items-center justify-center mx-auto mb-4 rotate-3 shadow-inner">
+            <LogIn size={32} className="md:w-10 md:h-10" />
+          </div>
+          <h1 className="text-2xl md:text-3xl font-black text-zinc-900 dark:text-zinc-100 mb-2 tracking-tight">Export CRM</h1>
+          <p className="text-zinc-500 dark:text-zinc-400 font-medium text-sm md:text-base">
+            {DEFAULT_ORGANIZATION} - Export Management CRM
+          </p>
+        </div>
+
+        {firebaseConfigError && (
+          <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-2xl text-left flex items-start gap-3 animate-pulse">
+            <ShieldAlert size={20} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs font-black text-amber-800 dark:text-amber-400 uppercase tracking-wider">Authentication Error</p>
+              <p className="text-xs text-amber-700 dark:text-amber-300 mt-1 leading-relaxed">
+                {firebaseConfigError}
+              </p>
+              <p className="text-[10px] text-zinc-500 mt-2 font-bold uppercase tracking-wider block">
+                Support: info@calicut-traders.com
+              </p>
+            </div>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4 mb-6">
+          {isSignUp && (
+            <div>
+              <label className="block text-[10px] md:text-xs font-bold text-zinc-400 uppercase tracking-widest mb-1.5 ml-1">Full Name</label>
+              <input
+                type="text"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full px-4 py-3.5 md:py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all outline-none dark:text-zinc-100"
+                placeholder="John Doe"
+              />
+            </div>
+          )}
+          <div>
+            <label className="block text-[10px] md:text-xs font-bold text-zinc-400 uppercase tracking-widest mb-1.5 ml-1">Email Address</label>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-4 py-3.5 md:py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all outline-none dark:text-zinc-100"
+              placeholder="name@company.com"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] md:text-xs font-bold text-zinc-400 uppercase tracking-widest mb-1.5 ml-1">Password</label>
+            <input
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 py-3.5 md:py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all outline-none dark:text-zinc-100"
+              placeholder="••••••••"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-4 bg-zinc-900 dark:bg-emerald-600 text-white rounded-2xl font-bold hover:bg-zinc-800 dark:hover:bg-emerald-500 transition-all shadow-lg disabled:opacity-50"
+          >
+            {loading ? <Loader2 className="animate-spin mx-auto" size={20} /> : (isSignUp ? 'Create Account' : 'Sign In')}
+          </button>
+        </form>
+
+        <div className="relative mb-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-zinc-100 dark:border-zinc-800"></div>
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-white dark:bg-zinc-900 px-2 text-zinc-400 dark:text-zinc-500 font-bold tracking-widest">Or continue with</span>
+          </div>
+        </div>
+        
+        <button
+          onClick={signIn}
+          disabled={loading}
+          className="w-full flex items-center justify-center gap-3 px-8 py-4 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 rounded-2xl font-bold hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all shadow-sm group mb-6"
+        >
+          <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5 group-hover:scale-110 transition-transform" />
+          Google Account
+        </button>
+
+        <div className="text-center">
+          <button
+            onClick={() => setIsSignUp(!isSignUp)}
+            className="text-sm font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors"
+          >
+            {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
+          </button>
+        </div>
+        
+        <p className="mt-8 text-[10px] text-zinc-400 dark:text-zinc-500 uppercase tracking-widest font-bold text-center">
+          Secure Enterprise Access Only
+        </p>
+      </div>
+    </div>
+  );
+}
