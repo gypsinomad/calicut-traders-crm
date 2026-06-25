@@ -627,3 +627,30 @@ export interface IntegrationConfig {
   config: Record<string, any>;
   organization: string;
 }
+
+// Export and Document types for CustomerPortal
+export interface PortalExportOrder {
+  id: string;
+  orderNumber: string;
+  buyerName: string;
+  product: string;
+  quantity: number;
+  unitPrice: number;
+  totalValue: number;
+  currency: string;
+  status: 'draft' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
+  shipmentDate?: any;
+  createdAt: any;
+  organization: string;
+  documents?: string[];
+}
+
+export interface ShipmentDocument {
+  id: string;
+  orderId: string;
+  documentType: string;
+  documentName: string;
+  fileUrl: string;
+  uploadedAt: any;
+  organization: string;
+}

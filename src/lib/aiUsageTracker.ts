@@ -1,4 +1,4 @@
-import { db, auth } from '../firebase';
+import { db, auth, isFirebaseReadOnly } from '../firebase';
 import { 
   collection, 
   addDoc, 
@@ -76,6 +76,25 @@ export async function trackAICall(feature: string, inputTokens: number, outputTo
 
 export async function getAIUsageSummary(orgId?: string): Promise<AIUsageSummary> {
   const user = auth.currentUser;
+  
+  const mockSummary: AIUsageSummary = {
+    totalCalls: 480,
+    totalTokens: 1420500,
+    totalCostUSD: 0.18,
+    totalCostINR: 15.03,
+    byFeature: [
+      { feature: 'Market Analysis', totalCalls: 120, totalTokens: 380000, totalCostUSD: 0.045, totalCostINR: 3.76 },
+      { feature: 'Logistics AI', totalCalls: 150, totalTokens: 420500, totalCostUSD: 0.051, totalCostINR: 4.26 },
+      { feature: 'Lead Risk Scoring', totalCalls: 90, totalTokens: 290000, totalCostUSD: 0.032, totalCostINR: 2.67 },
+      { feature: 'Document Extraction', totalCalls: 80, totalTokens: 210000, totalCostUSD: 0.027, totalCostINR: 2.25 },
+      { feature: 'Smart Scanner', totalCalls: 40, totalTokens: 120000, totalCostUSD: 0.025, totalCostINR: 2.09 }
+    ]
+  };
+
+  if (isFirebaseReadOnly || !user) {
+    return mockSummary;
+  }
+
   const defaultSummary: AIUsageSummary = {
     totalCalls: 0,
     totalTokens: 0,

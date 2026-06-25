@@ -3,7 +3,7 @@ import { Bell, X, Check, Info, AlertTriangle, Trash2, CheckCheck, Loader2 } from
 import { motion, AnimatePresence } from 'motion/react';
 import { formatDistanceToNow } from 'date-fns';
 import { collection, query, where, orderBy, limit, onSnapshot, doc, updateDoc, deleteDoc, writeBatch, serverTimestamp } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, isFirebaseReadOnly, auth } from '../firebase';
 import { useAuth } from './Auth';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -48,6 +48,33 @@ export default function NotificationCenter() {
   useEffect(() => {
     if (!profile) {
       setNotifications([]);
+      setLoading(false);
+      return;
+    }
+
+    if (isFirebaseReadOnly || !auth?.currentUser) {
+      setNotifications([
+        {
+          id: 'notif-1',
+          title: 'New Lead Assigned',
+          message: 'Ahmed Hassan from Gulf Oasis Trading LLC has been registered and assigned to your portfolio.',
+          type: 'info',
+          timestamp: new Date(Date.now() - 3600000),
+          read: false,
+          userId: profile.uid,
+          organization: 'Calicut Traders'
+        },
+        {
+          id: 'notif-2',
+          title: 'Urgent: Low Stock Warning',
+          message: 'Green Cardamom (8mm Bold) is below reorder level (1,200 kg remaining). Restocking advised.',
+          type: 'warning',
+          timestamp: new Date(Date.now() - 7200000),
+          read: false,
+          userId: profile.uid,
+          organization: 'Calicut Traders'
+        }
+      ]);
       setLoading(false);
       return;
     }

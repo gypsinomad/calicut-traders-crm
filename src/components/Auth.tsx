@@ -8,7 +8,7 @@ import {
   signInWithEmailAndPassword,
   updateProfile
 } from 'firebase/auth';
-import { auth, db, googleProvider } from '../firebase';
+import { auth, db, googleProvider, isFirebaseReadOnly, subscribeToFirebaseStatus, setFirebaseReadOnly } from '../firebase';
 import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, serverTimestamp, addDoc } from 'firebase/firestore';
 import { UserProfile, Notification } from '../lib/types';
 import { UserRole, UserStatus, DEFAULT_ORGANIZATION, ADMIN_EMAIL, FirestoreOperation as OperationType } from '../lib/constants';
@@ -65,6 +65,7 @@ interface AuthContextType {
   signInWithEmail: (email: string, pass: string) => Promise<void>;
   signUpWithEmail: (email: string, pass: string, name: string) => Promise<void>;
   logout: () => Promise<void>;
+  firebaseConfigError: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -73,8 +74,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [firebaseConfigError, setFirebaseConfigError] = useState<string | null>(null);
 
   useEffect(() => {
+    const unsubStatus = subscribeToFirebaseStatus((err, readOnly) => {
+      if (readOnly && err) {
+        setFirebaseConfigError(err);
+      }
+    });
+
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       
@@ -119,7 +127,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
 
             if (needsUpdate) {
-              await setDoc(profileRef, updatedData, { merge: true });
+              try {
+                await setDoc(profileRef, updatedData, { merge: true });
+              } catch (profileWriteErr) {
+                console.warn("[Auth] Failed to update profile database, continuing in read-only:", profileWriteErr);
+              }
               setProfile(updatedData);
             } else {
               setProfile(data);
@@ -143,7 +155,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               isOnline: false,
               presenceStatus: 'offline'
             };
-            await setDoc(profileRef, newProfile);
+            try {
+              await setDoc(profileRef, newProfile);
+            } catch (profileWriteErr) {
+              console.warn("[Auth] Failed to create profile database, continuing in read-only:", profileWriteErr);
+            }
             setProfile(newProfile);
 
             // Notify admins about new user
@@ -199,25 +215,78 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               }
             }
           }
-        } catch (error) {
-          handleFirestoreError(error, OperationType.GET, path);
+        } catch (error: any) {
+          console.error("[Firestore] Profile read error, switching to read-only profile fallback:", error);
+          const isAdmin = currentUser.email === ADMIN_EMAIL;
+          const fallbackProfile: UserProfile = {
+            uid: currentUser.uid,
+            email: currentUser.email || 'offline-user@calicut-traders.com',
+            displayName: currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'Offline User'),
+            role: isAdmin ? UserRole.ADMIN : UserRole.STANDARD,
+            status: UserStatus.ACTIVE,
+            createdAt: Timestamp.now(),
+            approvalRequestedAt: Timestamp.now(),
+            lastSeen: Timestamp.now(),
+            isOnline: true,
+            presenceStatus: 'online'
+          };
+          setProfile(fallbackProfile);
+          setFirebaseConfigError("Database connection failed (API key issue or permission restrictions). Switched to Read-only Fallback Mode.");
         }
       } else {
         setProfile(null);
       }
       
       setLoading(false);
+    }, (error: any) => {
+      console.error("Auth observer error:", error);
+      if (error?.message?.includes('expired') || error?.code?.includes('expired') || error?.message?.includes('API key') || error?.code === 'auth/api-key-expired') {
+        setFirebaseConfigError("The Firebase API key has expired. Please contact the administrator/support to renew the settings.");
+      }
+      setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubStatus();
+      unsubscribe();
+    };
   }, []);
+
+  const checkIsApiKeyError = (error: any) => {
+    const errorCode = (error?.code || 'unknown').toLowerCase();
+    const errorMessage = (error?.message || String(error)).toLowerCase();
+    return (
+      errorCode === 'auth/api-key-expired' || 
+      errorCode === 'invalid-api-key' || 
+      errorCode === 'auth/invalid-api-key' ||
+      errorMessage.includes('expired') || 
+      errorMessage.includes('api key') || 
+      errorMessage.includes('api_key') || 
+      errorMessage.includes('invalid') ||
+      errorCode.includes('api-keys-are-not-supported') ||
+      errorMessage.includes('api-keys-are-not-supported') ||
+      errorMessage.includes('api-keys') ||
+      errorMessage.includes('expected-oauth2-access-token') ||
+      errorMessage.includes('oauth2-access-token') ||
+      errorMessage.includes('oauth2') ||
+      errorMessage.includes('assert-a-principal') ||
+      errorMessage.includes('assert a principal') ||
+      errorMessage.includes('principal')
+    );
+  };
 
   const signIn = async () => {
     try {
       await signInWithPopup(auth, googleProvider);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Sign in error:', error);
-      toast.error('Failed to sign in with Google');
+      if (checkIsApiKeyError(error)) {
+        setFirebaseReadOnly(true);
+        setFirebaseConfigError("The Firebase configuration or API key is not fully supported or active. The system has automatically fallen back to read-only preview mode.");
+        toast.info("Switched to Read-only Fallback Mode. Please verify your credentials or configuration.");
+      } else {
+        toast.error('Failed to sign in with Google');
+      }
     }
   };
 
@@ -227,7 +296,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await signInWithEmailAndPassword(auth, email, pass);
     } catch (error: any) {
       console.error('Email sign in error:', error);
-      toast.error(error.message || 'Failed to sign in with email');
+      if (checkIsApiKeyError(error)) {
+        setFirebaseReadOnly(true);
+        setFirebaseConfigError("The Firebase configuration or API key is not fully supported or active. The system has automatically fallen back to read-only preview mode.");
+        toast.info("Switched to Read-only Fallback Mode. Please verify your credentials or configuration.");
+      } else {
+        toast.error(error.message || 'Failed to sign in with email');
+      }
     } finally {
       setLoading(false);
     }
@@ -238,10 +313,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(true);
       const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
       await updateProfile(userCredential.user, { displayName: name });
-      // The onAuthStateChanged will handle profile creation in Firestore
     } catch (error: any) {
       console.error('Email sign up error:', error);
-      toast.error(error.message || 'Failed to sign up');
+      if (checkIsApiKeyError(error)) {
+        setFirebaseReadOnly(true);
+        setFirebaseConfigError("The Firebase configuration or API key is not fully supported or active. The system has automatically fallen back to read-only preview mode.");
+        toast.info("Switched to Read-only Fallback Mode. Please verify your credentials or configuration.");
+      } else {
+        toast.error(error.message || 'Failed to sign up');
+      }
     } finally {
       setLoading(false);
     }
@@ -256,7 +336,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signIn, signInWithEmail, signUpWithEmail, logout }}>
+    <AuthContext.Provider value={{ user, profile, loading, signIn, signInWithEmail, signUpWithEmail, logout, firebaseConfigError }}>
       {children}
     </AuthContext.Provider>
   );
@@ -401,7 +481,7 @@ export function PendingApprovalScreen() {
 }
 
 export function LoginScreen() {
-  const { signIn, signInWithEmail, signUpWithEmail, loading } = useAuth();
+  const { signIn, signInWithEmail, signUpWithEmail, loading, firebaseConfigError } = useAuth();
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -428,6 +508,21 @@ export function LoginScreen() {
             {DEFAULT_ORGANIZATION} - Export Management CRM
           </p>
         </div>
+
+        {firebaseConfigError && (
+          <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-2xl text-left flex items-start gap-3 animate-pulse">
+            <ShieldAlert size={20} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs font-black text-amber-800 dark:text-amber-400 uppercase tracking-wider">Authentication Error</p>
+              <p className="text-xs text-amber-700 dark:text-amber-300 mt-1 leading-relaxed">
+                {firebaseConfigError}
+              </p>
+              <p className="text-[10px] text-zinc-500 mt-2 font-bold uppercase tracking-wider block">
+                Support: info@calicut-traders.com
+              </p>
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4 mb-6">
           {isSignUp && (

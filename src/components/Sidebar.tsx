@@ -9,7 +9,8 @@ import {
   Building2, 
   Settings, 
   BarChart3,
-  LogOut,
+ LogOut,
+  ExternalLink,   
   Package,
   TrendingUp,
   Truck,
@@ -30,7 +31,8 @@ import {
   LayoutGrid,
   Navigation,
   Mail,
-  X
+  X,
+  Download
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -45,7 +47,7 @@ import { TranslatedText } from './TranslatedText.tsx';
 import { useAuth } from './Auth.tsx';
 import { hasPermission, Permission } from '../lib/permissions';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, isFirebaseReadOnly, auth } from '../firebase';
 
 const navSections = [
   {
@@ -103,7 +105,15 @@ const navSections = [
       { icon: Activity, label: 'Audit Trail', path: ROUTES.AUDIT, permission: 'audit.read' as Permission },
       { icon: Activity, label: 'System Health', path: ROUTES.HEALTH, permission: 'health.read' as Permission },
       { icon: Settings, label: 'Settings', path: ROUTES.SETTINGS },
+      { icon: ExternalLink, label: 'Customer Portal', path: ROUTES.CUSTOMER_PORTAL },
+      { icon: BarChart3, label: 'AI Usage', path: ROUTES.AI_USAGE },
     ]
+  },
+  {
+    label: 'Mobile App',
+    items: [
+      { icon: Download, label: 'Download App', path: 'download-app', spec: [] },
+    ],
   }
 ];
 
@@ -115,6 +125,11 @@ export default function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose
 
   React.useEffect(() => {
     if (!profile?.organization) return;
+
+    if (isFirebaseReadOnly || !auth?.currentUser) {
+      setUnreadMessagesCount(3);
+      return;
+    }
 
     const q = query(
       collection(db, 'messages'),
@@ -133,6 +148,11 @@ export default function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose
 
   React.useEffect(() => {
     if (profile?.role !== 'admin' || !profile?.organization) return;
+
+    if (isFirebaseReadOnly || !auth?.currentUser) {
+      setPendingUsersCount(1);
+      return;
+    }
 
     const q = query(
       collection(db, 'users'),

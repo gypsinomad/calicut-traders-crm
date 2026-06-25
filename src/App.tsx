@@ -1,4 +1,7 @@
 import React, { Suspense, lazy } from 'react';
+const CustomerPortal = lazy(() => import('./components/CustomerPortal'));
+const AIUsageDashboard = lazy(() => import('./components/AIUsageDashboard'));
+const DownloadApp = lazy(() => import('./components/DownloadApp'));
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, LoginScreen, PendingApprovalScreen, useAuth } from './components/Auth.tsx';
 import { ThemeProvider } from './contexts/ThemeContext.tsx';
@@ -141,7 +144,10 @@ export default function App() {
                   <Route path="calendar" element={<PrivateRoute permission="communication.read"><CalendarView /></PrivateRoute>} />
                   <Route path="collaboration" element={<PrivateRoute permission="communication.read"><CollaborationSpace /></PrivateRoute>} />
                   <Route path="tasks" element={<PrivateRoute permission="communication.read"><TaskList /></PrivateRoute>} />
+              <Route path="customer-portal" element={<PrivateRoute><Suspense fallback={<div>Loading...</div>}><CustomerPortal /></Suspense></PrivateRoute>} />
+              <Route path="ai-usage" element={<PrivateRoute><Suspense fallback={<div>Loading...</div>}><AIUsageDashboard /></Suspense></PrivateRoute>} />
                   <Route path="communications" element={<PrivateRoute permission="communication.read"><CommunicationsHub /></PrivateRoute>} />
+              <Route path="download-app" element={<Suspense fallback={<Loader2 className="animate-spin" />}><DownloadApp /></Suspense>} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Route>
               </Routes>

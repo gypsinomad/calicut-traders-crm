@@ -1,4 +1,4 @@
-import { db } from '../firebase';
+import { db, isFirebaseReadOnly, auth } from '../firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 export type AIProvider = 'gemini' | 'openai' | 'anthropic' | 'deepseek' | 'mistral' | 'nemotron';
@@ -46,6 +46,10 @@ export async function getAISettings(orgId: string): Promise<AISettings> {
     }
   }
 
+  if (isFirebaseReadOnly || !auth.currentUser) {
+    return DEFAULT_SETTINGS;
+  }
+
   // Fallback to Firestore
   try {
     const docRef = doc(db, 'organizations', orgId, 'settings', 'ai');
@@ -65,6 +69,10 @@ export async function getAISettings(orgId: string): Promise<AISettings> {
 export async function saveAISettings(orgId: string, settings: AISettings): Promise<void> {
   // Save to local storage
   localStorage.setItem(`${SETTINGS_KEY}_${orgId}`, JSON.stringify(settings));
+
+  if (isFirebaseReadOnly || !auth.currentUser) {
+    return;
+  }
 
   // Save to Firestore
   try {

@@ -14,6 +14,7 @@ import { useTranslation } from '../contexts/LanguageContext.tsx';
 import { TranslatedText } from './TranslatedText.tsx';
 import AICostBadge from './AICostBadge.tsx';
 import AIStatusBanner from './AIStatusBanner.tsx';
+import FirebaseStatusBanner from './FirebaseStatusBanner.tsx';
 import { updatePresence } from '../services/presenceService';
 import { UserPresenceStatus } from '../lib/types';
 
@@ -139,6 +140,7 @@ export default function Layout() {
 
       <div className="flex-1 flex flex-col min-w-0 w-full">
         <AIStatusBanner />
+        <FirebaseStatusBanner />
         <header className="h-16 md:h-20 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-b border-zinc-200/50 dark:border-zinc-800/50 flex items-center justify-between px-4 md:px-10 shrink-0 z-10 transition-all">
           <div className="flex items-center gap-3 md:gap-6 flex-1 max-w-2xl">
             <button 

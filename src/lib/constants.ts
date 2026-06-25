@@ -61,4 +61,6 @@ export const ROUTES = {
   AUDIT: '/audit',
   HEALTH: '/health',
   SETTINGS: '/settings',
+  CUSTOMER_PORTAL: '/customer-portal',
+  AI_USAGE: '/ai-usage',
 };
