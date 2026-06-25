@@ -47,14 +47,15 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
-      - name: Setup keystore
+      - name: Setup keystore and signing
         run: |
           KEYSTORE_PATH="$GITHUB_WORKSPACE/android/app/keystore.jks"
-          echo "Using alias: $KEY_ALIAS"
-          echo "Generating new keystore..."
+          echo "=== Generating JKS keystore with alias: $KEY_ALIAS ==="
+
           keytool -genkeypair \
             -v \
             -keystore "$KEYSTORE_PATH" \
+            -storetype JKS \
             -alias "$KEY_ALIAS" \
             -keyalg RSA \
             -keysize 2048 \
@@ -62,63 +63,70 @@ jobs:
             -storepass "$STORE_PASSWORD" \
             -keypass "$KEY_PASSWORD" \
             -dname "CN=Calicut Traders, OU=Dev, O=CalicutTraders, L=Kozhikode, ST=Kerala, C=IN"
-          echo "Verifying keystore:"
-          keytool -list -keystore "$KEYSTORE_PATH" -storepass "$STORE_PASSWORD" 2>&1 | head -10
 
-      - name: Configure build.gradle signing
-        run: |
+          echo "=== Keystore file info ==="
+          ls -la "$KEYSTORE_PATH"
+          file "$KEYSTORE_PATH" || true
+
+          echo "=== Keystore contents ==="
+          keytool -list -keystore "$KEYSTORE_PATH" \
+            -storepass "$STORE_PASSWORD" 2>&1 | head -10
+
           GRADLE_FILE="$GITHUB_WORKSPACE/android/app/build.gradle"
+          echo "=== Original build.gradle ==="
+          cat "$GRADLE_FILE"
 
-          # Write the Python patcher to a temp file
           cat > /tmp/patch_gradle.py << 'PYEOF'
-          import sys, re
+import sys, re, os
 
-          gradle_path = sys.argv[1]
-          store_pass = sys.argv[2]
-          key_alias = sys.argv[3]
-          key_pass = sys.argv[4]
+gradle_path = sys.argv[1]
+keystore_path = sys.argv[2]
+store_pass = sys.argv[3]
+key_alias = sys.argv[4]
+key_pass = sys.argv[5]
 
-          with open(gradle_path) as f:
-              content = f.read()
+with open(gradle_path) as f:
+    content = f.read()
 
-          print('Original build.gradle:')
-          print(content[:500])
+signing_block = (
+    '\n    signingConfigs {\n'
+    '        release {\n'
+    "            storeFile file('" + keystore_path + "')\n"
+    "            storePassword '" + store_pass + "'\n"
+    "            keyAlias '" + key_alias + "'\n"
+    "            keyPassword '" + key_pass + "'\n"
+    '        }\n'
+    '    }\n'
+)
 
-          signing_block = (
-              '\n    signingConfigs {\n'
-              '        release {\n'
-              "            storeFile file('keystore.jks')\n"
-              "            storePassword '" + store_pass + "'\n"
-              "            keyAlias '" + key_alias + "'\n"
-              "            keyPassword '" + key_pass + "'\n"
-              '        }\n'
-              '    }\n'
-          )
+if 'signingConfigs' not in content:
+    content = content.replace('android {', 'android {' + signing_block, 1)
+    print('Inserted signingConfigs block')
 
-          if 'signingConfigs' not in content:
-              content = content.replace('android {', 'android {' + signing_block, 1)
-              print('Inserted signingConfigs block')
+if 'signingConfig signingConfigs.release' not in content:
+    content = re.sub(
+        r'(buildTypes\s*\{[\s\S]*?release\s*\{)',
+        r'\1\n            signingConfig signingConfigs.release',
+        content, count=1
+    )
+    print('Added signingConfig to buildTypes.release')
 
-          if 'signingConfig signingConfigs.release' not in content:
-              content = re.sub(
-                  r'(buildTypes\s*\{[^{]*?release\s*\{)',
-                  r'\1\n            signingConfig signingConfigs.release',
-                  content, count=1, flags=re.DOTALL
-              )
-              print('Added signingConfig to buildTypes.release')
+with open(gradle_path, 'w') as f:
+    f.write(content)
 
-          with open(gradle_path, 'w') as f:
-              f.write(content)
+print('Patched. keystore:', keystore_path)
+print('Patched. alias:', key_alias)
+PYEOF
 
-          print('Patched. Alias:', key_alias, '| StorePass:', store_pass[:3] + '***')
-          PYEOF
-
-          # Run the patcher with explicit arguments
           python3 /tmp/patch_gradle.py \
             "$GRADLE_FILE" \
+            "$KEYSTORE_PATH" \
             "$STORE_PASSWORD" \
             "$KEY_ALIAS" \
             "$KEY_PASSWORD"
+
+          echo "=== Patched build.gradle ==="
+          cat "$GRADLE_FILE"
 
       - name: Build Release APK
         working-directory: android
