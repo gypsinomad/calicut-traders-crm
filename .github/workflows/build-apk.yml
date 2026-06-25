@@ -12,11 +12,6 @@ jobs:
     permissions:
       contents: write
 
-    env:
-      KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'release' }}
-      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'android123' }}
-      STORE_PASSWORD: ${{ secrets.STORE_PASSWORD || 'android123' }}
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -49,32 +44,47 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
-      - name: Generate JKS keystore
+      - name: Generate signing keystore
         run: |
-          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
-            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/release.keystore
-            echo "Using keystore from secret"
+          KEY_ALIAS="${{ secrets.KEY_ALIAS }}"
+          KEY_PASSWORD="${{ secrets.KEY_PASSWORD }}"
+          STORE_PASSWORD="${{ secrets.STORE_PASSWORD }}"
+          KEYSTORE_B64="${{ secrets.KEYSTORE_BASE64 }}"
+
+          # Use defaults if secrets not set
+          [ -z "$KEY_ALIAS" ] && KEY_ALIAS="release"
+          [ -z "$KEY_PASSWORD" ] && KEY_PASSWORD="android123"
+          [ -z "$STORE_PASSWORD" ] && STORE_PASSWORD="android123"
+
+          echo "KEY_ALIAS=$KEY_ALIAS" >> $GITHUB_ENV
+          echo "KEY_PASSWORD=$KEY_PASSWORD" >> $GITHUB_ENV
+          echo "STORE_PASSWORD=$STORE_PASSWORD" >> $GITHUB_ENV
+
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > android/app/release.keystore
+            echo "Using keystore from KEYSTORE_BASE64 secret"
           else
             keytool -genkeypair -v \
               -keystore android/app/release.keystore \
-              -alias "${{ env.KEY_ALIAS }}" \
+              -alias "$KEY_ALIAS" \
               -keyalg RSA -keysize 2048 -validity 10000 \
               -storetype JKS \
-              -storepass "${{ env.STORE_PASSWORD }}" \
-              -keypass "${{ env.KEY_PASSWORD }}" \
+              -storepass "$STORE_PASSWORD" \
+              -keypass "$KEY_PASSWORD" \
               -dname "CN=Calicut Traders CRM, OU=Dev, O=CalicutTraders, L=Kozhikode, S=Kerala, C=IN"
-            echo "Generated new keystore"
+            echo "Generated new JKS keystore with alias: $KEY_ALIAS"
           fi
 
       - name: Build Release APK
         run: |
           cd android
           chmod +x gradlew
+          KEYSTORE_PATH="$(pwd)/app/release.keystore"
           ./gradlew assembleRelease \
-            -Pandroid.injected.signing.store.file=$(pwd)/app/release.keystore \
-            -Pandroid.injected.signing.store.password="${{ env.STORE_PASSWORD }}" \
-            -Pandroid.injected.signing.key.alias="${{ env.KEY_ALIAS }}" \
-            -Pandroid.injected.signing.key.password="${{ env.KEY_PASSWORD }}"
+            -Pandroid.injected.signing.store.file="$KEYSTORE_PATH" \
+            -Pandroid.injected.signing.store.password="$STORE_PASSWORD" \
+            -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
 
       - name: Find APK
         id: find_apk
