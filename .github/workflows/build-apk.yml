@@ -58,17 +58,29 @@ jobs:
       - name: Decode Keystore
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > $GITHUB_WORKSPACE/keystore.jks
-          echo "Keystore decoded, checking aliases:"
-          keytool -list -keystore $GITHUB_WORKSPACE/keystore.jks -storepass "${{ secrets.STORE_PASSWORD }}" -v 2>&1 | head -30 || true
+          echo "Keystore decoded. Listing aliases:"
+          keytool -list -keystore $GITHUB_WORKSPACE/keystore.jks -storepass "${{ secrets.STORE_PASSWORD }}" 2>&1 | head -20 || echo "keytool list failed"
 
-      - name: Create keystore.properties
+      - name: Configure Gradle signing
         run: |
-          cat > $GITHUB_WORKSPACE/android/keystore.properties << EOF
-          storeFile=$GITHUB_WORKSPACE/keystore.jks
-          storePassword=${{ secrets.STORE_PASSWORD }}
-          keyAlias=${{ secrets.KEY_ALIAS }}
-          keyPassword=${{ secrets.KEY_PASSWORD }}
-          EOF
+          cat >> android/app/build.gradle << 'GRADLE_EOF'
+
+          android {
+            signingConfigs {
+              release {
+                storeFile file(System.getenv("STORE_FILE") ?: "")
+                storePassword System.getenv("STORE_PASSWORD") ?: ""
+                keyAlias System.getenv("KEY_ALIAS") ?: ""
+                keyPassword System.getenv("KEY_PASSWORD") ?: ""
+              }
+            }
+            buildTypes {
+              release {
+                signingConfig signingConfigs.release
+              }
+            }
+          }
+          GRADLE_EOF
 
       - name: Build Release APK
         run: |
