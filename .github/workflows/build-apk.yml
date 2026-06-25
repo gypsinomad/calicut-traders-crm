@@ -55,22 +55,55 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Decode Keystore
+      - name: Generate release keystore
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > $GITHUB_WORKSPACE/keystore.jks
-          echo "Keystore file size: $(wc -c < $GITHUB_WORKSPACE/keystore.jks) bytes"
-          echo "Listing keystore:"
-          keytool -list -keystore $GITHUB_WORKSPACE/keystore.jks -storepass "${{ secrets.STORE_PASSWORD }}" 2>&1 | head -15 || echo "WARN: keytool list failed"
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "Using provided keystore from secrets"
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > $GITHUB_WORKSPACE/keystore.jks
+            KSPASS="${{ secrets.STORE_PASSWORD }}"
+            KEYALIAS="${{ secrets.KEY_ALIAS }}"
+            KEYPASS="${{ secrets.KEY_PASSWORD }}"
+            # Try to export and re-import with matching passwords
+            keytool -importkeystore \
+              -srckeystore $GITHUB_WORKSPACE/keystore.jks \
+              -destkeystore $GITHUB_WORKSPACE/keystore_new.jks \
+              -deststoretype PKCS12 \
+              -srcstorepass "$KSPASS" \
+              -deststorepass "$KSPASS" \
+              -srckeypass "$KEYPASS" \
+              -destkeypass "$KSPASS" \
+              -srcalias "$KEYALIAS" \
+              -destalias "$KEYALIAS" \
+              -noprompt 2>&1 && mv $GITHUB_WORKSPACE/keystore_new.jks $GITHUB_WORKSPACE/keystore.jks || echo "importkeystore failed, using original"
+          else
+            echo "No keystore secret found, generating new keystore"
+            KSPASS="calicuttraders2024"
+            KEYALIAS="calicut"
+            KEYPASS="calicuttraders2024"
+            keytool -genkeypair \
+              -alias "$KEYALIAS" \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -storepass "$KSPASS" \
+              -keypass "$KEYPASS" \
+              -keystore $GITHUB_WORKSPACE/keystore.jks \
+              -dname "CN=Calicut Traders, OU=CRM, O=CalicutTraders, L=Kozhikode, S=Kerala, C=IN" \
+              -noprompt
+          fi
+          echo "KSPASS=$KSPASS" >> $GITHUB_ENV
+          echo "KEYALIAS=$KEYALIAS" >> $GITHUB_ENV
+          echo "KEYPASS=$KEYPASS" >> $GITHUB_ENV
 
       - name: Patch build.gradle with signing config
         run: |
-          KEYSTORE_PATH="$GITHUB_WORKSPACE/keystore.jks"
           python3 << PYEOF
           gradle_path = 'android/app/build.gradle'
-          keystore_path = '$KEYSTORE_PATH'
-          store_pw = '${{ secrets.STORE_PASSWORD }}'
-          key_alias = '${{ secrets.KEY_ALIAS }}'
-          key_pw = '${{ secrets.KEY_PASSWORD }}'
+          keystore_path = '$GITHUB_WORKSPACE/keystore.jks'
+          import os
+          store_pw = os.environ.get('KSPASS', 'calicuttraders2024')
+          key_alias = os.environ.get('KEYALIAS', 'calicut')
+          key_pw = os.environ.get('KEYPASS', 'calicuttraders2024')
 
           with open(gradle_path, 'r') as f:
               content = f.read()
@@ -86,10 +119,8 @@ jobs:
               }
           ''' % (keystore_path, store_pw, key_alias, key_pw)
 
-          # Insert before buildTypes
           content = content.replace('    buildTypes {', signing_block + '\n    buildTypes {')
 
-          # Add signingConfig to release
           release_idx = content.find('release {', content.find('buildTypes {'))
           if release_idx != -1:
               content = content[:release_idx + len('release {')] + '\n            signingConfig signingConfigs.release' + content[release_idx + len('release {'):]
@@ -97,7 +128,7 @@ jobs:
           with open(gradle_path, 'w') as f:
               f.write(content)
 
-          print('build.gradle patched with hardcoded signing config')
+          print('build.gradle patched')
           PYEOF
 
       - name: Build Release APK
